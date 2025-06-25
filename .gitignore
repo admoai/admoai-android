@@ -1,0 +1,108 @@
+# macOS
+.DS_Store
+
+# OS-specific
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# IDEs and Configs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.code-workspace
+
+# Gradle
+.gradle/
+**/build/
+**/out/
+gradle-app.setting
+gradle.properties~
+build/
+bin/
+tmp/
+*.log
+*.lock
+.gradle-cache/
+gradle/wrapper/gradle-wrapper.jar.lock
+# Allow Gradle wrapper JAR (required for ./gradlew)
+!gradle/wrapper/gradle-wrapper.jar
+
+# Kotlin / Java / Android
+*.class
+*.jar
+*.war
+*.ear
+*.apk
+*.ap_
+*.dex
+*.so
+*.hprof
+*.db
+*.db-journal
+
+# Keystore / Signing
+*.jks
+*.keystore
+*.pem
+*.key
+signing/
+release/
+
+# Kotlin-specific
+*.kotlin_module
+*.kotlin_metadata
+**/kotlin/**/cacheable/
+**/kotlin/**/caches-jvm/
+**/kotlin/**/build/
+**/kotlin/**/compile*/
+**/.kotlin/
+.kotlin/
+**/kotlin-daemon/
+kotlin-daemon/
+**/daemon/
+**/*.tab
+**/*.keystream
+**/*.len
+**/*.at
+**/*.proto
+
+# Android artifacts and build
+.cxx/
+captures/
+.externalNativeBuild/
+.navigation/
+**/intermediates/
+**/dex/
+**/mergeDex*/**
+lint/intermediates/
+lint/generated/
+**/compose-compiler/
+**/compose-compiler_daemon/
+*.ec
+**/reports/
+**/androidTest-results/
+**/test-results/
+**/jacoco/
+
+# Coverage / Profiling
+**/baseline.prof
+**/baseline.profm
+**/*.dm
+**/*.prof
+**/*.profm
+
+# Dependency resolution
+**/.idea/libraries/
+
+# Module-specific
+/sdk/build/
+/sample/build/
+/sample/.idea/
+/sample/.gradle/
+/sample/local.properties
+
+# Root local.properties
+local.properties
