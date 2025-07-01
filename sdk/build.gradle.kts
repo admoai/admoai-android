@@ -3,11 +3,11 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.dokka)
     `maven-publish`
     signing
 }
 
-// SDK Version Configuration
 val sdkVersion = "1.0.0"
 val sdkGroupId = "com.admoai"
 val sdkArtifactId = "admoai-android"
@@ -84,6 +84,18 @@ dependencies {
     testImplementation(libs.mockwebserver)
 }
 
+// Task to generate sources JAR
+val androidSourcesJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("sources")
+    from(android.sourceSets["main"].java.srcDirs)
+}
+
+val androidJavadocJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("javadoc")
+    from(tasks.dokkaHtml.flatMap { it.outputDirectory })
+    dependsOn(tasks.dokkaHtml)
+}
+
 publishing {
     publications {
         create<MavenPublication>("release") {
@@ -94,6 +106,9 @@ publishing {
             afterEvaluate {
                 from(components["release"])
             }
+            
+            artifact(androidSourcesJar)
+            artifact(androidJavadocJar)
 
             pom {
                 name.set("AdMoai Android SDK")
@@ -127,11 +142,42 @@ publishing {
     repositories {
         maven {
             name = "GitHubPackages"
-            url  = uri("https://maven.pkg.github.com/admoai/admoai-android")
+            url = uri("https://maven.pkg.github.com/admoai/admoai-android")
             credentials {
                 username = System.getenv("GITHUB_ACTOR") ?: project.findProperty("gpr.user")?.toString() ?: ""
                 password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.key")?.toString() ?: ""
             }
+        }
+    }
+}
+
+signing {
+    useGpgCmd()
+    sign(publishing.publications)
+}
+
+val createMavenCentralBundle by tasks.registering(Zip::class) {
+    group = "publishing"
+    description = "Creates Maven Central upload bundle"
+    
+    archiveFileName.set("${sdkArtifactId}-${sdkVersion}-maven-central-bundle.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("maven-central"))
+    
+    dependsOn(tasks.publishToMavenLocal)
+    
+    from(layout.buildDirectory.dir("repo")) {
+        include("**/*")
+    }
+    
+    doFirst {
+        val localRepo = File(System.getProperty("user.home"), ".m2/repository")
+        val groupPath = sdkGroupId.replace(".", "/")
+        val artifactPath = "$groupPath/$sdkArtifactId/$sdkVersion"
+        
+        copy {
+            from(File(localRepo, artifactPath))
+            into(layout.buildDirectory.dir("repo/$artifactPath"))
+            include("**/*")
         }
     }
 }

@@ -21,30 +21,17 @@ AdMoai Kotlin SDK is a native advertising solution that enables seamless integra
 
 ## Installation
 
-> **Important:** The AdMoai Android SDK is currently only available via GitHub Packages. Maven Central distribution is planned for future releases.
+The AdMoai Android SDK is available on Maven Central.
 
-### GitHub Packages
+### Maven Central
 
-Add the repository and dependency to your app's `build.gradle.kts` file:
+Add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
-repositories {
-    maven {
-        name = "GitHubPackages"
-        url = uri("https://maven.pkg.github.com/admoai/admoai-android") // Maven repository URL (not browsable)
-        credentials {
-            username = System.getenv("GITHUB_ACTOR") ?: project.findProperty("gpr.user")?.toString() ?: ""
-            password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.key")?.toString() ?: ""
-        }
-    }
-}
-
 dependencies {
     implementation("com.admoai:admoai-android:1.0.0")
 }
 ```
-
-**View Package**: [GitHub Packages Page](https://github.com/admoai/admoai-android/packages)
 
 Or in your `build.gradle` file:
 

@@ -25,44 +25,24 @@ AdMoai Android SDK provides a comprehensive native advertising solution for Andr
 
 ## Installation
 
-> **Important:** The AdMoai Android SDK is currently only available via GitHub Packages. Maven Central distribution is planned for future releases.
+The AdMoai Android SDK is available on Maven Central for easy integration.
 
-### GitHub Packages
+### Maven Central
 
-Add the repository and dependency to your app's `build.gradle.kts`:
+Add the dependency to your app's `build.gradle.kts`:
 
 ```kotlin
-repositories {
-    maven {
-        name = "GitHubPackages"
-        url = uri("https://maven.pkg.github.com/admoai/admoai-android") // Maven repository URL (not browsable)
-        credentials {
-            username = project.findProperty("gpr.user") as String? ?: System.getenv("USERNAME")
-            password = project.findProperty("gpr.key") as String? ?: System.getenv("TOKEN")
-        }
-    }
-}
-
 dependencies {
-    implementation("com.admoai:admoai-android:1.0.0") // Updated artifact ID
+    implementation("com.admoai:admoai-android:1.0.0")
 }
 ```
 
-**View Package**: [GitHub Packages Page](https://github.com/admoai/admoai-android/packages)
+Or in Groovy (`build.gradle`):
 
-### Authentication
-
-Create a GitHub Personal Access Token with `read:packages` permission and add it to your `gradle.properties` file:
-
-```properties
-gpr.user=YOUR_GITHUB_USERNAME
-gpr.key=YOUR_GITHUB_TOKEN
-```
-
-Alternatively, set environment variables:
-```bash
-export USERNAME=YOUR_GITHUB_USERNAME
-export TOKEN=YOUR_GITHUB_TOKEN
+```groovy
+dependencies {
+    implementation 'com.admoai:admoai-android:1.0.0'
+}
 ```
 
 ## Quick Start
