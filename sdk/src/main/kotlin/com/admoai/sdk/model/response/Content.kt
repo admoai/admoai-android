@@ -32,7 +32,9 @@ enum class ContentType {
     @SerialName("url")
     URL,
     @SerialName("color")
-    COLOR
+    COLOR,
+    @SerialName("video")
+    VIDEO
 }
 
 /**
