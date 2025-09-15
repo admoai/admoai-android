@@ -10,6 +10,8 @@ import kotlinx.serialization.Serializable
  * @property template Template information with key and style
  * @property tracking Tracking URLs for impressions, clicks, and custom events
  * @property metadata Additional creative metadata
+ * @property delivery Delivery method for video ads ("vast_tag", "vast_xml", "json")
+ * @property vast VAST data containing tag URL or XML content for video ads
  */
 @Serializable
 data class Creative(
@@ -17,5 +19,7 @@ data class Creative(
     val advertiser: Advertiser,
     val template: TemplateInfo? = null, 
     val tracking: TrackingInfo,
-    val metadata: CreativeMetadata
+    val metadata: CreativeMetadata,
+    val delivery: String? = null,
+    val vast: VastData? = null
 )
