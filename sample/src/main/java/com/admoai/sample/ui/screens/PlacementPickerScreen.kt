@@ -16,7 +16,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -104,7 +104,7 @@ fun PlacementRow(
             "menu" -> Icons.Default.Menu                      // Menu placement
             "promotions" -> Icons.Default.LocalOffer          // Promotions placement
             "vehicleSelection" -> Icons.Default.DirectionsCar // Vehicle Selection placement
-            "rideSummary" -> Icons.Default.ReceiptLong       // Ride Summary placement
+            "rideSummary" -> Icons.AutoMirrored.Filled.ReceiptLong       // Ride Summary placement
             "waiting" -> Icons.Default.Timer                  // Waiting placement
             "invalidPlacement" -> Icons.Default.Warning       // Invalid Placement
             else -> Icons.Default.Home
