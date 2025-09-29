@@ -5,9 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -16,11 +18,14 @@ import androidx.compose.material.icons.outlined.ViewModule
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -35,6 +40,8 @@ fun PlacementSection(
     onPlacementClick: () -> Unit = {}
 ) {
     val placementKey by viewModel.placementKey.collectAsState()
+    val formatFilterEnabled by viewModel.formatFilterEnabled.collectAsState()
+    val selectedFormat by viewModel.selectedFormat.collectAsState()
     
     SectionContainer(title = "Placement") {
         // Placement key row (clickable to open picker)
@@ -60,18 +67,99 @@ fun PlacementSection(
             onClick = onPlacementClick
         )
         
-        // Format row (read-only)
+        // Format filter toggle row
         SectionRow(
             icon = Icons.Outlined.ViewModule,
-            label = "Format",
-            value = { Text("Native", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            label = "Use Format Filter",
+            value = { 
+                Switch(
+                    checked = formatFilterEnabled,
+                    onCheckedChange = { viewModel.setFormatFilterEnabled(it) }
+                )
+            }
         )
+        
+        // Format picker row (shown only when filter is enabled)
+        if (formatFilterEnabled) {
+            var showFormatPicker by remember { mutableStateOf(false) }
+            
+            SectionRow(
+                icon = Icons.Outlined.ViewModule,
+                label = "Format",
+                value = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = when (selectedFormat) {
+                                "native" -> "Native"
+                                "video" -> "Video"
+                                else -> "Any"
+                            },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            modifier = Modifier.padding(start = 4.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                onClick = { showFormatPicker = true }
+            )
+            
+            // Simple inline format picker
+            if (showFormatPicker) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    listOf(
+                        null to "Any",
+                        "native" to "Native",
+                        "video" to "Video"
+                    ).forEach { (value, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setSelectedFormat(value)
+                                    showFormatPicker = false
+                                }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (selectedFormat == value) 
+                                    MaterialTheme.colorScheme.primary 
+                                else 
+                                    MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            // Show "Any (optional)" when filter is off
+            SectionRow(
+                icon = Icons.Outlined.ViewModule,
+                label = "Format",
+                value = { 
+                    Text(
+                        "Any (optional)", 
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    ) 
+                }
+            )
+        }
         
         // Help text
         Text(
             text = "This demo uses a single placement object, but you can include multiple ones. " +
-                  "For each, you can specify the number of creatives to return and filter by advertiser and template.\n" +
-                  "Currently, AdMoai supports only the native format.",
+                  "Format is optional—when disabled, the server may return native or video ads. " +
+                  "Enable the filter to explicitly request a specific format.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
