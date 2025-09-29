@@ -72,6 +72,11 @@ dependencies {
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.4.0")
     
+    // ExoPlayer with IMA extension for video playback (sample app only)
+    implementation("androidx.media3:media3-exoplayer:1.2.1")
+    implementation("androidx.media3:media3-ui:1.2.1")
+    implementation("androidx.media3:media3-exoplayer-ima:1.2.1")
+    
     // Ktor and Serialization (for sample app usage)
     implementation(libs.ktor.client.core)
     implementation(libs.kotlinx.serialization.json)
