@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import com.admoai.sdk.model.response.AdData
+import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
@@ -50,12 +51,14 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PromotionsPreviewScreen(
+    viewModel: MainViewModel,
     placement: PlacementItem,
     adData: AdData?,
     isLoading: Boolean,
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
+    onVideoClick: () -> Unit,
     onAdClick: (AdData) -> Unit = {},
     onTrackEvent: (String, String) -> Unit = {_, _ -> }
 ) {
@@ -82,7 +85,7 @@ fun PromotionsPreviewScreen(
     )
 
     // Handle refresh animation and observe loading state
-    LaunchedEffect(isRefreshing, isLoading) {
+    LaunchedEffect(isRefreshing, isLoading, adData) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
@@ -91,7 +94,7 @@ fun PromotionsPreviewScreen(
             // Trigger ad request via callback
             onRefreshClick()
             // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible) {
+        } else if (!isLoading && !isCardVisible && adData != null) {
             // Wait a moment for animation smoothness after loading completes
             delay(300)
             // Show the card with the new data
@@ -103,6 +106,13 @@ fun PromotionsPreviewScreen(
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
+        }
+    }
+    
+    // Show card on initial load when ad data becomes available
+    LaunchedEffect(adData) {
+        if (adData != null && !isRefreshing) {
+            isCardVisible = true
         }
     }
 
@@ -120,7 +130,9 @@ fun PromotionsPreviewScreen(
                 onBackClick = onBackClick,
                 onDetailsClick = onDetailsClick,
                 onRefreshClick = { isRefreshing = true },
-                isRefreshing = isRefreshing
+                isRefreshing = isRefreshing,
+                hasVideoCreative = viewModel.hasVideoCreative(adData),
+                onVideoClick = onVideoClick
             )
             
             // Content

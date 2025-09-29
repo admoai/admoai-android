@@ -258,12 +258,14 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 PromotionsPreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
+                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) }
                 )
@@ -284,12 +286,14 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 HomePreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
+                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     onThemeToggle = { /* Toggle theme */ },
                     onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) }
@@ -311,12 +315,14 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 SearchPreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
+                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     // Removed onThemeToggle and onAdClick as they're not used for search placement
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) }
                 )
@@ -337,12 +343,14 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 MenuPreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
+                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) }
                 )
@@ -363,12 +371,14 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 WaitingPreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
+                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) },
                     onThemeToggle = { /* Theme toggle action */ }
@@ -390,12 +400,14 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 VehicleSelectionPreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
+                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) },
                     onThemeToggle = { /* Theme toggle action */ }
@@ -437,12 +449,14 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 RideSummaryPreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
+                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) },
                     onThemeToggle = { /* Theme toggle action */ }

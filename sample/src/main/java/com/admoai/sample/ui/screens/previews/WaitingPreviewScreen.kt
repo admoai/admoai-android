@@ -37,10 +37,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.admoai.sdk.model.response.AdData
+import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
+import com.admoai.sample.ui.components.HorizontalAdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
 import kotlinx.coroutines.delay
@@ -55,12 +57,14 @@ import kotlinx.coroutines.delay
  */
 @Composable
 fun WaitingPreviewScreen(
+    viewModel: MainViewModel,
     placement: PlacementItem,
     adData: AdData?,
     isLoading: Boolean,
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
+    onVideoClick: () -> Unit,
     onAdClick: (AdData) -> Unit = {},
     onTrackEvent: (String, String) -> Unit = {_, _ -> },
     onThemeToggle: () -> Unit
@@ -86,7 +90,7 @@ fun WaitingPreviewScreen(
     )
 
     // Handle refresh animation and observe loading state
-    LaunchedEffect(isRefreshing, isLoading) {
+    LaunchedEffect(isRefreshing, isLoading, adData) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
@@ -95,7 +99,7 @@ fun WaitingPreviewScreen(
             // Trigger ad request via callback
             onRefreshClick()
             // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible) {
+        } else if (!isLoading && !isCardVisible && adData != null) {
             // Wait a moment for animation smoothness after loading completes
             delay(300)
             // Show the card with the new data
@@ -107,6 +111,13 @@ fun WaitingPreviewScreen(
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
+        }
+    }
+    
+    // Show card on initial load when ad data becomes available
+    LaunchedEffect(adData) {
+        if (adData != null && !isRefreshing) {
+            isCardVisible = true
         }
     }
 
@@ -136,7 +147,9 @@ fun WaitingPreviewScreen(
                 onBackClick = onBackClick,
                 onDetailsClick = onDetailsClick,
                 onRefreshClick = { isRefreshing = true },
-                isRefreshing = isRefreshing
+                isRefreshing = isRefreshing,
+                hasVideoCreative = viewModel.hasVideoCreative(adData),
+                onVideoClick = onVideoClick
             )
         }
         

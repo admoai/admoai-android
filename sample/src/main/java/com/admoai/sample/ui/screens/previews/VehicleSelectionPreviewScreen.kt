@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.admoai.sdk.model.response.AdData
+import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.components.SearchAdCard
@@ -46,14 +47,16 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun VehicleSelectionPreviewScreen(
+    viewModel: MainViewModel,
     placement: PlacementItem,
     adData: AdData?,
     isLoading: Boolean,
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    onAdClick: (AdData) -> Unit = {},
-    onTrackEvent: (String, String) -> Unit = {_, _ -> },
+    onVideoClick: () -> Unit,
+    onAdClick: (AdData) -> Unit,
+    onTrackEvent: (String, String) -> Unit,
     onThemeToggle: () -> Unit
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
@@ -81,16 +84,25 @@ fun VehicleSelectionPreviewScreen(
     val vehicleIconAlpha = remember { Animatable(1f) }
     
     // Handle refresh animation with vehicle pulse
-    LaunchedEffect(isRefreshing, isLoading) {
+    LaunchedEffect(isRefreshing, isLoading, adData) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
+            // Pulse the vehicle icon
+            vehicleIconAlpha.animateTo(
+                targetValue = 0.3f,
+                animationSpec = tween(durationMillis = 200)
+            )
+            vehicleIconAlpha.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 200)
+            )
             // Wait for the card to animate out
-            delay(300)
+            delay(100)
             // Trigger ad request via callback
             onRefreshClick()
             // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible) {
+        } else if (!isLoading && !isCardVisible && adData != null) {
             // Wait a moment for animation smoothness after loading completes
             delay(300)
             // Show the card with the new data
@@ -102,6 +114,13 @@ fun VehicleSelectionPreviewScreen(
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
+        }
+    }
+    
+    // Show card on initial load when ad data becomes available
+    LaunchedEffect(adData) {
+        if (adData != null && !isRefreshing) {
+            isCardVisible = true
         }
     }
 
@@ -304,7 +323,9 @@ fun VehicleSelectionPreviewScreen(
                 onBackClick = onBackClick,
                 onDetailsClick = onDetailsClick,
                 onRefreshClick = { isRefreshing = true },
-                isRefreshing = isRefreshing
+                isRefreshing = isRefreshing,
+                hasVideoCreative = viewModel.hasVideoCreative(adData),
+                onVideoClick = onVideoClick
             )
         }
         

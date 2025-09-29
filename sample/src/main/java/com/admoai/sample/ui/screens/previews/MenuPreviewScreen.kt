@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.admoai.sdk.model.response.AdData
+import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
@@ -38,13 +39,15 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MenuPreviewScreen(
+    viewModel: MainViewModel,
     placement: PlacementItem,
     adData: AdData?,
     isLoading: Boolean,
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    onAdClick: (AdData) -> Unit = {},
+    onVideoClick: () -> Unit,
+    onAdClick: (AdData) -> Unit,
     onTrackEvent: (String, String) -> Unit = {_, _ -> }
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
@@ -60,7 +63,7 @@ fun MenuPreviewScreen(
     )
 
     // Handle refresh animation and observe loading state
-    LaunchedEffect(isRefreshing, isLoading) {
+    LaunchedEffect(isRefreshing, isLoading, adData) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
@@ -69,7 +72,7 @@ fun MenuPreviewScreen(
             // Trigger ad request via callback
             onRefreshClick()
             // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible) {
+        } else if (!isLoading && !isCardVisible && adData != null) {
             // Wait a moment for animation smoothness after loading completes
             kotlinx.coroutines.delay(300)
             // Show the card with the new data
@@ -81,6 +84,13 @@ fun MenuPreviewScreen(
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
+        }
+    }
+    
+    // Show card on initial load when ad data becomes available
+    LaunchedEffect(adData) {
+        if (adData != null && !isRefreshing) {
+            isCardVisible = true
         }
     }
 
@@ -169,7 +179,9 @@ fun MenuPreviewScreen(
                 onBackClick = onBackClick,
                 onDetailsClick = onDetailsClick,
                 onRefreshClick = { isRefreshing = true },
-                isRefreshing = isRefreshing
+                isRefreshing = isRefreshing,
+                hasVideoCreative = viewModel.hasVideoCreative(adData),
+                onVideoClick = onVideoClick
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
