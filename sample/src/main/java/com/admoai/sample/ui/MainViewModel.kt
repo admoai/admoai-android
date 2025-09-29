@@ -16,7 +16,9 @@ import com.admoai.sdk.model.request.DecisionRequest
 import com.admoai.sdk.model.request.DecisionRequestBuilder
 import com.admoai.sdk.model.request.LocationTargetingInfo
 import com.admoai.sdk.model.request.Placement
+import com.admoai.sdk.model.request.PlacementFormat
 import com.admoai.sdk.model.response.AdData
+import com.admoai.sdk.model.response.ContentType
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sdk.model.response.TrackingInfo
@@ -90,6 +92,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _customTargets = MutableStateFlow<List<CustomTargetItem>>(emptyList())
     val customTargets = _customTargets.asStateFlow()
+
+    // Video ad options
+    private val _formatFilterEnabled = MutableStateFlow(false)
+    val formatFilterEnabled = _formatFilterEnabled.asStateFlow()
+    
+    private val _selectedFormat = MutableStateFlow<String?>(null) // null="Any", "native", "video"
+    val selectedFormat = _selectedFormat.asStateFlow()
+    
+    private val _videoDelivery = MutableStateFlow("vast_tag") // "vast_tag", "vast_xml", "json"
+    val videoDelivery = _videoDelivery.asStateFlow()
+    
+    private val _videoEndCard = MutableStateFlow("none") // "none", "native_endcard", "vast_companion"
+    val videoEndCard = _videoEndCard.asStateFlow()
+    
+    private val _overlayAtPercent = MutableStateFlow(0.5f) // 0.0 to 1.0
+    val overlayAtPercent = _overlayAtPercent.asStateFlow()
+    
+    private val _isSkippable = MutableStateFlow(false)
+    val isSkippable = _isSkippable.asStateFlow()
+    
+    private val _skipOffset = MutableStateFlow("5") // seconds as string
+    val skipOffset = _skipOffset.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
@@ -396,12 +420,76 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Toggle format filter on/off.
+     */
+    fun setFormatFilterEnabled(enabled: Boolean) {
+        _formatFilterEnabled.value = enabled
+        // Reset format when disabled
+        if (!enabled) {
+            _selectedFormat.value = null
+        }
+    }
+
+    /**
+     * Set the selected format (null for "Any", "native", or "video").
+     */
+    fun setSelectedFormat(format: String?) {
+        _selectedFormat.value = format
+    }
+
+    /**
+     * Set video delivery method.
+     */
+    fun setVideoDelivery(delivery: String) {
+        _videoDelivery.value = delivery
+    }
+
+    /**
+     * Set video end-card mode.
+     */
+    fun setVideoEndCard(endCard: String) {
+        _videoEndCard.value = endCard
+    }
+
+    /**
+     * Set overlay threshold percentage (0.0 to 1.0).
+     */
+    fun setOverlayAtPercent(percent: Float) {
+        _overlayAtPercent.value = percent.coerceIn(0f, 1f)
+    }
+
+    /**
+     * Toggle skippable on/off.
+     */
+    fun setSkippable(skippable: Boolean) {
+        _isSkippable.value = skippable
+    }
+
+    /**
+     * Set skip offset in seconds.
+     */
+    fun setSkipOffset(offset: String) {
+        _skipOffset.value = offset
+    }
+
+    /**
      * Build the request object based on current selections.
      */
     fun buildRequest(): DecisionRequest {
-        // Create request builder
+        // Determine placement format based on filter
+        val placementFormat = when {
+            !_formatFilterEnabled.value || _selectedFormat.value == null -> null // Any format
+            _selectedFormat.value == "native" -> PlacementFormat.NATIVE
+            _selectedFormat.value == "video" -> PlacementFormat.VIDEO
+            else -> null
+        }
+        
+        // Create request builder with placement including format
         val builder = sdk.createRequestBuilder()
-            .addPlacement(Placement(key = _placementKey.value))
+            .addPlacement(Placement(
+                key = _placementKey.value,
+                format = placementFormat
+            ))
             .setUserIp(_userIp.value)
             .setUserId(_userId.value)
             .setUserTimezone(_userTimezone.value)
@@ -423,7 +511,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             builder.setLocationTargets(locations)
         }
 
-        // Add custom targeting if any
+        // Add custom targeting if any (format is now part of Placement, not custom targeting)
+        // Note: Video-specific options (delivery, endcard, overlayAt, isSkippable, skipOffset) 
+        // are NOT sent to the server - they only control UI behavior in the sample app
         if (_customTargets.value.isNotEmpty()) {
             val customTargetList = _customTargets.value.map { 
                 CustomTargetingInfo(it.key, JsonPrimitive(it.value))
@@ -691,5 +781,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return response.data?.find { adData ->
             adData.placement == placementKey
         }
+    }
+    
+    /**
+     * Check if a creative is a video creative.
+     * A creative is considered video if it has VIDEO content type or has a delivery method set.
+     */
+    fun isVideoCreative(creative: Creative): Boolean {
+        // Check if any content is of type VIDEO
+        val hasVideoContent = creative.contents.any { it.type == ContentType.VIDEO }
+        
+        // Check if delivery method is set (indicates video ad)
+        val hasDelivery = creative.delivery != null
+        
+        return hasVideoContent || hasDelivery
+    }
+    
+    /**
+     * Check if ad data contains video creatives.
+     */
+    fun hasVideoCreative(adData: AdData?): Boolean {
+        if (adData == null) return false
+        return adData.creatives.any { isVideoCreative(it) }
     }
 }
