@@ -56,6 +56,7 @@ import com.admoai.sample.ui.screens.previews.RideSummaryPreviewScreen
 import com.admoai.sample.ui.screens.previews.SearchPreviewScreen
 import com.admoai.sample.ui.screens.previews.VehicleSelectionPreviewScreen
 import com.admoai.sample.ui.screens.previews.WaitingPreviewScreen
+import com.admoai.sample.ui.screens.VideoPreviewScreen
 import com.admoai.sample.ui.theme.AdmoaikotlinTheme
 import kotlinx.coroutines.launch
 
@@ -104,6 +105,7 @@ object Routes {
     const val WAITING_PREVIEW = "waiting_preview"
     const val VEHICLE_SELECTION_PREVIEW = "vehicle_selection_preview"
     const val RIDE_SUMMARY_PREVIEW = "ride_summary_preview"
+    const val VIDEO_PREVIEW = "video_preview"
 }
 
 /**
@@ -404,6 +406,20 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
         composable(Routes.COMPOSE_INTEGRATION) {
             ComposeIntegrationScreen(
                 viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Video preview screen
+        composable(
+            route = "${Routes.VIDEO_PREVIEW}/{placementKey}",
+            arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val placementKey = backStackEntry.arguments?.getString("placementKey") ?: ""
+            
+            VideoPreviewScreen(
+                viewModel = viewModel,
+                placementKey = placementKey,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
