@@ -36,6 +36,7 @@ import com.admoai.sample.ui.components.DeviceInfoSection
 import com.admoai.sample.ui.components.PlacementSection
 import com.admoai.sample.ui.components.TargetingSection
 import com.admoai.sample.ui.components.UserSection
+import com.admoai.sample.ui.components.VideoOptionsSection
 
 /**
  * Main configuration screen for building ad requests
@@ -122,6 +123,14 @@ fun DecisionRequestScreen(
                     viewModel = viewModel,
                     onPlacementClick = onPlacementClick
                 )
+                
+                // Video options section (shown only when format is "video")
+                val formatFilterEnabled by viewModel.formatFilterEnabled.collectAsState()
+                val selectedFormat by viewModel.selectedFormat.collectAsState()
+                
+                if (formatFilterEnabled && selectedFormat == "video") {
+                    VideoOptionsSection(viewModel = viewModel)
+                }
                 
                 // Targeting section
                 TargetingSection(
