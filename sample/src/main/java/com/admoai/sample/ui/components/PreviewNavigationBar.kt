@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,7 +24,7 @@ import com.admoai.sample.ui.model.PlacementItem
  * - Standard height (56dp + top safe area)
  * - Left: Back button (blue text)
  * - Center: Two-line stack with placement name and key
- * - Right: Two icons - document (response details) and refresh
+ * - Right: Icons - video demo (if hasVideo), document (response details), and refresh
  */
 @Composable
 fun PreviewNavigationBar(
@@ -31,7 +32,9 @@ fun PreviewNavigationBar(
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    isRefreshing: Boolean = false
+    isRefreshing: Boolean = false,
+    hasVideoCreative: Boolean = false,
+    onVideoClick: () -> Unit = {}
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (isRefreshing) 360f else 0f,
@@ -72,6 +75,17 @@ fun PreviewNavigationBar(
             }
         },
         actions = {
+            // Video demo icon (shown only if hasVideoCreative)
+            if (hasVideoCreative) {
+                IconButton(onClick = onVideoClick) {
+                    Icon(
+                        imageVector = Icons.Default.PlayCircle,
+                        contentDescription = "Video Demo",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            
             // Document icon for response details
             IconButton(onClick = onDetailsClick) {
                 Icon(
