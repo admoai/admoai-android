@@ -264,9 +264,8 @@ class Admoai private constructor() {
     }
 
     /**
-     * Track a custom event.
-     *
-     * @param trackingInfo The tracking information containing custom event URLs
+     * Fires a custom event tracking URL.
+     * @param trackingInfo The tracking info containing the custom event URLs
      * @param key The key identifying the specific custom event to track
      * @return Flow that completes when the tracking request is done
      */
@@ -278,6 +277,24 @@ class Admoai private constructor() {
             currentApiService.fireTrackingUrl(url)
         } else {
             log("No custom event tracking URL found for key '$key'.", LogLevel.WARNING)
+            flowOf(Unit)
+        }
+    }
+
+    /**
+     * Fires a video event tracking URL (e.g., start, firstQuartile, midpoint, thirdQuartile, complete, skip).
+     * @param trackingInfo The tracking info containing the video event URLs
+     * @param key The key identifying the specific video event to track
+     * @return Flow that completes when the tracking request is done
+     */
+    fun fireVideoEvent(trackingInfo: TrackingInfo, key: String): Flow<Unit> {
+        val currentApiService = apiService ?: return flowOf(Unit).also { log("ApiService not initialized. Cannot fire video event.", LogLevel.WARNING) }
+        val url = trackingInfo.videoEvents?.find { it.key == key }?.url
+        return if (url != null) {
+            log("Firing video event for key '$key': $url")
+            currentApiService.fireTrackingUrl(url)
+        } else {
+            log("No video event tracking URL found for key '$key'.", LogLevel.WARNING)
             flowOf(Unit)
         }
     }

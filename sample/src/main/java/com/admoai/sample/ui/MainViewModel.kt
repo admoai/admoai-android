@@ -761,6 +761,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Fire video event tracking (start, firstQuartile, midpoint, thirdQuartile, complete, skip).
+     */
+    fun fireVideoEvent(creative: Creative, key: String) {
+        val tracking = creative.tracking ?: return
+        sdk.fireVideoEvent(tracking, key)
+    }
+
+    /**
      * Get first creative from the response.
      */
     fun getFirstCreative(): Creative? {

@@ -892,23 +892,23 @@ fun BasicVideoPlayer(
                 }
                 
                 if (hasStarted && !startTracked) {
-                    viewModel.fireCustomEvent(creative, "videoStart")
+                    viewModel.fireVideoEvent(creative, "start")
                     startTracked = true
                 }
                 
                 // Fire quartile events
                 if (progress >= 0.25f && !firstQuartileTracked) {
-                    viewModel.fireCustomEvent(creative, "videoFirstQuartile")
+                    viewModel.fireVideoEvent(creative, "firstQuartile")
                     firstQuartileTracked = true
                 }
                 
                 if (progress >= 0.5f && !midpointTracked) {
-                    viewModel.fireCustomEvent(creative, "videoMidpoint")
+                    viewModel.fireVideoEvent(creative, "midpoint")
                     midpointTracked = true
                 }
                 
                 if (progress >= 0.75f && !thirdQuartileTracked) {
-                    viewModel.fireCustomEvent(creative, "videoThirdQuartile")
+                    viewModel.fireVideoEvent(creative, "thirdQuartile")
                     thirdQuartileTracked = true
                 }
                 
@@ -925,7 +925,7 @@ fun BasicVideoPlayer(
                 if (progress >= 0.98f && !hasCompleted) {
                     hasCompleted = true
                     if (!completeTracked) {
-                        viewModel.fireCustomEvent(creative, "videoComplete")
+                        viewModel.fireVideoEvent(creative, "complete")
                         completeTracked = true
                         onComplete()
                     }
@@ -953,49 +953,60 @@ fun BasicVideoPlayer(
             modifier = Modifier.fillMaxSize()
         )
         
-        // Custom overlay UI (shown at overlayAtPercentage)
+        // Custom overlay UI (shown at overlayAtPercentage) - Native, less intrusive design
         if (overlayShown && !hasCompleted && videoConfig.companionHeadline != null) {
-            Box(
+            Card(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.3f))
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(0.85f) // 85% width - less intrusive
+                    .padding(horizontal = 12.dp, vertical = 16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Card(
+                Row(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        videoConfig.companionHeadline?.let { headline ->
+                    // Headline (left side)
+                    videoConfig.companionHeadline?.let { headline ->
+                        Text(
+                            text = headline,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 2
+                        )
+                    }
+                    
+                    // CTA Button (right side) - compact
+                    videoConfig.companionCta?.let { cta ->
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                viewModel.fireClick(creative, "cta")
+                                videoConfig.companionDestinationUrl?.let { url ->
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    context.startActivity(intent)
+                                }
+                            },
+                            modifier = Modifier.height(36.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
                             Text(
-                                text = headline,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
+                                text = cta,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium
                             )
-                        }
-                        
-                        videoConfig.companionCta?.let { cta ->
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Button(
-                                onClick = {
-                                    viewModel.fireClick(creative, "cta")
-                                    videoConfig.companionDestinationUrl?.let { url ->
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                        context.startActivity(intent)
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(cta)
-                            }
                         }
                     }
                 }
@@ -1014,7 +1025,7 @@ fun BasicVideoPlayer(
                 if (canSkip) {
                     Button(
                         onClick = {
-                            viewModel.fireCustomEvent(creative, "videoSkip")
+                            viewModel.fireVideoEvent(creative, "skip")
                             exoPlayer.seekTo(exoPlayer.duration)
                         },
                         modifier = Modifier.height(36.dp)
