@@ -320,61 +320,93 @@ fun VideoAdDemoScreen(
         )
     }
     
-    // Show video preview based on mode
-    if (showVideoPreview && currentScenario != null) {
-        when (previewMode) {
-            VideoPreviewMode.FullScreen -> {
-                AlertDialog(
-                    onDismissRequest = { showVideoPreview = false },
-                    title = { Text("🎬 Video Demo Launching") },
-                    text = { 
-                        Column {
+    // Loading dialog
+    if (isLoadingMockData) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Loading Mock Data") },
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Text("Fetching from localhost:8080...")
+                }
+            },
+            confirmButton = {}
+        )
+    }
+    
+    // Result dialog showing fetched data
+    if (showResultDialog && mockDataResult != null) {
+        AlertDialog(
+            onDismissRequest = { 
+                showResultDialog = false
+                mockDataResult = null
+            },
+            title = { 
+                Text(
+                    if (mockDataResult?.isSuccess == true) "✅ Mock Data Fetched" 
+                    else "❌ Error Fetching Data"
+                ) 
+            },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
+                    Text("Scenario: $currentScenario")
+                    Text("Mode: ${previewMode.name}")
+                    Text("Endpoint: http://10.0.2.2:8080/endpoint?scenario=$currentScenario")
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    mockDataResult?.fold(
+                        onSuccess = { data ->
                             Text(
-                                text = "Ready to launch video demo!",
-                                style = MaterialTheme.typography.bodyLarge,
+                                text = "Response (${data.length} chars):",
                                 fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Scenario: $currentScenario")
-                            Text("Delivery: ${videoDelivery.uppercase()}")
-                            Text("End Card: ${videoEndCard.replace("_", " ")}")
-                            Text("Skippable: ${if (isSkippable) "Yes (5s)" else "No"}")
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Endpoint: http://localhost:8080/endpoint?scenario=$currentScenario",
+                                text = data.take(500) + if (data.length > 500) "..." else "",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                             )
+                            
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = "⚠️ Full video player integration coming in next iteration",
+                                text = "✨ Next: Parse this data and display in VideoPreviewScreen",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.tertiary,
                                 fontWeight = FontWeight.Bold
                             )
+                        },
+                        onFailure = { error ->
+                            Text(
+                                text = "Error: ${error.message}",
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "💡 Make sure the mock server is running on localhost:8080",
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
-                    },
-                    confirmButton = {
-                        TextButton(onClick = { showVideoPreview = false }) {
-                            Text("Close")
-                        }
-                    }
-                )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { 
+                    showResultDialog = false
+                    mockDataResult = null
+                }) {
+                    Text("Close")
+                }
             }
-            VideoPreviewMode.Inline -> {
-                AlertDialog(
-                    onDismissRequest = { showVideoPreview = false },
-                    title = { Text("📱 Inline Preview") },
-                    text = { 
-                        Text("Inline preview mode coming soon!\nThis will display the video player embedded within the screen.") 
-                    },
-                    confirmButton = {
-                        TextButton(onClick = { showVideoPreview = false }) {
-                            Text("Close")
-                        }
-                    }
-                )
-            }
-        }
+        )
     }
 }
