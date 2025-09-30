@@ -36,7 +36,6 @@ import com.admoai.sample.ui.components.DeviceInfoSection
 import com.admoai.sample.ui.components.PlacementSection
 import com.admoai.sample.ui.components.TargetingSection
 import com.admoai.sample.ui.components.UserSection
-import com.admoai.sample.ui.components.VideoOptionsSection
 
 /**
  * Main configuration screen for building ad requests
@@ -52,6 +51,7 @@ fun DecisionRequestScreen(
     onLocationTargetingClick: () -> Unit = {},
     onCustomTargetingClick: () -> Unit = {},
     onTimezonePickerClick: () -> Unit = {},
+    onVideoAdDemoClick: () -> Unit = {},
     onComposeIntegrationClick: () -> Unit = {},
     onNavigateBack: () -> Unit = {}
 ) {
@@ -118,19 +118,10 @@ fun DecisionRequestScreen(
                     modifier = Modifier.padding(16.dp)
                 )
                 
-                // Placement section
                 PlacementSection(
                     viewModel = viewModel,
                     onPlacementClick = onPlacementClick
                 )
-                
-                // Video options section (shown only when format is "video")
-                val formatFilterEnabled by viewModel.formatFilterEnabled.collectAsState()
-                val selectedFormat by viewModel.selectedFormat.collectAsState()
-                
-                if (formatFilterEnabled && selectedFormat == "video") {
-                    VideoOptionsSection(viewModel = viewModel)
-                }
                 
                 // Targeting section
                 TargetingSection(
@@ -154,6 +145,49 @@ fun DecisionRequestScreen(
                 
                 // Data collection section
                 DataCollectionSection(viewModel = viewModel)
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Video Ad Demo Section
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = "🎬 Video Ad Demo",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "Experiment with video ad overlay configurations in an interactive sandbox",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Button(
+                            onClick = onVideoAdDemoClick,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiary
+                            )
+                        ) {
+                            Text("Open Video Demo")
+                        }
+                    }
+                }
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
