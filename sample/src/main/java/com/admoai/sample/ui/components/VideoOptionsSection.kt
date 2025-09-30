@@ -18,6 +18,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -35,9 +36,21 @@ fun VideoOptionsSection(
 ) {
     val videoDelivery by viewModel.videoDelivery.collectAsState()
     val videoEndCard by viewModel.videoEndCard.collectAsState()
-    val overlayAtPercent by viewModel.overlayAtPercent.collectAsState()
     val isSkippable by viewModel.isSkippable.collectAsState()
-    val skipOffset by viewModel.skipOffset.collectAsState()
+    
+    // Get available end card options based on delivery method
+    val availableEndCards = when (videoDelivery) {
+        "json" -> listOf("none", "native_endcard")
+        "vast_tag", "vast_xml" -> listOf("none", "native_endcard", "vast_companion")
+        else -> listOf("none")
+    }
+    
+    // Auto-adjust end card when delivery method changes
+    LaunchedEffect(videoDelivery) {
+        if (videoEndCard !in availableEndCards) {
+            viewModel.setVideoEndCard(availableEndCards.first())
+        }
+    }
     
     SectionContainer(title = "Video Options") {
         Column(
@@ -105,28 +118,11 @@ fun VideoOptionsSection(
                     FilterChip(
                         selected = videoEndCard == value,
                         onClick = { viewModel.setVideoEndCard(value) },
-                        label = { Text(label) }
+                        label = { Text(label) },
+                        enabled = value in availableEndCards
                     )
                 }
             }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Overlay threshold
-            Text(
-                text = "Overlay Threshold: ${(overlayAtPercent * 100).toInt()}%",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            
-            Slider(
-                value = overlayAtPercent,
-                onValueChange = { viewModel.setOverlayAtPercent(it) },
-                valueRange = 0f..1f,
-                steps = 9, // 0%, 10%, 20%, ... 100%
-                modifier = Modifier.fillMaxWidth()
-            )
             
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -147,7 +143,7 @@ fun VideoOptionsSection(
                 )
             }
             
-            // Skip offset (shown only when skippable)
+            // Skip offset (shown only when skippable) - fixed at 5 seconds
             if (isSkippable) {
                 Spacer(modifier = Modifier.height(8.dp))
                 
@@ -157,16 +153,15 @@ fun VideoOptionsSection(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Skip Offset (seconds)",
+                        text = "Skip Offset",
                         style = MaterialTheme.typography.bodySmall
                     )
                     
-                    TextField(
-                        value = skipOffset,
-                        onValueChange = { viewModel.setSkipOffset(it) },
-                        modifier = Modifier.width(80.dp),
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodySmall
+                    Text(
+                        text = "5 seconds",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
