@@ -46,7 +46,6 @@ fun MenuPreviewScreen(
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    onVideoClick: () -> Unit,
     onAdClick: (AdData) -> Unit,
     onTrackEvent: (String, String) -> Unit = {_, _ -> }
 ) {
@@ -174,9 +173,7 @@ fun MenuPreviewScreen(
                 onBackClick = onBackClick,
                 onDetailsClick = onDetailsClick,
                 onRefreshClick = { isRefreshing = true },
-                isRefreshing = isRefreshing,
-                hasVideoCreative = viewModel.hasVideoCreative(adData),
-                onVideoClick = onVideoClick
+                isRefreshing = isRefreshing
             )
             Spacer(modifier = Modifier.height(8.dp))
         }

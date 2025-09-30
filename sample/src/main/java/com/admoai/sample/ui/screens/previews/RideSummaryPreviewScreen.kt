@@ -47,7 +47,6 @@ fun RideSummaryPreviewScreen(
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    onVideoClick: () -> Unit,
     onAdClick: (AdData) -> Unit = {},
     onTrackEvent: (String, String) -> Unit = {_, _ -> },
     @Suppress("UNUSED_PARAMETER") onThemeToggle: () -> Unit
@@ -125,9 +124,7 @@ fun RideSummaryPreviewScreen(
                 onBackClick = onBackClick,
                 onDetailsClick = onDetailsClick,
                 onRefreshClick = { isRefreshing = true },
-                isRefreshing = isRefreshing,
-                hasVideoCreative = viewModel.hasVideoCreative(adData),
-                onVideoClick = onVideoClick
+                isRefreshing = isRefreshing
             )
             
             // Rating stars

@@ -58,7 +58,6 @@ fun PromotionsPreviewScreen(
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    onVideoClick: () -> Unit,
     onAdClick: (AdData) -> Unit = {},
     onTrackEvent: (String, String) -> Unit = {_, _ -> }
 ) {
@@ -125,9 +124,7 @@ fun PromotionsPreviewScreen(
                 onBackClick = onBackClick,
                 onDetailsClick = onDetailsClick,
                 onRefreshClick = { isRefreshing = true },
-                isRefreshing = isRefreshing,
-                hasVideoCreative = viewModel.hasVideoCreative(adData),
-                onVideoClick = onVideoClick
+                isRefreshing = isRefreshing
             )
             
             // Content

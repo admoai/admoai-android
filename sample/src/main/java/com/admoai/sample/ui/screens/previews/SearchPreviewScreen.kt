@@ -36,7 +36,6 @@ fun SearchPreviewScreen(
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    onVideoClick: () -> Unit,
     // Removed unused onThemeToggle parameter
     // Removed unused onAdClick parameter as search ads don't handle clicks
     onTrackEvent: (String, String) -> Unit = {_, _ -> }
@@ -90,9 +89,7 @@ fun SearchPreviewScreen(
             onBackClick = onBackClick,
             onDetailsClick = onDetailsClick,
             onRefreshClick = { isRefreshing = true },
-            isRefreshing = isRefreshing,
-            hasVideoCreative = viewModel.hasVideoCreative(adData),
-            onVideoClick = onVideoClick
+            isRefreshing = isRefreshing
         )
         
         // Scrollable search results with ad inserted after third item

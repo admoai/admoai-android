@@ -38,7 +38,6 @@ fun HomePreviewScreen(
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    onVideoClick: () -> Unit,
     onThemeToggle: () -> Unit,
     onAdClick: (AdData) -> Unit,
     onTrackEvent: (String, String) -> Unit
@@ -105,9 +104,7 @@ fun HomePreviewScreen(
                 onBackClick = onBackClick,
                 onDetailsClick = onDetailsClick,
                 onRefreshClick = { isRefreshing = true },
-                isRefreshing = isRefreshing,
-                hasVideoCreative = viewModel.hasVideoCreative(adData),
-                onVideoClick = onVideoClick
+                isRefreshing = isRefreshing
             )
             
             // Horizontal Ad Card with animation - iOS style
