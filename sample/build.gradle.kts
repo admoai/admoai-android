@@ -76,6 +76,9 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.2.1")
     implementation("androidx.media3:media3-ui:1.2.1")
     implementation("androidx.media3:media3-exoplayer-ima:1.2.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.2.1") // HLS support for .m3u8
+    implementation("androidx.media3:media3-exoplayer-dash:1.2.1") // DASH support
+    implementation("androidx.media3:media3-datasource:1.2.1") // Data source support
     
     // Ktor and Serialization (for sample app usage)
     implementation(libs.ktor.client.core)

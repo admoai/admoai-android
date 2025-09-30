@@ -93,11 +93,14 @@ fun VideoPreviewScreen(
     val adData = response?.data?.find { it.placement == placementKey }
     val creative = adData?.creatives?.firstOrNull { viewModel.isVideoCreative(it) }
     
-    // Playback mode (Simulated vs Real)
-    var playbackMode by remember { mutableStateOf("simulated") } // "simulated" or "real"
+    // Get selected video player from ViewModel
+    val selectedPlayer by viewModel.videoPlayer.collectAsState()
     
-    // Check if real playback is available (VAST tag with URL)
-    val canUseRealPlayer = creative?.delivery == "vast_tag" && creative.vast?.tagUrl != null
+    // Parse video configuration
+    val videoConfig = creative?.let { remember(it) { parseVideoData(it) } }
+    
+    // Determine if we should use real player
+    val useRealPlayer = selectedPlayer == "basic" && videoConfig?.videoAssetUrl != null
     
     // Simulated player state
     var isPlaying by remember { mutableStateOf(false) }
@@ -212,14 +215,63 @@ fun VideoPreviewScreen(
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Video player simulation
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(16f / 9f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.Black)
+                    // Parse video data and display for testing
+                    val videoConfig = remember(crtv) { parseVideoData(crtv) }
+                    
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
                     ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "📊 Parsed Video Configuration",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            VideoInfoRow("Video URL", videoConfig.videoAssetUrl ?: "Not set")
+                            VideoInfoRow("Poster Image", videoConfig.posterImageUrl ?: "Not set")
+                            VideoInfoRow("Skippable", videoConfig.isSkippable.toString())
+                            VideoInfoRow("Skip Offset", "${videoConfig.skipOffsetSeconds}s")
+                            VideoInfoRow("Overlay At", "${(videoConfig.overlayAtPercentage * 100).toInt()}%")
+                            VideoInfoRow("Show Close", videoConfig.showClose.toString())
+                            VideoInfoRow("Headline", videoConfig.companionHeadline ?: "Not set")
+                            VideoInfoRow("CTA", videoConfig.companionCta ?: "Not set")
+                            VideoInfoRow("Destination", videoConfig.companionDestinationUrl ?: "Not set")
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Video player - Real or Simulated
+                    if (useRealPlayer && videoConfig != null) {
+                        // Use real BasicVideoPlayer
+                        BasicVideoPlayer(
+                            videoConfig = videoConfig,
+                            creative = crtv,
+                            viewModel = viewModel,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(8.dp)),
+                            onComplete = {
+                                showEndCard = true
+                            }
+                        )
+                    } else {
+                        // Simulated player
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.Black)
+                        ) {
                         // Video placeholder
                         Box(
                             modifier = Modifier
@@ -333,12 +385,24 @@ fun VideoPreviewScreen(
                                 )
                             }
                         }
+                        }  // Close simulated player Box
                     }
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    // Progress bar and controls
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    // Player type indicator
+                    Text(
+                        text = "🎮 Player: ${if (useRealPlayer) "Basic Player (Real)" else "Simulated Player"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (useRealPlayer) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Progress bar and controls (only for simulated player)
+                    if (!useRealPlayer) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -361,7 +425,8 @@ fun VideoPreviewScreen(
                             },
                             modifier = Modifier.fillMaxWidth()
                         )
-                    }
+                        }  // Close progress controls Column
+                    }  // Close if (!useRealPlayer)
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
@@ -673,4 +738,359 @@ private fun formatTime(seconds: Float): String {
     val mins = (seconds / 60).toInt()
     val secs = (seconds % 60).toInt()
     return String.format("%02d:%02d", mins, secs)
+}
+
+/**
+ * Data class to hold parsed video configuration from creative
+ */
+data class VideoPlayerConfig(
+    val videoAssetUrl: String?,
+    val posterImageUrl: String?,
+    val isSkippable: Boolean,
+    val skipOffsetSeconds: Int,
+    val overlayAtPercentage: Float,
+    val showClose: Boolean,
+    val companionHeadline: String?,
+    val companionCta: String?,
+    val companionDestinationUrl: String?
+)
+
+/**
+ * Parse video data from creative contents
+ */
+fun parseVideoData(creative: Creative): VideoPlayerConfig {
+    val contents = creative.contents.associate { it.key to it.value }
+    
+    // Extract video URL based on delivery method
+    val videoAssetUrl = when (creative.delivery) {
+        "vast_tag", "vast_xml" -> creative.vast?.tagUrl // VAST tag URL
+        else -> contents["videoAsset"]?.let { // JSON delivery - video asset URL
+            (it as? JsonPrimitive)?.contentOrNull
+        }
+    }
+    
+    // Extract poster image
+    val posterImageUrl = contents["posterImage"]?.let {
+        (it as? JsonPrimitive)?.contentOrNull
+    }
+    
+    // Extract skippable settings
+    val isSkippable = contents["isSkippable"]?.let {
+        (it as? JsonPrimitive)?.contentOrNull?.toBoolean()
+    } ?: false
+    
+    val skipOffsetSeconds = contents["skipOffset"]?.let {
+        (it as? JsonPrimitive)?.contentOrNull?.let { offset ->
+            // Parse "00:00:05" format or plain number
+            if (offset.contains(":")) {
+                val parts = offset.split(":")
+                parts.lastOrNull()?.toIntOrNull() ?: 5
+            } else {
+                offset.toIntOrNull() ?: 5
+            }
+        }
+    } ?: 5
+    
+    // Extract overlay settings
+    val overlayAtPercentage = contents["overlayAtPercentage"]?.let {
+        (it as? JsonPrimitive)?.contentOrNull?.toFloatOrNull()
+    } ?: 0.5f
+    
+    val showClose = contents["showClose"]?.let {
+        (it as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
+    } == 1
+    
+    // Extract companion/overlay data
+    val companionHeadline = contents["companionHeadline"]?.let {
+        (it as? JsonPrimitive)?.contentOrNull
+    }
+    
+    val companionCta = contents["companionCta"]?.let {
+        (it as? JsonPrimitive)?.contentOrNull
+    }
+    
+    val companionDestinationUrl = contents["companionDestinationUrl"]?.let {
+        (it as? JsonPrimitive)?.contentOrNull
+    }
+    
+    return VideoPlayerConfig(
+        videoAssetUrl = videoAssetUrl,
+        posterImageUrl = posterImageUrl,
+        isSkippable = isSkippable,
+        skipOffsetSeconds = skipOffsetSeconds,
+        overlayAtPercentage = overlayAtPercentage,
+        showClose = showClose,
+        companionHeadline = companionHeadline,
+        companionCta = companionCta,
+        companionDestinationUrl = companionDestinationUrl
+    )
+}
+
+/**
+ * Basic Video Player using ExoPlayer (for JSON delivery, non-VAST)
+ */
+@Composable
+fun BasicVideoPlayer(
+    videoConfig: VideoPlayerConfig,
+    creative: Creative,
+    viewModel: MainViewModel,
+    modifier: Modifier = Modifier,
+    onComplete: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    
+    // Player state
+    var isPlaying by remember { mutableStateOf(false) }
+    var currentPosition by remember { mutableFloatStateOf(0f) }
+    var duration by remember { mutableFloatStateOf(0f) }
+    var hasStarted by remember { mutableStateOf(false) }
+    var hasCompleted by remember { mutableStateOf(false) }
+    
+    // Tracking state
+    var startTracked by remember { mutableStateOf(false) }
+    var firstQuartileTracked by remember { mutableStateOf(false) }
+    var midpointTracked by remember { mutableStateOf(false) }
+    var thirdQuartileTracked by remember { mutableStateOf(false) }
+    var completeTracked by remember { mutableStateOf(false) }
+    
+    // Overlay state
+    var overlayShown by remember { mutableStateOf(false) }
+    var overlayTracked by remember { mutableStateOf(false) }
+    
+    // ExoPlayer instance with proper data source factory
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(context)
+                    .setDataSourceFactory(DefaultDataSource.Factory(context))
+            )
+            .build()
+            .apply {
+                videoConfig.videoAssetUrl?.let { url ->
+                    val mediaItem = MediaItem.fromUri(url)
+                    setMediaItem(mediaItem)
+                    prepare()
+                }
+            }
+    }
+    
+    // Update playback state
+    LaunchedEffect(exoPlayer) {
+        while (isActive) {
+            delay(100) // Update every 100ms
+            
+            if (exoPlayer.duration > 0) {
+                duration = exoPlayer.duration / 1000f // Convert to seconds
+                currentPosition = exoPlayer.currentPosition / 1000f
+                isPlaying = exoPlayer.isPlaying
+                
+                val progress = if (duration > 0) currentPosition / duration else 0f
+                
+                // Fire start event
+                if (exoPlayer.isPlaying && !hasStarted) {
+                    hasStarted = true
+                }
+                
+                if (hasStarted && !startTracked) {
+                    viewModel.fireCustomEvent(creative, "videoStart")
+                    startTracked = true
+                }
+                
+                // Fire quartile events
+                if (progress >= 0.25f && !firstQuartileTracked) {
+                    viewModel.fireCustomEvent(creative, "videoFirstQuartile")
+                    firstQuartileTracked = true
+                }
+                
+                if (progress >= 0.5f && !midpointTracked) {
+                    viewModel.fireCustomEvent(creative, "videoMidpoint")
+                    midpointTracked = true
+                }
+                
+                if (progress >= 0.75f && !thirdQuartileTracked) {
+                    viewModel.fireCustomEvent(creative, "videoThirdQuartile")
+                    thirdQuartileTracked = true
+                }
+                
+                // Show overlay at specified percentage
+                if (progress >= videoConfig.overlayAtPercentage && !overlayShown) {
+                    overlayShown = true
+                    if (!overlayTracked) {
+                        viewModel.fireCustomEvent(creative, "overlayShown")
+                        overlayTracked = true
+                    }
+                }
+                
+                // Fire complete event
+                if (progress >= 0.98f && !hasCompleted) {
+                    hasCompleted = true
+                    if (!completeTracked) {
+                        viewModel.fireCustomEvent(creative, "videoComplete")
+                        completeTracked = true
+                        onComplete()
+                    }
+                }
+            }
+        }
+    }
+    
+    // Cleanup
+    DisposableEffect(exoPlayer) {
+        onDispose {
+            exoPlayer.release()
+        }
+    }
+    
+    Box(modifier = modifier) {
+        // ExoPlayer view
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    player = exoPlayer
+                    useController = false // Use custom controls
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+        
+        // Custom overlay UI (shown at overlayAtPercentage)
+        if (overlayShown && !hasCompleted && videoConfig.companionHeadline != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.3f))
+            ) {
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        videoConfig.companionHeadline?.let { headline ->
+                            Text(
+                                text = headline,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                        
+                        videoConfig.companionCta?.let { cta ->
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = {
+                                    viewModel.fireClick(creative, "cta")
+                                    videoConfig.companionDestinationUrl?.let { url ->
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                        context.startActivity(intent)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(cta)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Skip button (top-right)
+        if (videoConfig.isSkippable && !hasCompleted) {
+            val canSkip = currentPosition >= videoConfig.skipOffsetSeconds
+            
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+            ) {
+                if (canSkip) {
+                    Button(
+                        onClick = {
+                            viewModel.fireCustomEvent(creative, "videoSkip")
+                            exoPlayer.seekTo(exoPlayer.duration)
+                        },
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Text("Skip Ad")
+                    }
+                } else {
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "Skip in ${(videoConfig.skipOffsetSeconds - currentPosition.toInt()).coerceAtLeast(0)}s",
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Close button (top-left)
+        if (videoConfig.showClose && !hasCompleted) {
+            IconButton(
+                onClick = {
+                    viewModel.fireCustomEvent(creative, "closeBtn")
+                    exoPlayer.stop()
+                    onComplete()
+                },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp)
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.6f))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = Color.White
+                )
+            }
+        }
+        
+        // Play/Pause overlay (center)
+        if (!hasCompleted) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable {
+                        if (isPlaying) exoPlayer.pause() else exoPlayer.play()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+        
+        // Progress bar (bottom)
+        if (duration > 0) {
+            LinearProgressIndicator(
+                progress = (currentPosition / duration).coerceIn(0f, 1f),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(4.dp)
+            )
+        }
+    }
 }
