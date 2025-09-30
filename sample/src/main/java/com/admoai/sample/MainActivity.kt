@@ -48,6 +48,7 @@ import com.admoai.sample.ui.screens.RequestPreviewScreen
 import com.admoai.sample.ui.screens.ResponseDetailsScreen
 import com.admoai.sample.ui.screens.TimezonePickerScreen
 import com.admoai.sample.ui.screens.CreativeDetailScreen
+import com.admoai.sample.ui.screens.VideoAdDemoScreen
 import com.admoai.sample.ui.screens.ComposeIntegrationScreen
 import com.admoai.sample.ui.screens.previews.HomePreviewScreen
 import com.admoai.sample.ui.screens.previews.MenuPreviewScreen
@@ -95,6 +96,7 @@ object Routes {
     const val LOCATION_TARGETING = "location_targeting"
     const val CUSTOM_TARGETING = "custom_targeting"
     const val TIMEZONE_PICKER = "timezone_picker"
+    const val VIDEO_AD_DEMO = "video_ad_demo"
     const val COMPOSE_INTEGRATION = "compose_integration"
     
     // Preview screen routes
@@ -171,6 +173,9 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 },
                 onTimezonePickerClick = {
                     navController.navigate(Routes.TIMEZONE_PICKER)
+                },
+                onVideoAdDemoClick = {
+                    navController.navigate(Routes.VIDEO_AD_DEMO)
                 },
                 onComposeIntegrationClick = {
                     navController.navigate(Routes.COMPOSE_INTEGRATION)
@@ -415,6 +420,13 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             }
         }
 
+        composable(Routes.VIDEO_AD_DEMO) {
+            VideoAdDemoScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
         composable(Routes.COMPOSE_INTEGRATION) {
             ComposeIntegrationScreen(
                 viewModel = viewModel,
