@@ -270,7 +270,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
-                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) }
                 )
@@ -298,7 +297,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
-                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     onThemeToggle = { /* Toggle theme */ },
                     onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) }
@@ -327,7 +325,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
-                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     // Removed onThemeToggle and onAdClick as they're not used for search placement
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) }
                 )
@@ -355,7 +352,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
-                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) }
                 )
@@ -383,7 +379,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
-                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) },
                     onThemeToggle = { /* Theme toggle action */ }
@@ -412,7 +407,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
-                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) },
                     onThemeToggle = { /* Theme toggle action */ }
@@ -468,7 +462,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
-                    onVideoClick = { navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey") },
                     onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) },
                     onThemeToggle = { /* Theme toggle action */ }
