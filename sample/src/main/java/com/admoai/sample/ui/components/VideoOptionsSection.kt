@@ -179,3 +179,64 @@ fun VideoOptionsSection(
         }
     }
 }
+
+/**
+ * Section to select video player implementation
+ */
+@Composable
+fun VideoPlayerSection(
+    viewModel: MainViewModel
+) {
+    val videoPlayer by viewModel.videoPlayer.collectAsState()
+    
+    SectionContainer(title = "Video Player") {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            // Info disclaimer
+            Text(
+                text = "ℹ️ Select which video player implementation to use in the demo. This represents the app owner's choice.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            
+            // Video Player selection - Vertical layout for better fit
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                data class PlayerOption(val value: String, val label: String, val description: String)
+                
+                listOf(
+                    PlayerOption("exoplayer", "ExoPlayer + IMA ⭐", "Recommended - ExoPlayer with IMA SDK (VAST-friendly)"),
+                    PlayerOption("basic", "Basic Player", "Non-VAST player with manual tracking (good for JSON delivery)"),
+                    PlayerOption("ima", "Google IMA SDK", "Pure Google IMA SDK (VAST-only)"),
+                    PlayerOption("jwplayer", "JW Player", "Commercial JW Player with full VAST support")
+                ).forEach { option ->
+                    FilterChip(
+                        selected = videoPlayer == option.value,
+                        onClick = { viewModel.setVideoPlayer(option.value) },
+                        label = { 
+                            Column {
+                                Text(
+                                    text = option.label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (videoPlayer == option.value) FontWeight.Bold else FontWeight.Normal
+                                )
+                                Text(
+                                    text = option.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+}

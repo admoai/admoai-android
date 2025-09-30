@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.VideoOptionsSection
+import com.admoai.sample.ui.components.VideoPlayerSection
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -22,6 +23,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import android.util.Log
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlinx.serialization.json.Json
+import com.admoai.sdk.model.response.DecisionResponse
 
 /**
  * Video preview display modes
@@ -85,16 +88,15 @@ private suspend fun fetchMockVideoData(scenario: String): Result<String> = withC
 @Composable
 fun VideoAdDemoScreen(
     viewModel: MainViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToVideoPreview: (String) -> Unit = {}
 ) {
     val videoDelivery by viewModel.videoDelivery.collectAsStateWithLifecycle()
     val videoEndCard by viewModel.videoEndCard.collectAsStateWithLifecycle()
     val isSkippable by viewModel.isSkippable.collectAsStateWithLifecycle()
     
-    // Compute current scenario
-    val currentScenario = remember(videoDelivery, videoEndCard, isSkippable) {
-        getLocalMockScenario(videoDelivery, videoEndCard, isSkippable)
-    }
+    // Compute current scenario (derived state, updates when inputs change)
+    val currentScenario = getLocalMockScenario(videoDelivery, videoEndCard, isSkippable)
     
     var showVideoPreview by remember { mutableStateOf(false) }
     var previewMode by remember { mutableStateOf<VideoPreviewMode>(VideoPreviewMode.FullScreen) }
@@ -145,6 +147,11 @@ fun VideoAdDemoScreen(
             
             // Video options configuration
             VideoOptionsSection(viewModel = viewModel)
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Video player selection
+            VideoPlayerSection(viewModel = viewModel)
             
             Spacer(modifier = Modifier.height(24.dp))
             
@@ -274,12 +281,37 @@ fun VideoAdDemoScreen(
                             showModeDialog = false
                             isLoadingMockData = true
                             
-                            // Fetch mock data
+                            // Fetch and parse mock data
                             scope.launch {
                                 currentScenario?.let { scenario ->
-                                    mockDataResult = fetchMockVideoData(scenario)
+                                    val result = fetchMockVideoData(scenario)
                                     isLoadingMockData = false
-                                    showResultDialog = true
+                                    
+                                    result.fold(
+                                        onSuccess = { jsonString ->
+                                            try {
+                                                val json = Json { ignoreUnknownKeys = true }
+                                                val demoResponse = json.decodeFromString<DecisionResponse>(jsonString)
+                                                
+                                                // Store in ViewModel
+                                                viewModel.setDemoResponse(demoResponse)
+                                                
+                                                // Get placement key from response
+                                                val placementKey = demoResponse.data?.firstOrNull()?.placement ?: "demo"
+                                                
+                                                // Navigate to video preview
+                                                onNavigateToVideoPreview(placementKey)
+                                            } catch (e: Exception) {
+                                                Log.e("VideoAdDemo", "Parse error: ${e.message}", e)
+                                                mockDataResult = Result.failure(Exception("JSON parse error: ${e.message}"))
+                                                showResultDialog = true
+                                            }
+                                        },
+                                        onFailure = { error ->
+                                            mockDataResult = result
+                                            showResultDialog = true
+                                        }
+                                    )
                                 }
                             }
                         },
@@ -296,7 +328,7 @@ fun VideoAdDemoScreen(
                             showModeDialog = false
                             isLoadingMockData = true
                             
-                            // Fetch mock data
+                            // Fetch mock data for inline preview (placeholder for now)
                             scope.launch {
                                 currentScenario?.let { scenario ->
                                     mockDataResult = fetchMockVideoData(scenario)
@@ -307,7 +339,7 @@ fun VideoAdDemoScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Inline Preview (Below)")
+                        Text("Inline Preview (Coming Soon)")
                     }
                 }
             },

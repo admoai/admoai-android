@@ -37,8 +37,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.admoai.sdk.Admoai
+import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.model.response.DecisionResponse
+import com.admoai.sample.Routes
 import com.admoai.sample.ui.MainViewModel
+import io.ktor.client.engine.okhttp.OkHttp
 import com.admoai.sample.ui.screens.CustomTargetingScreen
 import com.admoai.sample.ui.screens.DecisionRequestScreen
 import com.admoai.sample.ui.screens.GeoTargetingScreen
@@ -68,8 +71,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Initialize the AdMoai SDK
-        Admoai.initialize("https://mock.api.admoai.com", true)
+        // Initialize the AdMoai SDK with OkHttp engine to avoid TLS issues
+        val config = SDKConfig(
+            baseUrl = "https://mock.api.admoai.com",
+            enableLogging = true,
+            networkClientEngine = OkHttp.create()
+        )
+        Admoai.initialize(config)
 
         setContent {
             AdmoaikotlinTheme {
@@ -417,7 +425,10 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
         composable(Routes.VIDEO_AD_DEMO) {
             VideoAdDemoScreen(
                 viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToVideoPreview = { placementKey ->
+                    navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey")
+                }
             )
         }
         

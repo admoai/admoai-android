@@ -79,6 +79,7 @@ dependencies {
     
     // Ktor and Serialization (for sample app usage)
     implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp) // OkHttp engine for Ktor
     implementation(libs.kotlinx.serialization.json)
     
     // Testing

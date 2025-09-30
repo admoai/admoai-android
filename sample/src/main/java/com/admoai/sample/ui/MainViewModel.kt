@@ -10,6 +10,7 @@ import com.admoai.sdk.config.AppConfig
 import com.admoai.sdk.config.DeviceConfig
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.config.UserConfig
+import io.ktor.client.engine.okhttp.OkHttp
 import com.admoai.sdk.model.request.Consent
 import com.admoai.sdk.model.request.CustomTargetingInfo
 import com.admoai.sdk.model.request.DecisionRequest
@@ -105,6 +106,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     private val _videoEndCard = MutableStateFlow("none") // "none", "native_endcard", "vast_companion"
     val videoEndCard = _videoEndCard.asStateFlow()
+    
+    private val _videoPlayer = MutableStateFlow("exoplayer") // "basic", "exoplayer", "ima", "jwplayer"
+    val videoPlayer = _videoPlayer.asStateFlow()
     
     private val _overlayAtPercent = MutableStateFlow(0.5f) // 0.0 to 1.0
     val overlayAtPercent = _overlayAtPercent.asStateFlow()
@@ -267,8 +271,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         appIdentifier = context.packageName
         appLanguage = java.util.Locale.getDefault().language
 
-        // Initialize the SDK
-        val config = SDKConfig(baseUrl = MOCK_BASE_URL, enableLogging = true)
+        // Initialize the SDK with OkHttp engine to avoid TLS issues
+        val config = SDKConfig(
+            baseUrl = MOCK_BASE_URL,
+            enableLogging = true,
+            networkClientEngine = OkHttp.create()
+        )
         sdk = Admoai.getInstance()
         Admoai.initialize(config)
         
@@ -449,6 +457,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun setVideoEndCard(endCard: String) {
         _videoEndCard.value = endCard
+    }
+    
+    /**
+     * Set video player type.
+     */
+    fun setVideoPlayer(player: String) {
+        _videoPlayer.value = player
     }
 
     /**
@@ -803,5 +818,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun hasVideoCreative(adData: AdData?): Boolean {
         if (adData == null) return false
         return adData.creatives.any { isVideoCreative(it) }
+    }
+    
+    /**
+     * Set a demo response from the Video Ad Demo feature.
+     * This temporarily replaces the current response for demo purposes.
+     */
+    fun setDemoResponse(demoResponse: DecisionResponse) {
+        _response.value = demoResponse
+        _decisionResponse.value = demoResponse
     }
 }
