@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.*
 import com.admoai.sample.ui.model.PlacementItem
 
@@ -77,12 +78,27 @@ fun PreviewNavigationBar(
         actions = {
             // Video demo icon (shown only if hasVideoCreative)
             if (hasVideoCreative) {
-                IconButton(onClick = onVideoClick) {
-                    Icon(
-                        imageVector = Icons.Default.PlayCircle,
-                        contentDescription = "Video Demo",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                BadgedBox(
+                    badge = {
+                        Badge(
+                            containerColor = MaterialTheme.colorScheme.tertiary,
+                            contentColor = MaterialTheme.colorScheme.onTertiary
+                        ) {
+                            Text(
+                                text = "Demo",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                ) {
+                    IconButton(onClick = onVideoClick) {
+                        Icon(
+                            imageVector = Icons.Default.PlayCircle,
+                            contentDescription = "Video Demo - Uses Video Options settings",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
             
