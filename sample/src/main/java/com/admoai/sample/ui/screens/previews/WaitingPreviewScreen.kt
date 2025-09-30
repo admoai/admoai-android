@@ -70,7 +70,7 @@ fun WaitingPreviewScreen(
     onThemeToggle: () -> Unit
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
-    var isCardVisible by remember { mutableStateOf(true) }
+    var isCardVisible by remember { mutableStateOf(adData != null) }
     var currentPage by remember { mutableIntStateOf(0) }
     val pageCount = 3 // Number of carousel pages
     
@@ -89,8 +89,8 @@ fun WaitingPreviewScreen(
         label = "card_alpha"
     )
 
-    // Handle refresh animation and observe loading state
-    LaunchedEffect(isRefreshing, isLoading, adData) {
+    // Handle refresh button click - only trigger once
+    LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
@@ -98,12 +98,6 @@ fun WaitingPreviewScreen(
             delay(300)
             // Trigger ad request via callback
             onRefreshClick()
-            // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible && adData != null) {
-            // Wait a moment for animation smoothness after loading completes
-            delay(300)
-            // Show the card with the new data
-            isCardVisible = true
         }
     }
     
@@ -114,9 +108,10 @@ fun WaitingPreviewScreen(
         }
     }
     
-    // Show card on initial load when ad data becomes available
+    // Show card when ad data becomes available (both initial load and refresh)
     LaunchedEffect(adData) {
-        if (adData != null && !isRefreshing) {
+        if (adData != null && !isLoading && !isRefreshing) {
+            delay(300) // Small delay for animation smoothness
             isCardVisible = true
         }
     }

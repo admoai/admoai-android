@@ -63,7 +63,7 @@ fun PromotionsPreviewScreen(
     onTrackEvent: (String, String) -> Unit = {_, _ -> }
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
-    var isCardVisible by remember { mutableStateOf(true) }
+    var isCardVisible by remember { mutableStateOf(adData != null) }
     
     // Auto-scrolling carousel pager state
     val pagerState = rememberPagerState(pageCount = { 5 })
@@ -84,8 +84,8 @@ fun PromotionsPreviewScreen(
         label = "card_alpha"
     )
 
-    // Handle refresh animation and observe loading state
-    LaunchedEffect(isRefreshing, isLoading, adData) {
+    // Handle refresh button click - only trigger once
+    LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
@@ -93,12 +93,6 @@ fun PromotionsPreviewScreen(
             delay(300)
             // Trigger ad request via callback
             onRefreshClick()
-            // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible && adData != null) {
-            // Wait a moment for animation smoothness after loading completes
-            delay(300)
-            // Show the card with the new data
-            isCardVisible = true
         }
     }
     
@@ -109,9 +103,10 @@ fun PromotionsPreviewScreen(
         }
     }
     
-    // Show card on initial load when ad data becomes available
+    // Show card when ad data becomes available (both initial load and refresh)
     LaunchedEffect(adData) {
-        if (adData != null && !isRefreshing) {
+        if (adData != null && !isLoading && !isRefreshing) {
+            delay(300) // Small delay for animation smoothness
             isCardVisible = true
         }
     }

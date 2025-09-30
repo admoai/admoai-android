@@ -51,7 +51,7 @@ fun MenuPreviewScreen(
     onTrackEvent: (String, String) -> Unit = {_, _ -> }
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
-    var isCardVisible by remember { mutableStateOf(true) }
+    var isCardVisible by remember { mutableStateOf(adData != null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     
@@ -62,8 +62,8 @@ fun MenuPreviewScreen(
         label = "card_alpha"
     )
 
-    // Handle refresh animation and observe loading state
-    LaunchedEffect(isRefreshing, isLoading, adData) {
+    // Handle refresh button click - only trigger once
+    LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
@@ -71,12 +71,6 @@ fun MenuPreviewScreen(
             kotlinx.coroutines.delay(300)
             // Trigger ad request via callback
             onRefreshClick()
-            // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible && adData != null) {
-            // Wait a moment for animation smoothness after loading completes
-            kotlinx.coroutines.delay(300)
-            // Show the card with the new data
-            isCardVisible = true
         }
     }
     
@@ -87,9 +81,10 @@ fun MenuPreviewScreen(
         }
     }
     
-    // Show card on initial load when ad data becomes available
+    // Show card when ad data becomes available (both initial load and refresh)
     LaunchedEffect(adData) {
-        if (adData != null && !isRefreshing) {
+        if (adData != null && !isLoading && !isRefreshing) {
+            kotlinx.coroutines.delay(300) // Small delay for animation smoothness
             isCardVisible = true
         }
     }

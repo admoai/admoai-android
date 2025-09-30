@@ -60,7 +60,7 @@ fun VehicleSelectionPreviewScreen(
     onThemeToggle: () -> Unit
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
-    var isCardVisible by remember { mutableStateOf(true) }
+    var isCardVisible by remember { mutableStateOf(adData != null) }
     val density = LocalDensity.current
     // No need for coroutine scope as we're using LaunchedEffect for animations
     
@@ -83,8 +83,8 @@ fun VehicleSelectionPreviewScreen(
     // Pulse animation for vehicle icons
     val vehicleIconAlpha = remember { Animatable(1f) }
     
-    // Handle refresh animation with vehicle pulse
-    LaunchedEffect(isRefreshing, isLoading, adData) {
+    // Handle refresh button click with vehicle pulse animation
+    LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
@@ -101,12 +101,6 @@ fun VehicleSelectionPreviewScreen(
             delay(100)
             // Trigger ad request via callback
             onRefreshClick()
-            // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible && adData != null) {
-            // Wait a moment for animation smoothness after loading completes
-            delay(300)
-            // Show the card with the new data
-            isCardVisible = true
         }
     }
     
@@ -117,9 +111,10 @@ fun VehicleSelectionPreviewScreen(
         }
     }
     
-    // Show card on initial load when ad data becomes available
+    // Show card when ad data becomes available (both initial load and refresh)
     LaunchedEffect(adData) {
-        if (adData != null && !isRefreshing) {
+        if (adData != null && !isLoading && !isRefreshing) {
+            delay(300) // Small delay for animation smoothness
             isCardVisible = true
         }
     }
