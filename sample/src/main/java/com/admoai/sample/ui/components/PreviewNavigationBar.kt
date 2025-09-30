@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
-import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,7 +13,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.*
 import com.admoai.sample.ui.model.PlacementItem
 
@@ -25,7 +23,7 @@ import com.admoai.sample.ui.model.PlacementItem
  * - Standard height (56dp + top safe area)
  * - Left: Back button (blue text)
  * - Center: Two-line stack with placement name and key
- * - Right: Icons - video demo (if hasVideo), document (response details), and refresh
+ * - Right: Icons - document (response details), and refresh
  */
 @Composable
 fun PreviewNavigationBar(
@@ -33,9 +31,7 @@ fun PreviewNavigationBar(
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    isRefreshing: Boolean = false,
-    hasVideoCreative: Boolean = false,
-    onVideoClick: () -> Unit = {}
+    isRefreshing: Boolean = false
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (isRefreshing) 360f else 0f,
@@ -76,32 +72,6 @@ fun PreviewNavigationBar(
             }
         },
         actions = {
-            // Video demo icon (shown only if hasVideoCreative)
-            if (hasVideoCreative) {
-                BadgedBox(
-                    badge = {
-                        Badge(
-                            containerColor = MaterialTheme.colorScheme.tertiary,
-                            contentColor = MaterialTheme.colorScheme.onTertiary
-                        ) {
-                            Text(
-                                text = "Demo",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                ) {
-                    IconButton(onClick = onVideoClick) {
-                        Icon(
-                            imageVector = Icons.Default.PlayCircle,
-                            contentDescription = "Video Demo - Uses Video Options settings",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-            
             // Document icon for response details
             IconButton(onClick = onDetailsClick) {
                 Icon(
