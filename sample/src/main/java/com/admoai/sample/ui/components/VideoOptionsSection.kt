@@ -45,6 +45,14 @@ fun VideoOptionsSection(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
+            // Info disclaimer
+            Text(
+                text = "ℹ️ These options control how the Video Demo preview renders. They are not sent to the ad server.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            
             // Delivery method
             Text(
                 text = "Delivery Method",
