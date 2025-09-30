@@ -99,6 +99,11 @@ fun VideoAdDemoScreen(
     var showVideoPreview by remember { mutableStateOf(false) }
     var previewMode by remember { mutableStateOf<VideoPreviewMode>(VideoPreviewMode.FullScreen) }
     var showModeDialog by remember { mutableStateOf(false) }
+    var isLoadingMockData by remember { mutableStateOf(false) }
+    var mockDataResult by remember { mutableStateOf<Result<String>?>(null) }
+    var showResultDialog by remember { mutableStateOf(false) }
+    
+    val scope = rememberCoroutineScope()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -263,22 +268,42 @@ fun VideoAdDemoScreen(
                     Text("How would you like to view the video demo?")
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    TextButton(
+                    Button(
                         onClick = {
                             previewMode = VideoPreviewMode.FullScreen
                             showModeDialog = false
-                            showVideoPreview = true
+                            isLoadingMockData = true
+                            
+                            // Fetch mock data
+                            scope.launch {
+                                currentScenario?.let { scenario ->
+                                    mockDataResult = fetchMockVideoData(scenario)
+                                    isLoadingMockData = false
+                                    showResultDialog = true
+                                }
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Full Screen")
                     }
                     
-                    TextButton(
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    OutlinedButton(
                         onClick = {
                             previewMode = VideoPreviewMode.Inline
                             showModeDialog = false
-                            showVideoPreview = true
+                            isLoadingMockData = true
+                            
+                            // Fetch mock data
+                            scope.launch {
+                                currentScenario?.let { scenario ->
+                                    mockDataResult = fetchMockVideoData(scenario)
+                                    isLoadingMockData = false
+                                    showResultDialog = true
+                                }
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
