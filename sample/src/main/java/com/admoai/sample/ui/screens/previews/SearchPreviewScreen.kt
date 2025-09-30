@@ -81,7 +81,6 @@ fun SearchPreviewScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
     ) {
         // Navigation bar
         PreviewNavigationBar(
