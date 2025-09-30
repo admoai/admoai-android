@@ -264,13 +264,35 @@ fun VideoAdDemoScreen(
     if (showVideoPreview && currentScenario != null) {
         when (previewMode) {
             VideoPreviewMode.FullScreen -> {
-                // TODO: Navigate to VideoPreviewScreen or show as dialog
-                // For now, show a placeholder
                 AlertDialog(
                     onDismissRequest = { showVideoPreview = false },
-                    title = { Text("Video Demo") },
+                    title = { Text("🎬 Video Demo Launching") },
                     text = { 
-                        Text("Full-screen video demo coming soon!\nScenario: $currentScenario\n\nThis will call:\nhttp://localhost:8080/endpoint?scenario=$currentScenario") 
+                        Column {
+                            Text(
+                                text = "Ready to launch video demo!",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Scenario: $currentScenario")
+                            Text("Delivery: ${videoDelivery.uppercase()}")
+                            Text("End Card: ${videoEndCard.replace("_", " ")}")
+                            Text("Skippable: ${if (isSkippable) "Yes (5s)" else "No"}")
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Endpoint: http://localhost:8080/endpoint?scenario=$currentScenario",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "⚠️ Full video player integration coming in next iteration",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     },
                     confirmButton = {
                         TextButton(onClick = { showVideoPreview = false }) {
@@ -280,8 +302,18 @@ fun VideoAdDemoScreen(
                 )
             }
             VideoPreviewMode.Inline -> {
-                // TODO: Show inline preview
-                // Placeholder for now
+                AlertDialog(
+                    onDismissRequest = { showVideoPreview = false },
+                    title = { Text("📱 Inline Preview") },
+                    text = { 
+                        Text("Inline preview mode coming soon!\nThis will display the video player embedded within the screen.") 
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showVideoPreview = false }) {
+                            Text("Close")
+                        }
+                    }
+                )
             }
         }
     }
