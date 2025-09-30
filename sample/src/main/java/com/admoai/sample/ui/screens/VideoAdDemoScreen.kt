@@ -15,6 +15,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.VideoOptionsSection
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.runtime.rememberCoroutineScope
+import android.util.Log
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * Video preview display modes
@@ -39,6 +46,34 @@ private fun getLocalMockScenario(delivery: String, endCard: String, skippable: B
         delivery == "vast_tag" && endCard == "vast_companion" && !skippable -> "vasttag_vast-companion"
         delivery == "vast_xml" && endCard == "vast_companion" && !skippable -> "vastxml_vast-companion"
         else -> null // Combination not available yet
+    }
+}
+
+/**
+ * Fetches mock video data from localhost server
+ * Note: Using 10.0.2.2 for Android emulator (maps to host machine's localhost)
+ */
+private suspend fun fetchMockVideoData(scenario: String): Result<String> = withContext(Dispatchers.IO) {
+    try {
+        val url = URL("http://10.0.2.2:8080/endpoint?scenario=$scenario")
+        val connection = url.openConnection() as HttpURLConnection
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 5000
+        connection.readTimeout = 10000
+        
+        val responseCode = connection.responseCode
+        if (responseCode == HttpURLConnection.HTTP_OK) {
+            val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
+            Log.d("VideoAdDemo", "Fetched mock data for scenario: $scenario (${responseBody.length} chars)")
+            Result.success(responseBody)
+        } else {
+            val errorMsg = "HTTP error: $responseCode"
+            Log.e("VideoAdDemo", errorMsg)
+            Result.failure(Exception(errorMsg))
+        }
+    } catch (e: Exception) {
+        Log.e("VideoAdDemo", "Error fetching mock data: ${e.message}", e)
+        Result.failure(e)
     }
 }
 
