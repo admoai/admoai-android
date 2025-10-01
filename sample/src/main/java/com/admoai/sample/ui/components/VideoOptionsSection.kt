@@ -188,6 +188,10 @@ fun VideoPlayerSection(
     viewModel: MainViewModel
 ) {
     val videoPlayer by viewModel.videoPlayer.collectAsState()
+    val videoDelivery by viewModel.videoDelivery.collectAsState()
+    
+    // Basic Player is not VAST-compliant
+    val isVastDelivery = videoDelivery in listOf("vast_tag", "vast_xml")
     
     SectionContainer(title = "Video Player") {
         Column(
@@ -208,17 +212,24 @@ fun VideoPlayerSection(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                data class PlayerOption(val value: String, val label: String, val description: String)
+                data class PlayerOption(val value: String, val label: String, val description: String, val isVastOnly: Boolean = false)
                 
                 listOf(
-                    PlayerOption("exoplayer", "ExoPlayer + IMA ⭐", "Recommended - ExoPlayer with IMA SDK (VAST-friendly)"),
-                    PlayerOption("basic", "Basic Player", "Non-VAST player with manual tracking (good for JSON delivery)"),
-                    PlayerOption("ima", "Google IMA SDK", "Pure Google IMA SDK (VAST-only)"),
-                    PlayerOption("jwplayer", "JW Player", "Commercial JW Player with full VAST support")
+                    PlayerOption("exoplayer", "ExoPlayer + IMA ⭐", "Recommended - ExoPlayer with IMA SDK (VAST-friendly)", false),
+                    PlayerOption("basic", "Basic Player", "Non-VAST player with manual tracking (good for JSON delivery)", false),
+                    PlayerOption("ima", "Google IMA SDK", "Pure Google IMA SDK (VAST-only)", true),
+                    PlayerOption("jwplayer", "JW Player", "Commercial JW Player with full VAST support", true)
                 ).forEach { option ->
+                    val isDisabled = option.value == "basic" && isVastDelivery
+                    
                     FilterChip(
                         selected = videoPlayer == option.value,
-                        onClick = { viewModel.setVideoPlayer(option.value) },
+                        onClick = { 
+                            if (!isDisabled) {
+                                viewModel.setVideoPlayer(option.value) 
+                            }
+                        },
+                        enabled = !isDisabled,
                         label = { 
                             Column {
                                 Text(

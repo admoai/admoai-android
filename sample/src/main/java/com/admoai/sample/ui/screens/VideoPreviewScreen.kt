@@ -99,8 +99,15 @@ fun VideoPreviewScreen(
     // Parse video configuration
     val videoConfig = creative?.let { remember(it) { parseVideoData(it) } }
     
-    // Determine if we should use real player
-    val useRealPlayer = selectedPlayer == "basic" && videoConfig?.videoAssetUrl != null
+    // Determine which player to use
+    val playerType = when {
+        selectedPlayer == "exoplayer" && videoConfig?.videoAssetUrl != null -> "exoplayer_ima"
+        selectedPlayer == "basic" && videoConfig?.videoAssetUrl != null -> "basic"
+        selectedPlayer == "ima" && videoConfig?.videoAssetUrl != null -> "ima_sdk"
+        else -> "simulated"
+    }
+    
+    val useRealPlayer = playerType != "simulated"
     
     // Simulated player state
     var isPlaying by remember { mutableStateOf(false) }
@@ -218,6 +225,44 @@ fun VideoPreviewScreen(
                     // Parse video data and display for testing
                     val videoConfig = remember(crtv) { parseVideoData(crtv) }
                     
+                    // Only show warning if no video URL found (not for player/delivery mismatch)
+                    // Publishers typically use one VAST-friendly player for all content
+                    val expectedDelivery = when {
+                        delivery.startsWith("vast") -> "VAST"
+                        delivery == "json" -> "JSON"
+                        else -> delivery.uppercase()
+                    }
+                    
+                    if (videoConfig.videoAssetUrl == null) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "⚠️ No Video URL Found",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "The mock server returned $expectedDelivery delivery but no video URL was found. " +
+                                        "This likely means:\n" +
+                                        "1. The mock server at localhost:8080 is not running\n" +
+                                        "2. The mock server returned unexpected data format\n" +
+                                        "3. The scenario mapping is incorrect\n\n" +
+                                        "Falling back to simulated player.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                    
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
@@ -248,22 +293,61 @@ fun VideoPreviewScreen(
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Video player - Real or Simulated
-                    if (useRealPlayer && videoConfig != null) {
-                        // Use real BasicVideoPlayer
-                        BasicVideoPlayer(
-                            videoConfig = videoConfig,
-                            creative = crtv,
-                            viewModel = viewModel,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(16f / 9f)
-                                .clip(RoundedCornerShape(8.dp)),
-                            onComplete = {
-                                showEndCard = true
+                    // Video player - Select based on playerType
+                    when (playerType) {
+                        "exoplayer_ima" -> {
+                            // ExoPlayer + IMA for VAST
+                            videoConfig?.let { config ->
+                                ExoPlayerImaVideoPlayer(
+                                    videoConfig = config,
+                                    creative = crtv,
+                                    viewModel = viewModel,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(16f / 9f)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    onComplete = {
+                                        showEndCard = true
+                                    }
+                                )
                             }
-                        )
-                    } else {
+                        }
+                        "basic" -> {
+                            // Basic Player for JSON delivery
+                            videoConfig?.let { config ->
+                                BasicVideoPlayer(
+                                    videoConfig = config,
+                                    creative = crtv,
+                                    viewModel = viewModel,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(16f / 9f)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    onComplete = {
+                                        showEndCard = true
+                                    }
+                                )
+                            }
+                        }
+                        "ima_sdk" -> {
+                            // Pure IMA SDK (to be implemented)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(16f / 9f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.DarkGray),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "🎬\nGoogle IMA SDK\n(Coming Soon)",
+                                    color = Color.White,
+                                    textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                        }
+                        else -> {
                         // Simulated player
                         Box(
                             modifier = Modifier
@@ -386,13 +470,20 @@ fun VideoPreviewScreen(
                             }
                         }
                         }  // Close simulated player Box
-                    }
+                        }  // Close else
+                    }  // Close when
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     // Player type indicator
+                    val playerLabel = when (playerType) {
+                        "exoplayer_ima" -> "ExoPlayer + IMA (VAST)"
+                        "basic" -> "Basic Player (JSON)"
+                        "ima_sdk" -> "Google IMA SDK"
+                        else -> "Simulated Player"
+                    }
                     Text(
-                        text = "🎮 Player: ${if (useRealPlayer) "Basic Player (Real)" else "Simulated Player"}",
+                        text = "🎮 Player: $playerLabel",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (useRealPlayer) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
                         fontWeight = FontWeight.Bold
@@ -761,13 +852,13 @@ data class VideoPlayerConfig(
 fun parseVideoData(creative: Creative): VideoPlayerConfig {
     val contents = creative.contents.associate { it.key to it.value }
     
-    // Extract video URL based on delivery method
+    // Extract video URL - try VAST first, then JSON videoAsset
     val videoAssetUrl = when (creative.delivery) {
         "vast_tag", "vast_xml" -> creative.vast?.tagUrl // VAST tag URL
         else -> contents["videoAsset"]?.let { // JSON delivery - video asset URL
             (it as? JsonPrimitive)?.contentOrNull
         }
-    }
+    } ?: creative.vast?.tagUrl // Fallback: try VAST tagUrl even if delivery says JSON
     
     // Extract poster image
     val posterImageUrl = contents["posterImage"]?.let {
@@ -827,8 +918,281 @@ fun parseVideoData(creative: Creative): VideoPlayerConfig {
 }
 
 /**
+ * ExoPlayer + IMA Video Player (for VAST tag delivery)
+ * Uses Google IMA SDK for automatic ad serving and tracking
+ */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@Composable
+fun ExoPlayerImaVideoPlayer(
+    videoConfig: VideoPlayerConfig,
+    creative: Creative,
+    viewModel: MainViewModel,
+    modifier: Modifier = Modifier,
+    onComplete: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    
+    // Player state
+    var isPlaying by remember { mutableStateOf(false) }
+    var hasCompleted by remember { mutableStateOf(false) }
+    var currentPosition by remember { mutableFloatStateOf(0f) }
+    var duration by remember { mutableFloatStateOf(0f) }
+    var playbackError by remember { mutableStateOf<String?>(null) }
+    
+    // Overlay state (for JSON delivery with native end-card)
+    var overlayShown by remember { mutableStateOf(false) }
+    var overlayTracked by remember { mutableStateOf(false) }
+    
+    // IMA ads loader
+    val adsLoader = remember {
+        ImaAdsLoader.Builder(context).build()
+    }
+    
+    // PlayerView reference for AdViewProvider
+    var playerView: PlayerView? by remember { mutableStateOf(null) }
+    
+    // ExoPlayer with IMA integration
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(context)
+                    .setDataSourceFactory(DefaultDataSource.Factory(context))
+                    .setAdsLoaderProvider { adsLoader }
+                    .setAdViewProvider { playerView!! } // Provide the PlayerView for ad rendering
+            )
+            .build()
+            .apply {
+                videoConfig.videoAssetUrl?.let { vastTagUrl ->
+                    android.util.Log.d("ExoPlayerIMA", "Loading VAST tag URL: $vastTagUrl")
+                    
+                    // Validate URL protocol
+                    if (vastTagUrl.startsWith("https://10.0.2.2") || vastTagUrl.startsWith("https://localhost")) {
+                        android.util.Log.e("ExoPlayerIMA", "ERROR: VAST URL uses HTTPS with localhost/10.0.2.2. Should use HTTP instead!")
+                        playbackError = "VAST URL Error: Using HTTPS with local server. Change to HTTP in mock server."
+                    }
+                    
+                    // For VAST tag delivery with IMA:
+                    // We use a real video URL as content, and IMA will show ads before it
+                    // The video URL from VAST XML: https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8
+                    val contentVideoUri = "https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8"
+                    
+                    val mediaItemBuilder = MediaItem.Builder()
+                        .setUri(Uri.parse(contentVideoUri))
+                        .setAdsConfiguration(
+                            MediaItem.AdsConfiguration.Builder(Uri.parse(vastTagUrl)).build()
+                        )
+                    
+                    // Add poster image as artwork if available
+                    videoConfig.posterImageUrl?.let { posterUrl ->
+                        mediaItemBuilder.setMediaMetadata(
+                            androidx.media3.common.MediaMetadata.Builder()
+                                .setArtworkUri(Uri.parse(posterUrl))
+                                .build()
+                        )
+                    }
+                    
+                    setMediaItem(mediaItemBuilder.build())
+                    prepare()
+                    playWhenReady = true
+                    
+                    // Add error listener
+                    addListener(object : androidx.media3.common.Player.Listener {
+                        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                            android.util.Log.e("ExoPlayerIMA", "Playback error: ${error.message}", error)
+                            val errorCause = error.cause?.toString() ?: ""
+                            val errorMsg = error.message ?: ""
+                            playbackError = when {
+                                errorMsg.contains("SSLException") || errorCause.contains("SSLException") -> 
+                                    "SSL Error: VAST URL uses HTTPS but server is HTTP. Change mock server to return http:// URLs."
+                                errorMsg.contains("ConnectException") || errorCause.contains("ConnectException") -> 
+                                    "Connection Error: Cannot reach server at $vastTagUrl. Is mock server running?"
+                                errorCause.contains("UnrecognizedInputFormatException") -> 
+                                    "Content URI Error: Unable to load dummy content. This is likely an IMA configuration issue."
+                                errorMsg.contains("Ad error") || errorCause.contains("AdError") -> 
+                                    "IMA Ad Error: ${error.message}. Check VAST XML format and video URLs."
+                                else -> "Playback error: ${error.message ?: "Unknown error"}"
+                            }
+                        }
+                    })
+                }
+            }
+    }
+    
+    // Set adsLoader's player
+    LaunchedEffect(exoPlayer) {
+        adsLoader.setPlayer(exoPlayer)
+    }
+    
+    // Monitor playback state and overlay
+    LaunchedEffect(exoPlayer) {
+        while (isActive) {
+            delay(100)
+            isPlaying = exoPlayer.isPlaying
+            
+            // Track position and duration
+            if (exoPlayer.duration > 0) {
+                duration = exoPlayer.duration / 1000f
+                currentPosition = exoPlayer.currentPosition / 1000f
+                
+                val progress = if (duration > 0) currentPosition / duration else 0f
+                
+                // Show overlay at specified percentage (for JSON delivery)
+                if (progress >= videoConfig.overlayAtPercentage && !overlayShown) {
+                    overlayShown = true
+                    if (!overlayTracked) {
+                        viewModel.fireCustomEvent(creative, "overlayShown")
+                        overlayTracked = true
+                    }
+                }
+            }
+            
+            // Check for completion
+            if (exoPlayer.playbackState == androidx.media3.common.Player.STATE_ENDED && !hasCompleted) {
+                hasCompleted = true
+                onComplete()
+            }
+        }
+    }
+    
+    // Cleanup
+    DisposableEffect(exoPlayer) {
+        onDispose {
+            adsLoader.release()
+            exoPlayer.release()
+        }
+    }
+    
+    Box(modifier = modifier) {
+        // ExoPlayer view with IMA support
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    player = exoPlayer
+                    useController = true // Use IMA's built-in controls
+                    useArtwork = true // Enable artwork display (poster image)
+                    playerView = this // Assign for AdViewProvider
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+        
+        // Custom overlay UI (for JSON delivery with companion ads) - matches BasicVideoPlayer
+        if (overlayShown && !hasCompleted && videoConfig.companionHeadline != null) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(0.92f)
+                    .height(60.dp)
+                    .padding(horizontal = 8.dp, vertical = 12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Headline
+                    videoConfig.companionHeadline?.let { headline ->
+                        Text(
+                            text = headline,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 2
+                        )
+                    }
+                    
+                    // CTA Button
+                    videoConfig.companionCta?.let { cta ->
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                viewModel.fireClick(creative, "cta")
+                                videoConfig.companionDestinationUrl?.let { url ->
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    context.startActivity(intent)
+                                }
+                            },
+                            modifier = Modifier.height(36.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = cta,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Error overlay (center)
+        if (playbackError != null) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(16.dp)
+                    .fillMaxWidth(0.9f),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "⚠️ Playback Error",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = playbackError ?: "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+        
+        // Info overlay (top)
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(8.dp),
+            color = Color.Black.copy(alpha = 0.6f),
+            shape = RoundedCornerShape(4.dp)
+        ) {
+            Text(
+                text = "ExoPlayer + IMA",
+                color = Color.White,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
+    }
+}
+
+/**
  * Basic Video Player using ExoPlayer (for JSON delivery, non-VAST)
  */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun BasicVideoPlayer(
     videoConfig: VideoPlayerConfig,
@@ -867,8 +1231,18 @@ fun BasicVideoPlayer(
             .build()
             .apply {
                 videoConfig.videoAssetUrl?.let { url ->
-                    val mediaItem = MediaItem.fromUri(url)
-                    setMediaItem(mediaItem)
+                    val mediaItemBuilder = MediaItem.Builder().setUri(url)
+                    
+                    // Add poster image as artwork if available
+                    videoConfig.posterImageUrl?.let { posterUrl ->
+                        mediaItemBuilder.setMediaMetadata(
+                            androidx.media3.common.MediaMetadata.Builder()
+                                .setArtworkUri(Uri.parse(posterUrl))
+                                .build()
+                        )
+                    }
+                    
+                    setMediaItem(mediaItemBuilder.build())
                     prepare()
                 }
             }
@@ -948,32 +1322,34 @@ fun BasicVideoPlayer(
                 PlayerView(ctx).apply {
                     player = exoPlayer
                     useController = false // Use custom controls
+                    useArtwork = true // Enable artwork display (poster image)
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
         
-        // Custom overlay UI (shown at overlayAtPercentage) - Native, less intrusive design
+        // Custom overlay UI (shown at overlayAtPercentage) - Minimal, native design (max 15% height)
         if (overlayShown && !hasCompleted && videoConfig.companionHeadline != null) {
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth(0.85f) // 85% width - less intrusive
-                    .padding(horizontal = 12.dp, vertical = 16.dp),
+                    .fillMaxWidth(0.92f)
+                    .height(60.dp) // Increased for better visibility
+                    .padding(horizontal = 8.dp, vertical = 12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                shape = RoundedCornerShape(12.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(10.dp)
             ) {
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
+                        .fillMaxSize()
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Headline (left side)
+                    // Headline (left side) - more visible
                     videoConfig.companionHeadline?.let { headline ->
                         Text(
                             text = headline,
@@ -985,7 +1361,7 @@ fun BasicVideoPlayer(
                         )
                     }
                     
-                    // CTA Button (right side) - compact
+                    // CTA Button (right side) - more visible
                     videoConfig.companionCta?.let { cta ->
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
@@ -1000,12 +1376,14 @@ fun BasicVideoPlayer(
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
                             ),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 text = cta,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Medium
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1
                             )
                         }
                     }
