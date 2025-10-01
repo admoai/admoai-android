@@ -254,3 +254,8 @@ FilterChip(enabled = !isDisabled, ...)
 3. **IMA Requirements**: Both `setAdsLoaderProvider` AND `setAdViewProvider` must be configured
 4. **Mock Server URLs**: Use `http://10.0.2.2:8080` from Android emulator, `localhost:8080` from Mac
 5. **Content URI**: For VAST-only ads, use real video URL as content, VAST tag in AdsConfiguration
+
+
+## Non-AI Very important notes
+- What we're building is not ads on a video that is later going to be played, but rather a "Video Ad", which is that the video itself is the ad, and it can have different behaviours, from delivery method (serving), to overlaying components (end-card, companion, etc), including the tracking events obviously. 
+- I saw that on the VAST Tag + none + ExoPlayer + IMA configuration on the demo playground, the first time the Video plays it says something like "Ad" or something, that give me the sensation that the user expects that after that Ad they'll see another video, which is not the use cases we want to implement, rather than the video creative itself is the Ad and after it ends he can either replay, or if the publisher chooses do another call to the Decision API to get another video creative.
