@@ -943,9 +943,34 @@ fun ExoPlayerImaVideoPlayer(
     var overlayShown by remember { mutableStateOf(false) }
     var overlayTracked by remember { mutableStateOf(false) }
     
-    // IMA ads loader
+    // IMA ads loader with event listeners
     val adsLoader = remember {
-        ImaAdsLoader.Builder(context).build()
+        ImaAdsLoader.Builder(context)
+            .setAdEventListener { adEvent ->
+                android.util.Log.d("IMA_EVENT", "Ad Event: ${adEvent.type}")
+                when (adEvent.type) {
+                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.LOADED ->
+                        android.util.Log.d("IMA_EVENT", "✅ Ad LOADED")
+                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.STARTED ->
+                        android.util.Log.d("IMA_EVENT", "✅ Ad STARTED")
+                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.FIRST_QUARTILE ->
+                        android.util.Log.d("IMA_EVENT", "✅ Ad FIRST_QUARTILE")
+                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.MIDPOINT ->
+                        android.util.Log.d("IMA_EVENT", "✅ Ad MIDPOINT")
+                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.THIRD_QUARTILE ->
+                        android.util.Log.d("IMA_EVENT", "✅ Ad THIRD_QUARTILE")
+                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.COMPLETED ->
+                        android.util.Log.d("IMA_EVENT", "✅ Ad COMPLETED")
+                    else -> Unit
+                }
+            }
+            .setAdErrorListener { adErrorEvent ->
+                android.util.Log.e("IMA_ERROR", "❌ Ad Error: ${adErrorEvent.error.message}")
+                android.util.Log.e("IMA_ERROR", "Error Code: ${adErrorEvent.error.errorCode}")
+                android.util.Log.e("IMA_ERROR", "Error Type: ${adErrorEvent.error.errorCodeNumber}")
+                playbackError = "IMA Ad Error: ${adErrorEvent.error.message}"
+            }
+            .build()
     }
     
     // PlayerView reference for AdViewProvider
@@ -964,12 +989,6 @@ fun ExoPlayerImaVideoPlayer(
             .apply {
                 videoConfig.videoAssetUrl?.let { vastTagUrl ->
                     android.util.Log.d("ExoPlayerIMA", "Loading VAST tag URL: $vastTagUrl")
-                    
-                    // Validate URL protocol
-                    if (vastTagUrl.startsWith("https://10.0.2.2") || vastTagUrl.startsWith("https://localhost")) {
-                        android.util.Log.e("ExoPlayerIMA", "ERROR: VAST URL uses HTTPS with localhost/10.0.2.2. Should use HTTP instead!")
-                        playbackError = "VAST URL Error: Using HTTPS with local server. Change to HTTP in mock server."
-                    }
                     
                     // For VAST tag delivery with IMA:
                     // We use a real video URL as content, and IMA will show ads before it

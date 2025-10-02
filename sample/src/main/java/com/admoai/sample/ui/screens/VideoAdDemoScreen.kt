@@ -58,7 +58,7 @@ private fun getLocalMockScenario(delivery: String, endCard: String, skippable: B
  */
 private suspend fun fetchMockVideoData(scenario: String): Result<String> = withContext(Dispatchers.IO) {
     try {
-        val url = URL("http://10.0.2.2:8080/endpoint?scenario=$scenario")
+        val url = URL("https://10.0.2.2:8080/endpoint?scenario=$scenario")
         val connection = url.openConnection() as HttpURLConnection
         connection.requestMethod = "GET"
         connection.connectTimeout = 5000
@@ -389,7 +389,7 @@ fun VideoAdDemoScreen(
                 ) {
                     Text("Scenario: $currentScenario")
                     Text("Mode: ${previewMode.name}")
-                    Text("Endpoint: http://10.0.2.2:8080/endpoint?scenario=$currentScenario")
+                    Text("Endpoint: https://10.0.2.2:8080/endpoint?scenario=$currentScenario")
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
