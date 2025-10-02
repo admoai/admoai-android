@@ -101,9 +101,9 @@ fun VideoPreviewScreen(
     
     // Determine which player to use
     val playerType = when {
+        selectedPlayer == "ima" && videoConfig?.videoAssetUrl != null -> "ima_sdk"
         selectedPlayer == "exoplayer" && videoConfig?.videoAssetUrl != null -> "exoplayer_ima"
         selectedPlayer == "basic" && videoConfig?.videoAssetUrl != null -> "basic"
-        selectedPlayer == "ima" && videoConfig?.videoAssetUrl != null -> "ima_sdk"
         else -> "simulated"
     }
     
@@ -295,8 +295,25 @@ fun VideoPreviewScreen(
                     
                     // Video player - Select based on playerType
                     when (playerType) {
+                        "ima_sdk" -> {
+                            // Google IMA SDK Player - Works with both JSON and VAST
+                            videoConfig?.let { config ->
+                                GoogleImaSDKPlayer(
+                                    videoConfig = config,
+                                    creative = crtv,
+                                    viewModel = viewModel,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(16f / 9f)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    onComplete = {
+                                        showEndCard = true
+                                    }
+                                )
+                            }
+                        }
                         "exoplayer_ima" -> {
-                            // ExoPlayer + IMA for VAST
+                            // ExoPlayer + IMA - Best for VAST
                             videoConfig?.let { config ->
                                 ExoPlayerImaVideoPlayer(
                                     videoConfig = config,
@@ -313,7 +330,7 @@ fun VideoPreviewScreen(
                             }
                         }
                         "basic" -> {
-                            // Basic Player for JSON delivery
+                            // Basic Player - Best for JSON delivery
                             videoConfig?.let { config ->
                                 BasicVideoPlayer(
                                     videoConfig = config,
@@ -326,24 +343,6 @@ fun VideoPreviewScreen(
                                     onComplete = {
                                         showEndCard = true
                                     }
-                                )
-                            }
-                        }
-                        "ima_sdk" -> {
-                            // Pure IMA SDK (to be implemented)
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(16f / 9f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color.DarkGray),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "🎬\nGoogle IMA SDK\n(Coming Soon)",
-                                    color = Color.White,
-                                    textAlign = TextAlign.Center,
-                                    style = MaterialTheme.typography.titleMedium
                                 )
                             }
                         }
@@ -477,13 +476,13 @@ fun VideoPreviewScreen(
                     
                     // Player type indicator
                     val playerLabel = when (playerType) {
-                        "exoplayer_ima" -> "ExoPlayer + IMA (VAST)"
-                        "basic" -> "Basic Player (JSON)"
                         "ima_sdk" -> "Google IMA SDK"
+                        "exoplayer_ima" -> "ExoPlayer + Google IMA"
+                        "basic" -> "Basic Player"
                         else -> "Simulated Player"
                     }
                     Text(
-                        text = "🎮 Player: $playerLabel",
+                        text = "Player: $playerLabel",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (useRealPlayer) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
                         fontWeight = FontWeight.Bold
@@ -918,8 +917,10 @@ fun parseVideoData(creative: Creative): VideoPlayerConfig {
 }
 
 /**
- * ExoPlayer + IMA Video Player (for VAST tag delivery)
- * Uses Google IMA SDK for automatic ad serving and tracking
+ * ExoPlayer + IMA Video Player
+ * Works with both JSON and VAST delivery methods
+ * - VAST: Uses IMA SDK for automatic ad serving and tracking
+ * - JSON: Uses manual tracking with ExoPlayer progress monitoring
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
@@ -942,6 +943,17 @@ fun ExoPlayerImaVideoPlayer(
     // Overlay state (for JSON delivery with native end-card)
     var overlayShown by remember { mutableStateOf(false) }
     var overlayTracked by remember { mutableStateOf(false) }
+    
+    // Tracking state (for JSON delivery - manual tracking)
+    var hasStarted by remember { mutableStateOf(false) }
+    var startTracked by remember { mutableStateOf(false) }
+    var firstQuartileTracked by remember { mutableStateOf(false) }
+    var midpointTracked by remember { mutableStateOf(false) }
+    var thirdQuartileTracked by remember { mutableStateOf(false) }
+    var completeTracked by remember { mutableStateOf(false) }
+    
+    // Check if this is JSON delivery (needs manual tracking)
+    val isJsonDelivery = creative.delivery?.startsWith("vast") != true
     
     // IMA ads loader with event listeners
     val adsLoader = remember {
@@ -976,30 +988,39 @@ fun ExoPlayerImaVideoPlayer(
     // PlayerView reference for AdViewProvider
     var playerView: PlayerView? by remember { mutableStateOf(null) }
     
-    // ExoPlayer with IMA integration
+    // ExoPlayer with conditional IMA integration
     val exoPlayer = remember {
+        val mediaSourceFactory = DefaultMediaSourceFactory(context)
+            .setDataSourceFactory(DefaultDataSource.Factory(context))
+        
+        // Only use IMA for VAST delivery
+        if (!isJsonDelivery) {
+            mediaSourceFactory
+                .setAdsLoaderProvider { adsLoader }
+                .setAdViewProvider { playerView!! }
+        }
+        
         ExoPlayer.Builder(context)
-            .setMediaSourceFactory(
-                DefaultMediaSourceFactory(context)
-                    .setDataSourceFactory(DefaultDataSource.Factory(context))
-                    .setAdsLoaderProvider { adsLoader }
-                    .setAdViewProvider { playerView!! } // Provide the PlayerView for ad rendering
-            )
+            .setMediaSourceFactory(mediaSourceFactory)
             .build()
             .apply {
-                videoConfig.videoAssetUrl?.let { vastTagUrl ->
-                    android.util.Log.d("ExoPlayerIMA", "Loading VAST tag URL: $vastTagUrl")
-                    
-                    // For VAST tag delivery with IMA:
-                    // We use a real video URL as content, and IMA will show ads before it
-                    // The video URL from VAST XML: https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8
-                    val contentVideoUri = "https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8"
+                videoConfig.videoAssetUrl?.let { url ->
+                    android.util.Log.d("ExoPlayerIMA", "Loading ${if (isJsonDelivery) "JSON" else "VAST"} URL: $url")
                     
                     val mediaItemBuilder = MediaItem.Builder()
-                        .setUri(Uri.parse(contentVideoUri))
-                        .setAdsConfiguration(
-                            MediaItem.AdsConfiguration.Builder(Uri.parse(vastTagUrl)).build()
-                        )
+                    
+                    if (isJsonDelivery) {
+                        // JSON delivery: Play video directly without IMA ads configuration
+                        mediaItemBuilder.setUri(Uri.parse(url))
+                    } else {
+                        // VAST delivery: Use IMA with content video + ads configuration
+                        val contentVideoUri = "https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8"
+                        mediaItemBuilder
+                            .setUri(Uri.parse(contentVideoUri))
+                            .setAdsConfiguration(
+                                MediaItem.AdsConfiguration.Builder(Uri.parse(url)).build()
+                            )
+                    }
                     
                     // Add poster image as artwork if available
                     videoConfig.posterImageUrl?.let { posterUrl ->
@@ -1022,11 +1043,11 @@ fun ExoPlayerImaVideoPlayer(
                             val errorMsg = error.message ?: ""
                             playbackError = when {
                                 errorMsg.contains("SSLException") || errorCause.contains("SSLException") -> 
-                                    "SSL Error: VAST URL uses HTTPS but server is HTTP. Change mock server to return http:// URLs."
+                                    "SSL Error: URL uses HTTPS but server is HTTP. Change mock server to return http:// URLs."
                                 errorMsg.contains("ConnectException") || errorCause.contains("ConnectException") -> 
-                                    "Connection Error: Cannot reach server at $vastTagUrl. Is mock server running?"
+                                    "Connection Error: Cannot reach server at $url. Is mock server running?"
                                 errorCause.contains("UnrecognizedInputFormatException") -> 
-                                    "Content URI Error: Unable to load dummy content. This is likely an IMA configuration issue."
+                                    "Content Error: Unable to load video content. Check video URL format."
                                 errorMsg.contains("Ad error") || errorCause.contains("AdError") -> 
                                     "IMA Ad Error: ${error.message}. Check VAST XML format and video URLs."
                                 else -> "Playback error: ${error.message ?: "Unknown error"}"
@@ -1042,7 +1063,7 @@ fun ExoPlayerImaVideoPlayer(
         adsLoader.setPlayer(exoPlayer)
     }
     
-    // Monitor playback state and overlay
+    // Monitor playback state, fire tracking events, and manage overlays
     LaunchedEffect(exoPlayer) {
         while (isActive) {
             delay(100)
@@ -1054,6 +1075,41 @@ fun ExoPlayerImaVideoPlayer(
                 currentPosition = exoPlayer.currentPosition / 1000f
                 
                 val progress = if (duration > 0) currentPosition / duration else 0f
+                
+                // Manual tracking for JSON delivery only (VAST uses IMA automatic tracking)
+                if (isJsonDelivery) {
+                    // Fire start event
+                    if (exoPlayer.isPlaying && !hasStarted) {
+                        hasStarted = true
+                    }
+                    
+                    if (hasStarted && !startTracked) {
+                        viewModel.fireVideoEvent(creative, "start")
+                        startTracked = true
+                    }
+                    
+                    // Fire quartile events
+                    if (progress >= 0.25f && !firstQuartileTracked) {
+                        viewModel.fireVideoEvent(creative, "firstQuartile")
+                        firstQuartileTracked = true
+                    }
+                    
+                    if (progress >= 0.5f && !midpointTracked) {
+                        viewModel.fireVideoEvent(creative, "midpoint")
+                        midpointTracked = true
+                    }
+                    
+                    if (progress >= 0.75f && !thirdQuartileTracked) {
+                        viewModel.fireVideoEvent(creative, "thirdQuartile")
+                        thirdQuartileTracked = true
+                    }
+                    
+                    // Fire complete event
+                    if (progress >= 0.98f && !completeTracked) {
+                        viewModel.fireVideoEvent(creative, "complete")
+                        completeTracked = true
+                    }
+                }
                 
                 // Show overlay at specified percentage (for JSON delivery)
                 if (progress >= videoConfig.overlayAtPercentage && !overlayShown) {
@@ -1188,22 +1244,6 @@ fun ExoPlayerImaVideoPlayer(
                     )
                 }
             }
-        }
-        
-        // Info overlay (top)
-        Surface(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(8.dp),
-            color = Color.Black.copy(alpha = 0.6f),
-            shape = RoundedCornerShape(4.dp)
-        ) {
-            Text(
-                text = "ExoPlayer + IMA",
-                color = Color.White,
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-            )
         }
     }
 }
@@ -1499,6 +1539,312 @@ fun BasicVideoPlayer(
                     .fillMaxWidth()
                     .height(4.dp)
             )
+        }
+    }
+}
+
+/**
+ * Google IMA SDK Player (Pure IMA implementation)
+ * Works with both VAST and JSON delivery methods
+ * Focus on IMA SDK integration for ad serving
+ */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@Composable
+fun GoogleImaSDKPlayer(
+    videoConfig: VideoPlayerConfig,
+    creative: Creative,
+    viewModel: MainViewModel,
+    modifier: Modifier = Modifier,
+    onComplete: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    
+    // Player state
+    var isPlaying by remember { mutableStateOf(false) }
+    var hasCompleted by remember { mutableStateOf(false) }
+    var currentPosition by remember { mutableFloatStateOf(0f) }
+    var duration by remember { mutableFloatStateOf(0f) }
+    var playbackError by remember { mutableStateOf<String?>(null) }
+    
+    // Overlay state (for JSON delivery with native end-card)
+    var overlayShown by remember { mutableStateOf(false) }
+    var overlayTracked by remember { mutableStateOf(false) }
+    
+    // Tracking state (for JSON delivery - manual tracking)
+    var hasStarted by remember { mutableStateOf(false) }
+    var startTracked by remember { mutableStateOf(false) }
+    var firstQuartileTracked by remember { mutableStateOf(false) }
+    var midpointTracked by remember { mutableStateOf(false) }
+    var thirdQuartileTracked by remember { mutableStateOf(false) }
+    var completeTracked by remember { mutableStateOf(false) }
+    
+    // Check if this is JSON delivery (needs manual tracking)
+    val isJsonDelivery = creative.delivery?.startsWith("vast") != true
+    
+    // IMA ads loader - Pure IMA SDK focus
+    val adsLoader = remember {
+        ImaAdsLoader.Builder(context)
+            .setAdEventListener { adEvent ->
+                android.util.Log.d("GOOGLE_IMA", "Ad Event: ${adEvent.type}")
+                when (adEvent.type) {
+                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.COMPLETED -> {
+                        android.util.Log.d("GOOGLE_IMA", "✅ Ad COMPLETED")
+                        hasCompleted = true
+                        onComplete()
+                    }
+                    else -> Unit
+                }
+            }
+            .setAdErrorListener { adErrorEvent ->
+                android.util.Log.e("GOOGLE_IMA", "❌ Ad Error: ${adErrorEvent.error.message}")
+                playbackError = "IMA Error: ${adErrorEvent.error.message}"
+            }
+            .build()
+    }
+    
+    // PlayerView reference for AdViewProvider
+    var playerView: PlayerView? by remember { mutableStateOf(null) }
+    
+    // ExoPlayer with IMA integration (minimal ExoPlayer, focus on IMA)
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(context)
+                    .setDataSourceFactory(DefaultDataSource.Factory(context))
+                    .setAdsLoaderProvider { adsLoader }
+                    .setAdViewProvider { playerView!! }
+            )
+            .build()
+            .apply {
+                videoConfig.videoAssetUrl?.let { url ->
+                    android.util.Log.d("GoogleIMASDK", "Loading video URL: $url")
+                    
+                    // For JSON delivery: use videoAsset URL directly
+                    // For VAST: use VAST tag URL in AdsConfiguration
+                    val isVastDelivery = creative.delivery?.startsWith("vast") == true
+                    
+                    val mediaItemBuilder = MediaItem.Builder()
+                    
+                    if (isVastDelivery) {
+                        // VAST delivery: use real video as content, VAST tag in ads config
+                        val contentVideoUri = "https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8"
+                        mediaItemBuilder
+                            .setUri(Uri.parse(contentVideoUri))
+                            .setAdsConfiguration(
+                                MediaItem.AdsConfiguration.Builder(Uri.parse(url)).build()
+                            )
+                    } else {
+                        // JSON delivery: use videoAsset URL directly (no ads config)
+                        mediaItemBuilder.setUri(Uri.parse(url))
+                    }
+                    
+                    // Add poster image
+                    videoConfig.posterImageUrl?.let { posterUrl ->
+                        mediaItemBuilder.setMediaMetadata(
+                            androidx.media3.common.MediaMetadata.Builder()
+                                .setArtworkUri(Uri.parse(posterUrl))
+                                .build()
+                        )
+                    }
+                    
+                    setMediaItem(mediaItemBuilder.build())
+                    prepare()
+                    playWhenReady = true
+                    
+                    // Error listener
+                    addListener(object : androidx.media3.common.Player.Listener {
+                        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                            android.util.Log.e("GoogleIMASDK", "Playback error: ${error.message}", error)
+                            playbackError = "Playback error: ${error.message ?: "Unknown error"}"
+                        }
+                    })
+                }
+            }
+    }
+    
+    // Set adsLoader's player
+    LaunchedEffect(exoPlayer) {
+        adsLoader.setPlayer(exoPlayer)
+    }
+    
+    // Monitor playback state and fire tracking events
+    LaunchedEffect(exoPlayer) {
+        while (isActive) {
+            delay(100)
+            isPlaying = exoPlayer.isPlaying
+            
+            if (exoPlayer.duration > 0) {
+                duration = exoPlayer.duration / 1000f
+                currentPosition = exoPlayer.currentPosition / 1000f
+                
+                val progress = if (duration > 0) currentPosition / duration else 0f
+                
+                // Manual tracking for JSON delivery only
+                if (isJsonDelivery) {
+                    // Fire start event
+                    if (exoPlayer.isPlaying && !hasStarted) {
+                        hasStarted = true
+                    }
+                    
+                    if (hasStarted && !startTracked) {
+                        viewModel.fireVideoEvent(creative, "start")
+                        startTracked = true
+                    }
+                    
+                    // Fire quartile events
+                    if (progress >= 0.25f && !firstQuartileTracked) {
+                        viewModel.fireVideoEvent(creative, "firstQuartile")
+                        firstQuartileTracked = true
+                    }
+                    
+                    if (progress >= 0.5f && !midpointTracked) {
+                        viewModel.fireVideoEvent(creative, "midpoint")
+                        midpointTracked = true
+                    }
+                    
+                    if (progress >= 0.75f && !thirdQuartileTracked) {
+                        viewModel.fireVideoEvent(creative, "thirdQuartile")
+                        thirdQuartileTracked = true
+                    }
+                    
+                    // Fire complete event
+                    if (progress >= 0.98f && !completeTracked) {
+                        viewModel.fireVideoEvent(creative, "complete")
+                        completeTracked = true
+                    }
+                }
+                
+                // Show overlay at specified percentage
+                if (progress >= videoConfig.overlayAtPercentage && !overlayShown) {
+                    overlayShown = true
+                    if (!overlayTracked) {
+                        viewModel.fireCustomEvent(creative, "overlayShown")
+                        overlayTracked = true
+                    }
+                }
+            }
+            
+            // Check for completion
+            if (exoPlayer.playbackState == androidx.media3.common.Player.STATE_ENDED && !hasCompleted) {
+                hasCompleted = true
+                onComplete()
+            }
+        }
+    }
+    
+    // Cleanup
+    DisposableEffect(exoPlayer) {
+        onDispose {
+            adsLoader.release()
+            exoPlayer.release()
+        }
+    }
+    
+    Box(modifier = modifier) {
+        // ExoPlayer view with IMA support
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    player = exoPlayer
+                    useController = true
+                    useArtwork = true
+                    playerView = this
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+        
+        // Custom overlay UI (for JSON delivery with companion ads)
+        if (overlayShown && !hasCompleted && videoConfig.companionHeadline != null) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(0.92f)
+                    .height(60.dp)
+                    .padding(horizontal = 8.dp, vertical = 12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    videoConfig.companionHeadline?.let { headline ->
+                        Text(
+                            text = headline,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 2
+                        )
+                    }
+                    
+                    videoConfig.companionCta?.let { cta ->
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                viewModel.fireClick(creative, "cta")
+                                videoConfig.companionDestinationUrl?.let { url ->
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    context.startActivity(intent)
+                                }
+                            },
+                            modifier = Modifier.height(36.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = cta,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Error overlay
+        if (playbackError != null) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(16.dp)
+                    .fillMaxWidth(0.9f),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "⚠️ Playback Error",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = playbackError ?: "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
         }
     }
 }

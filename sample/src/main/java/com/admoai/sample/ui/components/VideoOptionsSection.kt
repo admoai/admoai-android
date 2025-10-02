@@ -215,10 +215,9 @@ fun VideoPlayerSection(
                 data class PlayerOption(val value: String, val label: String, val description: String, val isVastOnly: Boolean = false)
                 
                 listOf(
-                    PlayerOption("exoplayer", "ExoPlayer + IMA ⭐", "Recommended - ExoPlayer with IMA SDK (VAST-friendly)", false),
-                    PlayerOption("basic", "Basic Player", "Non-VAST player with manual tracking (good for JSON delivery)", false),
-                    PlayerOption("ima", "Google IMA SDK", "Pure Google IMA SDK (VAST-only)", true),
-                    PlayerOption("jwplayer", "JW Player", "Commercial JW Player with full VAST support", true)
+                    PlayerOption("ima", "Google IMA SDK", "Works with both JSON and VAST delivery", false),
+                    PlayerOption("exoplayer", "ExoPlayer + Google IMA", "Works with both JSON and VAST delivery", false),
+                    PlayerOption("basic", "Basic Player", "Best for JSON delivery (manual tracking)", false)
                 ).forEach { option ->
                     val isDisabled = option.value == "basic" && isVastDelivery
                     
