@@ -29,6 +29,8 @@ enum class ContentType {
     INTEGER,
     @SerialName("number")
     NUMBER,
+    @SerialName("float")
+    FLOAT,
     @SerialName("url")
     URL,
     @SerialName("color")

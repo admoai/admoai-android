@@ -846,14 +846,189 @@ data class VideoPlayerConfig(
 )
 
 /**
+ * Fetch VAST XML from a tag URL
+ */
+suspend fun fetchVastXmlFromUrl(tagUrl: String): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    return@withContext try {
+        val url = java.net.URL(tagUrl)
+        val connection = url.openConnection() as java.net.HttpURLConnection
+        connection.requestMethod = "GET"
+        connection.connectTimeout = 5000
+        connection.readTimeout = 5000
+        
+        val responseCode = connection.responseCode
+        if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
+            val xml = connection.inputStream.bufferedReader().use { it.readText() }
+            android.util.Log.d("VAST_FETCHER", "Fetched VAST XML (${xml.length} chars)")
+            xml
+        } else {
+            android.util.Log.e("VAST_FETCHER", "HTTP error: $responseCode")
+            null
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("VAST_FETCHER", "Error fetching VAST XML: ${e.message}", e)
+        null
+    }
+}
+
+/**
+ * Data class to hold parsed VAST data
+ */
+data class VastData(
+    val mediaFileUrl: String?,
+    val trackingEvents: Map<String, List<String>>  // event name -> list of tracking URLs
+)
+
+/**
+ * Parse VAST XML to extract video URL and tracking beacons
+ * Uses regex as fallback for malformed XML
+ */
+fun parseVastXml(xmlContent: String): VastData {
+    val trackingEvents = mutableMapOf<String, MutableList<String>>()
+    var mediaFileUrl: String? = null
+    
+    try {
+        val parser = android.util.Xml.newPullParser()
+        parser.setFeature(org.xmlpull.v1.XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
+        parser.setInput(xmlContent.byteInputStream(), null)
+        
+        var eventType = parser.eventType
+        var currentEvent: String? = null
+        var insideMediaFile = false
+        var insideTracking = false
+        
+        while (eventType != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+            try {
+                when (eventType) {
+                    org.xmlpull.v1.XmlPullParser.START_TAG -> {
+                        when (parser.name) {
+                            "MediaFile" -> {
+                                insideMediaFile = true
+                            }
+                            "Tracking" -> {
+                                currentEvent = parser.getAttributeValue(null, "event")
+                                insideTracking = true
+                            }
+                        }
+                    }
+                    org.xmlpull.v1.XmlPullParser.TEXT -> {
+                        val text = parser.text?.trim() ?: ""
+                        if (text.isNotBlank()) {
+                            if (insideMediaFile && mediaFileUrl == null) {
+                                mediaFileUrl = text
+                                android.util.Log.d("VAST_PARSER", "Found MediaFile URL: $mediaFileUrl")
+                            } else if (insideTracking && currentEvent != null) {
+                                trackingEvents.getOrPut(currentEvent) { mutableListOf() }.add(text)
+                                android.util.Log.d("VAST_PARSER", "Found tracking URL for $currentEvent: $text")
+                            }
+                        }
+                    }
+                    org.xmlpull.v1.XmlPullParser.END_TAG -> {
+                        when (parser.name) {
+                            "MediaFile" -> insideMediaFile = false
+                            "Tracking" -> {
+                                insideTracking = false
+                                currentEvent = null
+                            }
+                        }
+                    }
+                }
+                eventType = parser.next()
+            } catch (e: org.xmlpull.v1.XmlPullParserException) {
+                // Handle CDATA parsing errors - try to skip and continue
+                android.util.Log.w("VAST_PARSER", "Skipping malformed XML segment: ${e.message}")
+                try {
+                    eventType = parser.next()
+                } catch (e2: Exception) {
+                    break
+                }
+            }
+        }
+        
+        android.util.Log.d("VAST_PARSER", "XML parsing done: video=$mediaFileUrl, tracking events=${trackingEvents.keys}")
+    } catch (e: Exception) {
+        android.util.Log.e("VAST_PARSER", "Error parsing VAST XML with parser: ${e.message}")
+    }
+    
+    // Fallback: Use regex if XML parsing failed to find MediaFile
+    if (mediaFileUrl == null) {
+        android.util.Log.d("VAST_PARSER", "Trying regex fallback for MediaFile")
+        val mediaFileRegex = """<MediaFile[^>]*>(.*?)</MediaFile>""".toRegex(RegexOption.DOT_MATCHES_ALL)
+        mediaFileRegex.find(xmlContent)?.groupValues?.get(1)?.let { match ->
+            // Remove CDATA markers and any XML tags
+            var cleanUrl = match
+                .replace("<![CDATA[", "")
+                .replace("]]>", "")
+                .replace("""<!\[""", "")  // Handle malformed CDATA like <![
+                .trim()
+            
+            // Extract just the URL if there are still XML tags
+            // Look for http/https URL pattern
+            val urlPattern = """https?://[^\s<>]+""".toRegex()
+            urlPattern.find(cleanUrl)?.value?.let { extractedUrl ->
+                cleanUrl = extractedUrl
+            }
+            
+            mediaFileUrl = cleanUrl
+            android.util.Log.d("VAST_PARSER", "Found MediaFile URL via regex: $mediaFileUrl")
+        }
+    }
+    
+    // Fallback: Use regex for tracking URLs if not found
+    if (trackingEvents.isEmpty()) {
+        android.util.Log.d("VAST_PARSER", "Trying regex fallback for Tracking events")
+        val trackingRegex = """<Tracking\s+event="([^"]+)"[^>]*>(.*?)</Tracking>""".toRegex(RegexOption.DOT_MATCHES_ALL)
+        trackingRegex.findAll(xmlContent).forEach { match ->
+            val event = match.groupValues[1]
+            var url = match.groupValues[2]
+                .replace("<![CDATA[", "")
+                .replace("]]>", "")
+                .replace("""<!\[""", "")  // Handle malformed CDATA like <![
+                .trim()
+            
+            // Extract just the URL if there are still XML tags
+            val urlPattern = """https?://[^\s<>]+""".toRegex()
+            urlPattern.find(url)?.value?.let { extractedUrl ->
+                url = extractedUrl
+            }
+            
+            trackingEvents.getOrPut(event) { mutableListOf() }.add(url)
+            android.util.Log.d("VAST_PARSER", "Found tracking URL via regex for $event: $url")
+        }
+    }
+    
+    android.util.Log.d("VAST_PARSER", "Final result: video=$mediaFileUrl, tracking events=${trackingEvents.keys}")
+    return VastData(mediaFileUrl, trackingEvents)
+}
+
+/**
+ * Fire VAST tracking beacons
+ */
+suspend fun fireVastTrackingBeacons(urls: List<String>) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    urls.forEach { url ->
+        try {
+            val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 3000
+            connection.readTimeout = 3000
+            val responseCode = connection.responseCode
+            android.util.Log.d("VAST_TRACKING", "Fired tracking beacon: $url (HTTP $responseCode)")
+        } catch (e: Exception) {
+            android.util.Log.e("VAST_TRACKING", "Error firing tracking beacon $url: ${e.message}")
+        }
+    }
+}
+
+/**
  * Parse video data from creative contents
  */
 fun parseVideoData(creative: Creative): VideoPlayerConfig {
     val contents = creative.contents.associate { it.key to it.value }
     
-    // Extract video URL - try VAST first, then JSON videoAsset
+    // Extract video URL - handle different delivery methods
     val videoAssetUrl = when (creative.delivery) {
-        "vast_tag", "vast_xml" -> creative.vast?.tagUrl // VAST tag URL
+        "vast_tag" -> creative.vast?.tagUrl // VAST tag URL (IMA will fetch and parse)
+        "vast_xml" -> "vast_xml_placeholder" // Placeholder - actual XML is in vast.xmlBase64
         else -> contents["videoAsset"]?.let { // JSON delivery - video asset URL
             (it as? JsonPrimitive)?.contentOrNull
         }
@@ -952,8 +1127,31 @@ fun ExoPlayerImaVideoPlayer(
     var thirdQuartileTracked by remember { mutableStateOf(false) }
     var completeTracked by remember { mutableStateOf(false) }
     
-    // Check if this is JSON delivery (needs manual tracking)
-    val isJsonDelivery = creative.delivery?.startsWith("vast") != true
+    // Determine tracking mode:
+    // - JSON: Manual SDK tracking
+    // - VAST Tag + Native End-card: Fetch VAST, use VAST beacons (automatic)
+    // - VAST Tag alone: IMA SDK (automatic)
+    // - VAST XML: Not supported by ExoPlayer+IMA
+    val hasNativeEndCard = videoConfig.companionHeadline != null
+    val needsVastFetch = creative.delivery == "vast_tag" && hasNativeEndCard
+    val useImaSDK = creative.delivery == "vast_tag" && !hasNativeEndCard
+    val isJsonDelivery = creative.delivery == null || creative.delivery == "json"
+    
+    // For VAST Tag + Native End-card, fetch and parse VAST XML
+    var vastData by remember { mutableStateOf<VastData?>(null) }
+    
+    LaunchedEffect(creative.delivery, hasNativeEndCard) {
+        if (needsVastFetch && videoConfig.videoAssetUrl != null) {
+            android.util.Log.d("ExoPlayerIMA", "Fetching VAST XML from tag URL for native end-card")
+            val vastXml = fetchVastXmlFromUrl(videoConfig.videoAssetUrl!!)
+            if (vastXml != null) {
+                vastData = parseVastXml(vastXml)
+                android.util.Log.d("ExoPlayerIMA", "Parsed VAST: video=${vastData?.mediaFileUrl}, tracking=${vastData?.trackingEvents?.size} events")
+            } else {
+                playbackError = "Failed to fetch VAST XML from tag URL"
+            }
+        }
+    }
     
     // IMA ads loader with event listeners
     val adsLoader = remember {
@@ -993,8 +1191,8 @@ fun ExoPlayerImaVideoPlayer(
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
             .setDataSourceFactory(DefaultDataSource.Factory(context))
         
-        // Only use IMA for VAST delivery
-        if (!isJsonDelivery) {
+        // Only use IMA for VAST Tag without native end-card
+        if (useImaSDK) {
             mediaSourceFactory
                 .setAdsLoaderProvider { adsLoader }
                 .setAdViewProvider { playerView!! }
@@ -1003,59 +1201,90 @@ fun ExoPlayerImaVideoPlayer(
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(mediaSourceFactory)
             .build()
-            .apply {
-                videoConfig.videoAssetUrl?.let { url ->
-                    android.util.Log.d("ExoPlayerIMA", "Loading ${if (isJsonDelivery) "JSON" else "VAST"} URL: $url")
-                    
-                    val mediaItemBuilder = MediaItem.Builder()
-                    
-                    if (isJsonDelivery) {
-                        // JSON delivery: Play video directly without IMA ads configuration
-                        mediaItemBuilder.setUri(Uri.parse(url))
-                    } else {
-                        // VAST delivery: Use IMA with content video + ads configuration
-                        val contentVideoUri = "https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8"
-                        mediaItemBuilder
-                            .setUri(Uri.parse(contentVideoUri))
-                            .setAdsConfiguration(
-                                MediaItem.AdsConfiguration.Builder(Uri.parse(url)).build()
-                            )
+    }
+    
+    // Setup media source (wait for VAST data if needed)
+    LaunchedEffect(videoConfig.videoAssetUrl, vastData) {
+        // For VAST Tag + Native End-card, wait for VAST to be fetched
+        if (needsVastFetch && vastData == null) {
+            android.util.Log.d("ExoPlayerIMA", "Waiting for VAST to be fetched...")
+            return@LaunchedEffect
+        }
+        
+        videoConfig.videoAssetUrl?.let { url ->
+            android.util.Log.d("ExoPlayerIMA", "Loading ${creative.delivery ?: "JSON"} delivery")
+            
+            val mediaItemBuilder = MediaItem.Builder()
+            
+            when {
+                needsVastFetch -> {
+                    // VAST Tag + Native End-card: Use parsed video URL
+                    val videoUrl = vastData?.mediaFileUrl
+                    if (videoUrl == null) {
+                        playbackError = "Could not extract video URL from VAST"
+                        return@LaunchedEffect
                     }
-                    
-                    // Add poster image as artwork if available
-                    videoConfig.posterImageUrl?.let { posterUrl ->
-                        mediaItemBuilder.setMediaMetadata(
-                            androidx.media3.common.MediaMetadata.Builder()
-                                .setArtworkUri(Uri.parse(posterUrl))
-                                .build()
+                    android.util.Log.d("ExoPlayerIMA", "Using VAST Tag parsed video URL: $videoUrl")
+                    mediaItemBuilder.setUri(Uri.parse(videoUrl))
+                }
+                useImaSDK -> {
+                    // VAST Tag without native end-card: Use IMA SDK
+                    val contentVideoUri = "https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8"
+                    android.util.Log.d("ExoPlayerIMA", "Using VAST Tag URL with IMA: $url")
+                    mediaItemBuilder
+                        .setUri(Uri.parse(contentVideoUri))
+                        .setAdsConfiguration(
+                            MediaItem.AdsConfiguration.Builder(Uri.parse(url)).build()
                         )
-                    }
-                    
-                    setMediaItem(mediaItemBuilder.build())
-                    prepare()
-                    playWhenReady = true
-                    
-                    // Add error listener
-                    addListener(object : androidx.media3.common.Player.Listener {
-                        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                            android.util.Log.e("ExoPlayerIMA", "Playback error: ${error.message}", error)
-                            val errorCause = error.cause?.toString() ?: ""
-                            val errorMsg = error.message ?: ""
-                            playbackError = when {
-                                errorMsg.contains("SSLException") || errorCause.contains("SSLException") -> 
-                                    "SSL Error: URL uses HTTPS but server is HTTP. Change mock server to return http:// URLs."
-                                errorMsg.contains("ConnectException") || errorCause.contains("ConnectException") -> 
-                                    "Connection Error: Cannot reach server at $url. Is mock server running?"
-                                errorCause.contains("UnrecognizedInputFormatException") -> 
-                                    "Content Error: Unable to load video content. Check video URL format."
-                                errorMsg.contains("Ad error") || errorCause.contains("AdError") -> 
-                                    "IMA Ad Error: ${error.message}. Check VAST XML format and video URLs."
-                                else -> "Playback error: ${error.message ?: "Unknown error"}"
-                            }
-                        }
-                    })
+                }
+                creative.delivery == "vast_xml" -> {
+                    // VAST XML: ExoPlayer+IMA doesn't support raw XML directly
+                    // This will be better supported in GoogleImaSDKPlayer
+                    // For now, show error message
+                    playbackError = "VAST XML is not supported by this player.\n\nPlease use 'Google IMA SDK' player for VAST XML delivery."
+                    return@LaunchedEffect
+                }
+                else -> {
+                    // JSON delivery: Play video directly
+                    mediaItemBuilder.setUri(Uri.parse(url))
                 }
             }
+            
+            // Add poster image as artwork if available
+            videoConfig.posterImageUrl?.let { posterUrl ->
+                mediaItemBuilder.setMediaMetadata(
+                    androidx.media3.common.MediaMetadata.Builder()
+                        .setArtworkUri(Uri.parse(posterUrl))
+                        .build()
+                )
+            }
+            
+            exoPlayer.apply {
+                setMediaItem(mediaItemBuilder.build())
+                prepare()
+                playWhenReady = true
+                
+                // Add error listener
+                addListener(object : androidx.media3.common.Player.Listener {
+                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                        android.util.Log.e("ExoPlayerIMA", "Playback error: ${error.message}", error)
+                        val errorCause = error.cause?.toString() ?: ""
+                        val errorMsg = error.message ?: ""
+                        playbackError = when {
+                            errorMsg.contains("SSLException") || errorCause.contains("SSLException") -> 
+                                "SSL Error: URL uses HTTPS but server is HTTP. Change mock server to return http:// URLs."
+                            errorMsg.contains("ConnectException") || errorCause.contains("ConnectException") -> 
+                                "Connection Error: Cannot reach server at $url. Is mock server running?"
+                            errorCause.contains("UnrecognizedInputFormatException") -> 
+                                "Content Error: Unable to load video content. Check video URL format."
+                            errorMsg.contains("Ad error") || errorCause.contains("AdError") -> 
+                                "IMA Ad Error: ${error.message}. Check VAST XML format and video URLs."
+                            else -> "Playback error: ${error.message ?: "Unknown error"}"
+                        }
+                    }
+                })
+            }
+        }
     }
     
     // Set adsLoader's player
@@ -1076,42 +1305,86 @@ fun ExoPlayerImaVideoPlayer(
                 
                 val progress = if (duration > 0) currentPosition / duration else 0f
                 
-                // Manual tracking for JSON delivery only (VAST uses IMA automatic tracking)
-                if (isJsonDelivery) {
-                    // Fire start event
-                    if (exoPlayer.isPlaying && !hasStarted) {
-                        hasStarted = true
+                // Tracking based on delivery mode
+                when {
+                    isJsonDelivery -> {
+                        // JSON: Manual SDK tracking
+                        if (exoPlayer.isPlaying && !hasStarted) {
+                            hasStarted = true
+                        }
+                        
+                        if (hasStarted && !startTracked) {
+                            viewModel.fireVideoEvent(creative, "start")
+                            startTracked = true
+                        }
+                        
+                        if (progress >= 0.25f && !firstQuartileTracked) {
+                            viewModel.fireVideoEvent(creative, "firstQuartile")
+                            firstQuartileTracked = true
+                        }
+                        
+                        if (progress >= 0.5f && !midpointTracked) {
+                            viewModel.fireVideoEvent(creative, "midpoint")
+                            midpointTracked = true
+                        }
+                        
+                        if (progress >= 0.75f && !thirdQuartileTracked) {
+                            viewModel.fireVideoEvent(creative, "thirdQuartile")
+                            thirdQuartileTracked = true
+                        }
+                        
+                        if (progress >= 0.98f && !completeTracked) {
+                            viewModel.fireVideoEvent(creative, "complete")
+                            completeTracked = true
+                        }
                     }
-                    
-                    if (hasStarted && !startTracked) {
-                        viewModel.fireVideoEvent(creative, "start")
-                        startTracked = true
+                    needsVastFetch -> {
+                        // VAST Tag + Native End-card: Fire VAST tracking beacons automatically
+                        vastData?.trackingEvents?.let { events ->
+                            if (exoPlayer.isPlaying && !hasStarted) {
+                                hasStarted = true
+                            }
+                            
+                            if (hasStarted && !startTracked) {
+                                events["start"]?.let { urls ->
+                                    fireVastTrackingBeacons(urls)
+                                }
+                                startTracked = true
+                            }
+                            
+                            if (progress >= 0.25f && !firstQuartileTracked) {
+                                events["firstQuartile"]?.let { urls ->
+                                    fireVastTrackingBeacons(urls)
+                                }
+                                firstQuartileTracked = true
+                            }
+                            
+                            if (progress >= 0.5f && !midpointTracked) {
+                                events["midpoint"]?.let { urls ->
+                                    fireVastTrackingBeacons(urls)
+                                }
+                                midpointTracked = true
+                            }
+                            
+                            if (progress >= 0.75f && !thirdQuartileTracked) {
+                                events["thirdQuartile"]?.let { urls ->
+                                    fireVastTrackingBeacons(urls)
+                                }
+                                thirdQuartileTracked = true
+                            }
+                            
+                            if (progress >= 0.98f && !completeTracked) {
+                                events["complete"]?.let { urls ->
+                                    fireVastTrackingBeacons(urls)
+                                }
+                                completeTracked = true
+                            }
+                        }
                     }
-                    
-                    // Fire quartile events
-                    if (progress >= 0.25f && !firstQuartileTracked) {
-                        viewModel.fireVideoEvent(creative, "firstQuartile")
-                        firstQuartileTracked = true
-                    }
-                    
-                    if (progress >= 0.5f && !midpointTracked) {
-                        viewModel.fireVideoEvent(creative, "midpoint")
-                        midpointTracked = true
-                    }
-                    
-                    if (progress >= 0.75f && !thirdQuartileTracked) {
-                        viewModel.fireVideoEvent(creative, "thirdQuartile")
-                        thirdQuartileTracked = true
-                    }
-                    
-                    // Fire complete event
-                    if (progress >= 0.98f && !completeTracked) {
-                        viewModel.fireVideoEvent(creative, "complete")
-                        completeTracked = true
-                    }
+                    // useImaSDK -> IMA handles tracking automatically
                 }
                 
-                // Show overlay at specified percentage (for JSON delivery)
+                // Show overlay at specified percentage (for JSON + native end-card or VAST + native end-card)
                 if (progress >= videoConfig.overlayAtPercentage && !overlayShown) {
                     overlayShown = true
                     if (!overlayTracked) {
@@ -1184,16 +1457,15 @@ fun ExoPlayerImaVideoPlayer(
                         )
                     }
                     
-                    // CTA Button
-                    videoConfig.companionCta?.let { cta ->
+                    // CTA Button - only show if both CTA text and destination URL are present
+                    if (videoConfig.companionCta != null && videoConfig.companionDestinationUrl != null) {
+                        val cta = videoConfig.companionCta!!
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = {
                                 viewModel.fireClick(creative, "cta")
-                                videoConfig.companionDestinationUrl?.let { url ->
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                    context.startActivity(intent)
-                                }
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(videoConfig.companionDestinationUrl!!))
+                                context.startActivity(intent)
                             },
                             modifier = Modifier.height(36.dp),
                             colors = ButtonDefaults.buttonColors(
@@ -1303,6 +1575,7 @@ fun BasicVideoPlayer(
                     
                     setMediaItem(mediaItemBuilder.build())
                     prepare()
+                    playWhenReady = true // Autoplay
                 }
             }
     }
@@ -1420,16 +1693,15 @@ fun BasicVideoPlayer(
                         )
                     }
                     
-                    // CTA Button (right side) - more visible
-                    videoConfig.companionCta?.let { cta ->
+                    // CTA Button (right side) - only show if both CTA text and destination URL are present
+                    if (videoConfig.companionCta != null && videoConfig.companionDestinationUrl != null) {
+                        val cta = videoConfig.companionCta!!
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = {
                                 viewModel.fireClick(creative, "cta")
-                                videoConfig.companionDestinationUrl?.let { url ->
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                    context.startActivity(intent)
-                                }
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(videoConfig.companionDestinationUrl!!))
+                                context.startActivity(intent)
                             },
                             modifier = Modifier.height(36.dp),
                             colors = ButtonDefaults.buttonColors(
@@ -1578,10 +1850,51 @@ fun GoogleImaSDKPlayer(
     var thirdQuartileTracked by remember { mutableStateOf(false) }
     var completeTracked by remember { mutableStateOf(false) }
     
-    // Check if this is JSON delivery (needs manual tracking)
-    val isJsonDelivery = creative.delivery?.startsWith("vast") != true
+    // Determine tracking mode:
+    // - JSON: Manual SDK tracking
+    // - VAST Tag + Native End-card: Fetch VAST, use VAST beacons (automatic)
+    // - VAST Tag alone: IMA SDK (automatic)
+    // - VAST XML: Parse VAST, use VAST beacons (automatic)
+    val hasNativeEndCard = videoConfig.companionHeadline != null
+    val needsVastFetch = creative.delivery == "vast_tag" && hasNativeEndCard
+    val useImaSDK = creative.delivery == "vast_tag" && !hasNativeEndCard
+    val isJsonDelivery = creative.delivery == null || creative.delivery == "json"
+    val useVastBeacons = creative.delivery == "vast_xml" || needsVastFetch
     
-    // IMA ads loader - Pure IMA SDK focus
+    // For VAST XML or VAST Tag + Native End-card, fetch/decode and parse VAST
+    var vastData by remember { mutableStateOf<VastData?>(null) }
+    
+    LaunchedEffect(creative.delivery, hasNativeEndCard) {
+        when {
+            creative.delivery == "vast_xml" -> {
+                // VAST XML: Decode Base64 and parse
+                creative.vast?.xmlBase64?.let { base64Xml ->
+                    try {
+                        val decodedXml = String(android.util.Base64.decode(base64Xml, android.util.Base64.DEFAULT))
+                        android.util.Log.d("GoogleIMA", "Decoded VAST XML (${decodedXml.length} chars)")
+                        vastData = parseVastXml(decodedXml)
+                        android.util.Log.d("GoogleIMA", "Parsed VAST: video=${vastData?.mediaFileUrl}, tracking=${vastData?.trackingEvents?.size} events")
+                    } catch (e: Exception) {
+                        android.util.Log.e("GoogleIMA", "Error decoding VAST XML: ${e.message}", e)
+                        playbackError = "Failed to decode VAST XML: ${e.message}"
+                    }
+                }
+            }
+            needsVastFetch && videoConfig.videoAssetUrl != null -> {
+                // VAST Tag + Native End-card: Fetch VAST XML from tag URL
+                android.util.Log.d("GoogleIMA", "Fetching VAST XML from tag URL for native end-card")
+                val vastXml = fetchVastXmlFromUrl(videoConfig.videoAssetUrl!!)
+                if (vastXml != null) {
+                    vastData = parseVastXml(vastXml)
+                    android.util.Log.d("GoogleIMA", "Parsed VAST: video=${vastData?.mediaFileUrl}, tracking=${vastData?.trackingEvents?.size} events")
+                } else {
+                    playbackError = "Failed to fetch VAST XML from tag URL"
+                }
+            }
+        }
+    }
+    
+    // IMA ads loader - for VAST Tag without native end-card
     val adsLoader = remember {
         ImaAdsLoader.Builder(context)
             .setAdEventListener { adEvent ->
@@ -1605,61 +1918,87 @@ fun GoogleImaSDKPlayer(
     // PlayerView reference for AdViewProvider
     var playerView: PlayerView? by remember { mutableStateOf(null) }
     
-    // ExoPlayer with IMA integration (minimal ExoPlayer, focus on IMA)
+    // ExoPlayer with conditional IMA integration
     val exoPlayer = remember {
+        val mediaSourceFactory = DefaultMediaSourceFactory(context)
+            .setDataSourceFactory(DefaultDataSource.Factory(context))
+        
+        // Only use IMA for VAST Tag without native end-card
+        if (useImaSDK) {
+            mediaSourceFactory
+                .setAdsLoaderProvider { adsLoader }
+                .setAdViewProvider { playerView!! }
+        }
+        
         ExoPlayer.Builder(context)
-            .setMediaSourceFactory(
-                DefaultMediaSourceFactory(context)
-                    .setDataSourceFactory(DefaultDataSource.Factory(context))
-                    .setAdsLoaderProvider { adsLoader }
-                    .setAdViewProvider { playerView!! }
-            )
+            .setMediaSourceFactory(mediaSourceFactory)
             .build()
-            .apply {
-                videoConfig.videoAssetUrl?.let { url ->
-                    android.util.Log.d("GoogleIMASDK", "Loading video URL: $url")
-                    
-                    // For JSON delivery: use videoAsset URL directly
-                    // For VAST: use VAST tag URL in AdsConfiguration
-                    val isVastDelivery = creative.delivery?.startsWith("vast") == true
-                    
-                    val mediaItemBuilder = MediaItem.Builder()
-                    
-                    if (isVastDelivery) {
-                        // VAST delivery: use real video as content, VAST tag in ads config
-                        val contentVideoUri = "https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8"
-                        mediaItemBuilder
-                            .setUri(Uri.parse(contentVideoUri))
-                            .setAdsConfiguration(
-                                MediaItem.AdsConfiguration.Builder(Uri.parse(url)).build()
-                            )
-                    } else {
-                        // JSON delivery: use videoAsset URL directly (no ads config)
-                        mediaItemBuilder.setUri(Uri.parse(url))
+    }
+    
+    // Setup media source (wait for VAST data if needed)
+    LaunchedEffect(videoConfig.videoAssetUrl, vastData, creative.delivery) {
+        // For VAST XML or VAST Tag + Native End-card, wait until parsed/fetched
+        if (useVastBeacons && vastData == null) {
+            android.util.Log.d("GoogleIMASDK", "Waiting for VAST to be fetched/parsed...")
+            return@LaunchedEffect
+        }
+        
+        videoConfig.videoAssetUrl?.let { url ->
+            android.util.Log.d("GoogleIMASDK", "Loading ${creative.delivery ?: "JSON"} delivery")
+            
+            val contentVideoUri = "https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8"
+            val mediaItemBuilder = MediaItem.Builder()
+            
+            when {
+                useVastBeacons -> {
+                    // VAST XML or VAST Tag + Native End-card: Use parsed video URL
+                    val videoUrl = vastData?.mediaFileUrl
+                    if (videoUrl == null) {
+                        playbackError = "Could not extract video URL from VAST"
+                        return@LaunchedEffect
                     }
-                    
-                    // Add poster image
-                    videoConfig.posterImageUrl?.let { posterUrl ->
-                        mediaItemBuilder.setMediaMetadata(
-                            androidx.media3.common.MediaMetadata.Builder()
-                                .setArtworkUri(Uri.parse(posterUrl))
-                                .build()
+                    android.util.Log.d("GoogleIMASDK", "Using VAST parsed video URL: $videoUrl")
+                    mediaItemBuilder.setUri(Uri.parse(videoUrl))
+                }
+                useImaSDK -> {
+                    // VAST Tag without native end-card: Use IMA SDK
+                    android.util.Log.d("GoogleIMASDK", "Using VAST Tag URL with IMA: $url")
+                    mediaItemBuilder
+                        .setUri(Uri.parse(contentVideoUri))
+                        .setAdsConfiguration(
+                            MediaItem.AdsConfiguration.Builder(Uri.parse(url)).build()
                         )
-                    }
-                    
-                    setMediaItem(mediaItemBuilder.build())
-                    prepare()
-                    playWhenReady = true
-                    
-                    // Error listener
-                    addListener(object : androidx.media3.common.Player.Listener {
-                        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                            android.util.Log.e("GoogleIMASDK", "Playback error: ${error.message}", error)
-                            playbackError = "Playback error: ${error.message ?: "Unknown error"}"
-                        }
-                    })
+                }
+                else -> {
+                    // JSON delivery: Play video directly
+                    android.util.Log.d("GoogleIMASDK", "Using JSON video URL: $url")
+                    mediaItemBuilder.setUri(Uri.parse(url))
                 }
             }
+            
+            // Add poster image
+            videoConfig.posterImageUrl?.let { posterUrl ->
+                mediaItemBuilder.setMediaMetadata(
+                    androidx.media3.common.MediaMetadata.Builder()
+                        .setArtworkUri(Uri.parse(posterUrl))
+                        .build()
+                )
+            }
+            
+            exoPlayer.apply {
+                setMediaItem(mediaItemBuilder.build())
+                prepare()
+                playWhenReady = true
+                
+                // Error listener
+                addListener(object : androidx.media3.common.Player.Listener {
+                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                        android.util.Log.e("GoogleIMASDK", "Playback error: ${error.message}", error)
+                        playbackError = "Playback error: ${error.message ?: "Unknown error"}"
+                    }
+                })
+            }
+        }
     }
     
     // Set adsLoader's player
@@ -1679,39 +2018,83 @@ fun GoogleImaSDKPlayer(
                 
                 val progress = if (duration > 0) currentPosition / duration else 0f
                 
-                // Manual tracking for JSON delivery only
-                if (isJsonDelivery) {
-                    // Fire start event
-                    if (exoPlayer.isPlaying && !hasStarted) {
-                        hasStarted = true
+                // Tracking based on delivery mode
+                when {
+                    isJsonDelivery -> {
+                        // JSON: Manual SDK tracking
+                        if (exoPlayer.isPlaying && !hasStarted) {
+                            hasStarted = true
+                        }
+                        
+                        if (hasStarted && !startTracked) {
+                            viewModel.fireVideoEvent(creative, "start")
+                            startTracked = true
+                        }
+                        
+                        if (progress >= 0.25f && !firstQuartileTracked) {
+                            viewModel.fireVideoEvent(creative, "firstQuartile")
+                            firstQuartileTracked = true
+                        }
+                        
+                        if (progress >= 0.5f && !midpointTracked) {
+                            viewModel.fireVideoEvent(creative, "midpoint")
+                            midpointTracked = true
+                        }
+                        
+                        if (progress >= 0.75f && !thirdQuartileTracked) {
+                            viewModel.fireVideoEvent(creative, "thirdQuartile")
+                            thirdQuartileTracked = true
+                        }
+                        
+                        if (progress >= 0.98f && !completeTracked) {
+                            viewModel.fireVideoEvent(creative, "complete")
+                            completeTracked = true
+                        }
                     }
-                    
-                    if (hasStarted && !startTracked) {
-                        viewModel.fireVideoEvent(creative, "start")
-                        startTracked = true
+                    useVastBeacons -> {
+                        // VAST XML or VAST Tag + Native End-card: Fire VAST tracking beacons automatically
+                        vastData?.trackingEvents?.let { events ->
+                            if (exoPlayer.isPlaying && !hasStarted) {
+                                hasStarted = true
+                            }
+                            
+                            if (hasStarted && !startTracked) {
+                                events["start"]?.let { urls ->
+                                    fireVastTrackingBeacons(urls)
+                                }
+                                startTracked = true
+                            }
+                            
+                            if (progress >= 0.25f && !firstQuartileTracked) {
+                                events["firstQuartile"]?.let { urls ->
+                                    fireVastTrackingBeacons(urls)
+                                }
+                                firstQuartileTracked = true
+                            }
+                            
+                            if (progress >= 0.5f && !midpointTracked) {
+                                events["midpoint"]?.let { urls ->
+                                    fireVastTrackingBeacons(urls)
+                                }
+                                midpointTracked = true
+                            }
+                            
+                            if (progress >= 0.75f && !thirdQuartileTracked) {
+                                events["thirdQuartile"]?.let { urls ->
+                                    fireVastTrackingBeacons(urls)
+                                }
+                                thirdQuartileTracked = true
+                            }
+                            
+                            if (progress >= 0.98f && !completeTracked) {
+                                events["complete"]?.let { urls ->
+                                    fireVastTrackingBeacons(urls)
+                                }
+                                completeTracked = true
+                            }
+                        }
                     }
-                    
-                    // Fire quartile events
-                    if (progress >= 0.25f && !firstQuartileTracked) {
-                        viewModel.fireVideoEvent(creative, "firstQuartile")
-                        firstQuartileTracked = true
-                    }
-                    
-                    if (progress >= 0.5f && !midpointTracked) {
-                        viewModel.fireVideoEvent(creative, "midpoint")
-                        midpointTracked = true
-                    }
-                    
-                    if (progress >= 0.75f && !thirdQuartileTracked) {
-                        viewModel.fireVideoEvent(creative, "thirdQuartile")
-                        thirdQuartileTracked = true
-                    }
-                    
-                    // Fire complete event
-                    if (progress >= 0.98f && !completeTracked) {
-                        viewModel.fireVideoEvent(creative, "complete")
-                        completeTracked = true
-                    }
+                    // useImaSDK -> IMA handles tracking automatically
                 }
                 
                 // Show overlay at specified percentage
@@ -1786,15 +2169,15 @@ fun GoogleImaSDKPlayer(
                         )
                     }
                     
-                    videoConfig.companionCta?.let { cta ->
+                    // CTA Button - only show if both CTA text and destination URL are present
+                    if (videoConfig.companionCta != null && videoConfig.companionDestinationUrl != null) {
+                        val cta = videoConfig.companionCta!!
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = {
                                 viewModel.fireClick(creative, "cta")
-                                videoConfig.companionDestinationUrl?.let { url ->
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                    context.startActivity(intent)
-                                }
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(videoConfig.companionDestinationUrl!!))
+                                context.startActivity(intent)
                             },
                             modifier = Modifier.height(36.dp),
                             colors = ButtonDefaults.buttonColors(

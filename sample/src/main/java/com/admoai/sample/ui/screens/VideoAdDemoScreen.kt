@@ -44,9 +44,11 @@ private fun getLocalMockScenario(delivery: String, endCard: String, skippable: B
         delivery == "json" && endCard == "none" && skippable -> "json_none_skippable"
         delivery == "json" && endCard == "native_endcard" && !skippable -> "json_native-end-card"
         delivery == "vast_tag" && endCard == "none" && !skippable -> "vasttag_none"
+        delivery == "vast_tag" && endCard == "none" && skippable -> "vasttag_none_skippable"
         delivery == "vast_tag" && endCard == "native_endcard" && !skippable -> "vasttag_native-end-card"
         delivery == "vast_tag" && endCard == "native_endcard" && skippable -> "vasttag_native-end-card_skippable"
         delivery == "vast_tag" && endCard == "vast_companion" && !skippable -> "vasttag_vast-companion"
+        delivery == "vast_xml" && endCard == "none" && !skippable -> "vastxml_none"
         delivery == "vast_xml" && endCard == "vast_companion" && !skippable -> "vastxml_vast-companion"
         else -> null // Combination not available yet
     }
