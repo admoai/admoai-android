@@ -2,18 +2,43 @@
 
 ## ✅ Analysis Complete
 
-### Content Keys Discovered:
-- `videoAsset` - Direct video URL (HLS)
-- `posterImage` - Thumbnail
-- `isSkippable` / `skipOffset` - Skip functionality
-- `companionHeadline` / `companionCta` / `companionDestinationUrl` - Native end cards
-- `overlayAtPercentage` - When to show overlay (0.5 = 50%)
-- `showClose` - Whether to show close button
+### Canonical Content Keys (Non-Editable by Users):
+- **`posterImage`** - Thumbnail image URL (ALWAYS present, all delivery methods)
+- **`videoAsset`** - Direct video URL (HLS/MP4) - **JSON delivery ONLY**
+- **`isSkippable`** - Boolean, enables skip button
+- **`skipOffset`** - Time string "00:00:05", when skip appears
 
-### Delivery Methods:
-1. **JSON + videoAsset** - Load video directly, fire tracking manually
-2. **VAST Tag** - Load tag URL into IMA SDK
-3. **VAST XML** - Decode Base64 → Load into IMA SDK
+### User-Defined Content Keys (Standard Convention):
+- **`companion*`** prefix - Native end-card elements:
+  - `companionHeadline` - Headline text
+  - `companionCta` - CTA button label
+  - `companionDestinationUrl` - Click destination URL
+- **`overlayAtPercentage`** - Float (0.0-1.0), when overlay shows (0.5 = 50%)
+- **`showClose`** - Integer/Boolean, close button visibility
+
+### Delivery Methods & Critical Rules:
+1. **`delivery: "json"`**
+   - `vast` must be `null`
+   - `videoAsset` must be included
+   - `tracking.impressions` and `tracking.videoEvents` included in JSON
+   - Manual tracking required
+
+2. **`delivery: "vast_tag"`**
+   - `vast.tagUrl` present (URL endpoint returning VAST XML)
+   - `videoAsset` must NOT be included
+   - `tracking.impressions` and `tracking.videoEvents` empty (handled in XML)
+   - IMA SDK handles tracking automatically
+
+3. **`delivery: "vast_xml"`**
+   - `vast.xmlBase64` present (Base64-encoded VAST XML)
+   - `videoAsset` must NOT be included
+   - `tracking.impressions` and `tracking.videoEvents` empty (handled in XML)
+   - Decode XML → Pass to IMA SDK or parse manually
+
+### End-Card Modes:
+1. **None** - Video only, no overlays
+2. **Native End-Card** - Publisher draws overlay using `companion*` keys
+3. **VAST Companion** - XML contains `<CompanionAds>` with size options
 
 ---
 
@@ -181,16 +206,23 @@ dependencies {
 - **Hybrid (VAST + Native End Card)**: IMA handles video, we handle overlay/end card
 
 ### Content Key Priority:
-1. Check `delivery` field first
-2. If `vast.tagUrl` or `vast.xmlBase64` exists → Use IMA players
-3. If `videoAsset` exists → Use basic player
-4. Parse overlay/end card keys regardless of delivery method
+1. **ALWAYS check `delivery` field first** - this determines parsing strategy
+2. If `delivery: "json"` → Expect `videoAsset` in contents, parse tracking from JSON
+3. If `delivery: "vast_tag"` or `"vast_xml"` → NO `videoAsset`, use IMA players, tracking in XML
+4. **`posterImage` is ALWAYS present** regardless of delivery method
+5. Parse `companion*` keys regardless of delivery method (for native overlays)
+6. For VAST Companion mode, parse `<CompanionAds>` from XML instead of JSON keys
 
 ### Tracking Responsibility:
-| Scenario | Impressions | Video Events | Custom Events |
-|----------|-------------|--------------|---------------|
-| JSON delivery | Manual | Manual | Manual |
-| VAST Tag/XML | IMA auto | IMA auto | Manual |
+| Scenario | Impressions | Video Events (start, quartiles, complete) | Skip Event | Custom Events (overlay, CTA, close) |
+|----------|-------------|-------------------------------------------|------------|-------------------------------------|
+| JSON delivery | Manual (SDK) | Manual (SDK) | Manual (SDK) | Manual (SDK) |
+| VAST Tag/XML | IMA Auto | IMA Auto | IMA Auto | Manual (SDK) |
+
+**Key Rule for Skippable Videos:**
+- When `isSkippable: true`, skip tracking MUST be included:
+  - JSON: Add `{ "key": "skip", "url": "..." }` to `tracking.videoEvents[]`
+  - VAST: Add `<Tracking event="skip">` to XML + `skipoffset` attribute on `<Linear>`
 
 ---
 
@@ -232,6 +264,93 @@ dependencies {
 - [ ] vasttag_native-end-card_skippable - VAST + skip
 - [ ] vasttag_vast-companion - VAST companion ads
 - [ ] vastxml_vast-companion - VAST XML parsing
+
+---
+
+## 🔮 Future Enhancements
+
+### Enhancement 1: IMA SDK Watermark Customization
+
+**Goal:** Showcase that ExoPlayer + IMA allows full UI control vs Pure Google IMA SDK
+
+**Pure IMA SDK Limitations:**
+- ❌ Cannot customize "Ad" watermark
+- ❌ Cannot customize "Learn More" button
+- ❌ Fixed branding
+- ❌ Limited UI control
+
+**ExoPlayer + IMA Advantages:**
+- ✅ Hide IMA's default UI via `AdsRenderingSettings`
+- ✅ Draw custom "Ad" badge (required for compliance)
+- ✅ Draw custom "Learn More" / CTA button
+- ✅ Full control over visual chrome
+- ✅ Maintain VAST/OMID compliance
+
+**Implementation Tasks:**
+- [ ] Add `setAdsRenderingSettingsProvider` to ExoPlayer + IMA player
+- [ ] Configure `uiElements = EnumSet.noneOf(AdUiElement::class.java)` to hide IMA UI
+- [ ] Create custom overlay views (Ad badge, Learn More button)
+- [ ] Wire custom button clicks to `adsLoader.adsManager?.click()`
+- [ ] Create side-by-side demo in Video Playground:
+  - Left: Pure IMA SDK (default watermarks)
+  - Right: ExoPlayer + IMA (custom branded overlays)
+
+**Reference:** See Section 12 in VIDEO_PLAYER_FLOW_SUMMARY.md for detailed implementation steps
+
+---
+
+### Enhancement 2: VAST XML Native Support vs Manual Decoding
+
+**Goal:** Demonstrate two approaches for handling `delivery: "vast_xml"`
+
+**Approach 1: Native VAST XML Support (IMA SDK)**
+- ✅ IMA accepts decoded XML via `AdsRequest.setAdsResponse(decodedXml)`
+- ✅ Automatic VAST parsing
+- ✅ Automatic tracking
+- ✅ OMID compliant
+- ✅ Zero manual tracking code
+
+**Approach 2: Manual VAST XML Decoding (Basic Player)**
+- ❌ Requires custom XML parser
+- ❌ Manual `<MediaFile>` extraction
+- ❌ Manual tracking beacon firing
+- ❌ Manual companion ad extraction
+- ✅ Full control over implementation
+
+**Implementation Tasks:**
+
+**For ExoPlayer + IMA (Native Support):**
+- [ ] Decode `creative.vast.xmlBase64` from Base64
+- [ ] Pass decoded XML to `AdsRequest.Builder().setAdsResponse(decodedXml)`
+- [ ] Let IMA handle all tracking automatically
+- [ ] Show "Zero manual tracking" badge in demo
+
+**For Basic Player (Manual Decoding):**
+- [ ] Create `VastXmlParser` utility class
+- [ ] Implement `extractMediaFileUrl()` method
+- [ ] Implement `extractTrackingEvents()` method
+- [ ] Implement `extractSkipOffset()` method
+- [ ] Implement `extractCompanionAds()` method
+- [ ] Fire tracking URLs manually at correct video progress points
+- [ ] Show "Full control but complex" badge in demo
+
+**Implementation Matrix:**
+
+| Delivery | Player | IMA | Tracking | VAST Parsing | Complexity |
+|----------|--------|-----|----------|--------------|------------|
+| `json` | Basic | No | Manual | N/A | Low |
+| `json` | ExoPlayer+IMA | No | Manual | N/A | Low |
+| `vast_tag` | ExoPlayer+IMA | Yes | Auto | Auto | Very Low |
+| `vast_xml` (native) | ExoPlayer+IMA | Yes | Auto | Auto | Very Low |
+| `vast_xml` (manual) | Basic | No | Manual | Manual | High |
+
+**Demo Showcase:**
+- [ ] Create "VAST XML - Native Support" demo option
+- [ ] Create "VAST XML - Manual Decoding" demo option
+- [ ] Show code comparison in UI
+- [ ] Highlight tracking event logs for both approaches
+
+**Reference:** See Section 12 in VIDEO_PLAYER_FLOW_SUMMARY.md for detailed implementation examples
 
 ---
 
