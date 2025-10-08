@@ -477,7 +477,7 @@ fun VideoPreviewScreen(
                     // Player type indicator
                     val playerLabel = when (playerType) {
                         "ima_sdk" -> "Google IMA SDK"
-                        "exoplayer_ima" -> "ExoPlayer + Google IMA"
+                        "exoplayer_ima" -> "Media3 ExoPlayer + IMA"
                         "basic" -> "Basic Player"
                         else -> "Simulated Player"
                     }
@@ -880,6 +880,216 @@ data class VastData(
 )
 
 /**
+ * Pure Google IMA SDK - VideoAdPlayer Implementation
+ * This bridges ExoPlayer with IMA SDK for full control over ad playback
+ */
+private class SimpleVideoAdPlayer(
+    private val exoPlayer: androidx.media3.exoplayer.ExoPlayer
+) : com.google.ads.interactivemedia.v3.api.player.VideoAdPlayer {
+    
+    private val callbacks = mutableListOf<com.google.ads.interactivemedia.v3.api.player.VideoAdPlayer.VideoAdPlayerCallback>()
+    
+    private var currentAdMediaInfo: com.google.ads.interactivemedia.v3.api.player.AdMediaInfo? = null
+    
+    private var hasNotifiedPlay = false
+    private var hasNotifiedLoaded = false
+    
+    init {
+        // Listen to ExoPlayer events and notify IMA SDK
+        exoPlayer.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                when (playbackState) {
+                    androidx.media3.common.Player.STATE_BUFFERING -> {
+                        android.util.Log.d("VideoAdPlayer", "↻ Player STATE_BUFFERING - notifying IMA: onBuffering()")
+                        currentAdMediaInfo?.let { adInfo ->
+                            callbacks.forEach { it.onBuffering(adInfo) }
+                        }
+                    }
+                    androidx.media3.common.Player.STATE_READY -> {
+                        android.util.Log.d("VideoAdPlayer", "✓ Player STATE_READY")
+                        // Ensure onLoaded is sent before onPlay
+                        currentAdMediaInfo?.let { adInfo ->
+                            if (!hasNotifiedLoaded) {
+                                android.util.Log.d("VideoAdPlayer", "→ notifying IMA: onLoaded()")
+                                callbacks.forEach { it.onLoaded(adInfo) }
+                                hasNotifiedLoaded = true
+                            }
+                        }
+                    }
+                    androidx.media3.common.Player.STATE_ENDED -> {
+                        android.util.Log.d("VideoAdPlayer", "✓ Player STATE_ENDED - notifying IMA: onEnded()")
+                        currentAdMediaInfo?.let { adInfo ->
+                            callbacks.forEach { it.onEnded(adInfo) }
+                        }
+                        hasNotifiedPlay = false
+                        hasNotifiedLoaded = false
+                    }
+                }
+            }
+            
+            override fun onRenderedFirstFrame() {
+                // ⭐ THIS is what IMA SDK is waiting for - actual video frame rendered!
+                currentAdMediaInfo?.let { adInfo ->
+                    // Guarantee onLoaded before onPlay
+                    if (!hasNotifiedLoaded) {
+                        android.util.Log.d("VideoAdPlayer", "⭐ FIRST FRAME RENDERED - backfilling onLoaded() before onPlay()")
+                        callbacks.forEach { it.onLoaded(adInfo) }
+                        hasNotifiedLoaded = true
+                    }
+                    if (!hasNotifiedPlay) {
+                        android.util.Log.d("VideoAdPlayer", "⭐ FIRST FRAME RENDERED - notifying IMA: onPlay()")
+                        callbacks.forEach { it.onPlay(adInfo) }
+                        hasNotifiedPlay = true
+                    }
+                }
+            }
+            
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                currentAdMediaInfo?.let { adInfo ->
+                    if (isPlaying) {
+                        // Don't notify onPlay here - wait for first frame
+                        android.util.Log.d("VideoAdPlayer", "isPlaying=true (buffering...)")
+                    } else {
+                        android.util.Log.d("VideoAdPlayer", "isPlaying=false - notifying IMA: onPause()")
+                        callbacks.forEach { it.onPause(adInfo) }
+                    }
+                }
+            }
+            
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                android.util.Log.e("VideoAdPlayer", "❌ Player error - notifying IMA: onError() - ${error.message}")
+                currentAdMediaInfo?.let { adInfo ->
+                    callbacks.forEach { it.onError(adInfo) }
+                }
+            }
+        })
+    }
+    
+    override fun playAd(adMediaInfo: com.google.ads.interactivemedia.v3.api.player.AdMediaInfo) {
+        android.util.Log.d("VideoAdPlayer", "playAd called: ${adMediaInfo?.url ?: "null"}")
+        currentAdMediaInfo = adMediaInfo
+        // Media is already loaded by loadAd() - just start playback
+        hasNotifiedPlay = false
+        // If we somehow haven't notified LOADED yet, do it now to preserve order
+        if (!hasNotifiedLoaded) {
+            android.util.Log.d("VideoAdPlayer", "playAd(): backfilling onLoaded() before play()")
+            callbacks.forEach { it.onLoaded(adMediaInfo) }
+            hasNotifiedLoaded = true
+        }
+        // do not reset hasNotifiedLoaded here after this point
+        exoPlayer.play()
+    }
+    
+    override fun loadAd(
+        adMediaInfo: com.google.ads.interactivemedia.v3.api.player.AdMediaInfo,
+        adPodInfo: com.google.ads.interactivemedia.v3.api.AdPodInfo
+    ) {
+        android.util.Log.d("VideoAdPlayer", "loadAd called: ${adMediaInfo?.url ?: "null"}")
+        currentAdMediaInfo = adMediaInfo
+        hasNotifiedLoaded = false
+        hasNotifiedPlay = false
+        adMediaInfo?.url?.let { url ->
+            val mediaItem = androidx.media3.common.MediaItem.fromUri(url)
+            exoPlayer.setMediaItem(mediaItem)
+            exoPlayer.prepare()
+        }
+    }
+    
+    override fun stopAd(adMediaInfo: com.google.ads.interactivemedia.v3.api.player.AdMediaInfo) {
+        android.util.Log.d("VideoAdPlayer", "stopAd called: ${adMediaInfo?.url ?: "null"}")
+        exoPlayer.stop()
+    }
+    
+    override fun pauseAd(adMediaInfo: com.google.ads.interactivemedia.v3.api.player.AdMediaInfo) {
+        android.util.Log.d("VideoAdPlayer", "pauseAd called: ${adMediaInfo?.url ?: "null"}")
+        exoPlayer.pause()
+    }
+    
+    override fun release() {
+        android.util.Log.d("VideoAdPlayer", "release called")
+        callbacks.clear()
+    }
+    
+    override fun addCallback(callback: com.google.ads.interactivemedia.v3.api.player.VideoAdPlayer.VideoAdPlayerCallback) {
+        callbacks.add(callback)
+        android.util.Log.d("VideoAdPlayer", "Callback added, total: ${callbacks.size}")
+    }
+    
+    override fun removeCallback(callback: com.google.ads.interactivemedia.v3.api.player.VideoAdPlayer.VideoAdPlayerCallback) {
+        callbacks.remove(callback)
+        android.util.Log.d("VideoAdPlayer", "Callback removed, remaining: ${callbacks.size}")
+    }
+    
+    override fun getAdProgress(): com.google.ads.interactivemedia.v3.api.player.VideoProgressUpdate {
+        val current = exoPlayer.currentPosition
+        val duration = exoPlayer.duration
+        return if (current <= 0L && (duration <= 0L || duration == androidx.media3.common.C.TIME_UNSET)) {
+            // Not ready yet
+            com.google.ads.interactivemedia.v3.api.player.VideoProgressUpdate.VIDEO_TIME_NOT_READY
+        } else {
+            // Report real progress; allow unknown duration as -1
+            val safeDuration = if (duration <= 0L || duration == androidx.media3.common.C.TIME_UNSET) -1L else duration
+            com.google.ads.interactivemedia.v3.api.player.VideoProgressUpdate(current, safeDuration)
+        }
+    }
+    
+    override fun getVolume(): Int {
+        return (exoPlayer.volume * 100).toInt()
+    }
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * VIDEO PLAYER ARCHITECTURE - SEPARATION OF RESPONSIBILITIES
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * 
+ * This app implements TWO distinct video player architectures:
+ * 
+ * 1. **Media3 ExoPlayer + IMA** (ExoPlayerImaVideoPlayer)
+ *    - Media3 ExoPlayer handles: Video playback, buffering, decoding, rendering, UI
+ *    - IMA SDK Extension handles: Ad logic, VAST parsing, tracking beacon firing
+ *    - Uses: androidx.media3.exoplayer.ima.ImaAdsLoader (Media3's IMA wrapper)
+ *    - Supports: VAST Tag (adTagUrl), JSON (direct video)
+ *    - LIMITATION: Cannot use adsResponse for VAST XML (Media3 doesn't expose it)
+ * 
+ * 2. **Google IMA SDK** (GoogleImaSDKPlayer) - CURRENTLY USING MEDIA3 WRAPPER!
+ *    - CURRENT STATUS: Still using Media3's ImaAdsLoader (same as player #1)
+ *    - TODO: Refactor to use Pure Google IMA SDK as follows:
+ * 
+ * 1. Create AdDisplayContainer:
+ *    val adUiContainer: ViewGroup = findViewById(R.id.adUiContainer)
+ *    val displayContainer = ImaSdkFactory.getInstance()
+ *        .createAdDisplayContainer(adUiContainer, yourVideoAdPlayer)
+ * 
+ * 2. Create AdsLoader:
+ *    val adsLoader = ImaSdkFactory.getInstance().createAdsLoader(context, displayContainer)
+ * 
+ * 3. Build AdsRequest with adsResponse for VAST XML:
+ *    val request = ImaSdkFactory.getInstance().createAdsRequest().apply {
+ *        adsResponse = decodedVastXmlString  // <-- This is the key!
+ *        // OR: adTagUrl = "https://..." for VAST Tag
+ *        contentProgressProvider = ContentProgressProvider {
+ *            VideoProgressUpdate(currentMs, totalMs)
+ *        }
+ *    }
+ * 
+ * 4. Listen for ad events:
+ *    adsLoader.addAdsLoadedListener { ev ->
+ *        adsManager = ev.adsManager
+ *        adsManager.addAdEventListener { adEvent ->
+ *            // STARTED, FIRST_QUARTILE, MIDPOINT, THIRD_QUARTILE, COMPLETE, CLICK
+ *        }
+ *        adsManager.init()
+ *    }
+ * 
+ * 5. Request ads:
+ *    adsLoader.requestAds(request)
+ * 
+ * This approach gives full control and supports both VAST Tag (adTagUrl) and 
+ * VAST XML (adsResponse) properly.
+ */
+
+/**
  * Parse VAST XML to extract video URL and tracking beacons
  * Uses regex as fallback for malformed XML
  */
@@ -1127,28 +1337,38 @@ fun ExoPlayerImaVideoPlayer(
     var thirdQuartileTracked by remember { mutableStateOf(false) }
     var completeTracked by remember { mutableStateOf(false) }
     
-    // Determine tracking mode:
-    // - JSON: Manual SDK tracking
-    // - VAST Tag + Native End-card: Fetch VAST, use VAST beacons (automatic)
-    // - VAST Tag alone: IMA SDK (automatic)
-    // - VAST XML: Not supported by ExoPlayer+IMA
+    // Determine playback mode:
+    // - VAST Tag: Always use IMA SDK with ad tag URL (IMA handles everything)
+    // - VAST XML: Always use IMA SDK with decoded XML as adsResponse (IMA handles everything)
+    // - JSON: Play video directly, manual SDK tracking
+    // - Native end-card: Just a Compose overlay on top (doesn't change playback method)
     val hasNativeEndCard = videoConfig.companionHeadline != null
-    val needsVastFetch = creative.delivery == "vast_tag" && hasNativeEndCard
-    val useImaSDK = creative.delivery == "vast_tag" && !hasNativeEndCard
+    val useImaSDK = creative.delivery == "vast_tag" || creative.delivery == "vast_xml"
     val isJsonDelivery = creative.delivery == null || creative.delivery == "json"
     
-    // For VAST Tag + Native End-card, fetch and parse VAST XML
-    var vastData by remember { mutableStateOf<VastData?>(null) }
+    android.util.Log.d("Media3Player", "═══════════════════════════════════════")
+    android.util.Log.d("Media3Player", "Player: Media3 ExoPlayer + IMA")
+    android.util.Log.d("Media3Player", "Delivery: ${creative.delivery ?: "json"}")
+    android.util.Log.d("Media3Player", "End-card: ${if (hasNativeEndCard) "Native" else "None"}")
+    android.util.Log.d("Media3Player", "Media3 ExoPlayer: Video playback, buffering, rendering")
+    android.util.Log.d("Media3Player", "IMA Extension: Ad logic, VAST parsing, tracking")
+    android.util.Log.d("Media3Player", "Will use IMA SDK: $useImaSDK")
+    android.util.Log.d("Media3Player", "═══════════════════════════════════════")
     
-    LaunchedEffect(creative.delivery, hasNativeEndCard) {
-        if (needsVastFetch && videoConfig.videoAssetUrl != null) {
-            android.util.Log.d("ExoPlayerIMA", "Fetching VAST XML from tag URL for native end-card")
-            val vastXml = fetchVastXmlFromUrl(videoConfig.videoAssetUrl!!)
-            if (vastXml != null) {
-                vastData = parseVastXml(vastXml)
-                android.util.Log.d("ExoPlayerIMA", "Parsed VAST: video=${vastData?.mediaFileUrl}, tracking=${vastData?.trackingEvents?.size} events")
-            } else {
-                playbackError = "Failed to fetch VAST XML from tag URL"
+    // For VAST XML, decode the Base64 XML
+    var decodedVastXml by remember { mutableStateOf<String?>(null) }
+    
+    LaunchedEffect(creative.delivery) {
+        if (creative.delivery == "vast_xml") {
+            creative.vast?.xmlBase64?.let { base64Xml ->
+                try {
+                    val decoded = String(android.util.Base64.decode(base64Xml, android.util.Base64.DEFAULT))
+                    decodedVastXml = decoded
+                    android.util.Log.d("ExoPlayerIMA", "✓ Decoded VAST XML (${decoded.length} chars)")
+                } catch (e: Exception) {
+                    android.util.Log.e("ExoPlayerIMA", "✗ Error decoding VAST XML: ${e.message}")
+                    playbackError = "Failed to decode VAST XML: ${e.message}"
+                }
             }
         }
     }
@@ -1191,11 +1411,14 @@ fun ExoPlayerImaVideoPlayer(
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
             .setDataSourceFactory(DefaultDataSource.Factory(context))
         
-        // Only use IMA for VAST Tag without native end-card
+        // Use IMA for VAST Tag and VAST XML (always, regardless of end-card)
         if (useImaSDK) {
+            android.util.Log.d("ExoPlayerIMA", "→ Configuring MediaSourceFactory with IMA ads loader")
             mediaSourceFactory
                 .setAdsLoaderProvider { adsLoader }
                 .setAdViewProvider { playerView!! }
+        } else {
+            android.util.Log.d("ExoPlayerIMA", "→ MediaSourceFactory without ads (JSON delivery)")
         }
         
         ExoPlayer.Builder(context)
@@ -1203,49 +1426,50 @@ fun ExoPlayerImaVideoPlayer(
             .build()
     }
     
-    // Setup media source (wait for VAST data if needed)
-    LaunchedEffect(videoConfig.videoAssetUrl, vastData) {
-        // For VAST Tag + Native End-card, wait for VAST to be fetched
-        if (needsVastFetch && vastData == null) {
-            android.util.Log.d("ExoPlayerIMA", "Waiting for VAST to be fetched...")
+    // Setup media source (wait for VAST XML to be decoded if needed)
+    LaunchedEffect(videoConfig.videoAssetUrl, decodedVastXml, creative.delivery) {
+        // For VAST XML, wait until decoded
+        if (creative.delivery == "vast_xml" && decodedVastXml == null) {
+            android.util.Log.d("ExoPlayerIMA", "⏳ Waiting for VAST XML to be decoded...")
             return@LaunchedEffect
         }
         
         videoConfig.videoAssetUrl?.let { url ->
-            android.util.Log.d("ExoPlayerIMA", "Loading ${creative.delivery ?: "JSON"} delivery")
+            android.util.Log.d("ExoPlayerIMA", "🎬 Setting up media source...")
             
+            val contentVideoUri = "https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8"
             val mediaItemBuilder = MediaItem.Builder()
             
-            when {
-                needsVastFetch -> {
-                    // VAST Tag + Native End-card: Use parsed video URL
-                    val videoUrl = vastData?.mediaFileUrl
-                    if (videoUrl == null) {
-                        playbackError = "Could not extract video URL from VAST"
-                        return@LaunchedEffect
-                    }
-                    android.util.Log.d("ExoPlayerIMA", "Using VAST Tag parsed video URL: $videoUrl")
-                    mediaItemBuilder.setUri(Uri.parse(videoUrl))
-                }
-                useImaSDK -> {
-                    // VAST Tag without native end-card: Use IMA SDK
-                    val contentVideoUri = "https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8"
-                    android.util.Log.d("ExoPlayerIMA", "Using VAST Tag URL with IMA: $url")
+            when (creative.delivery) {
+                "vast_tag" -> {
+                    // VAST Tag: Pass tag URL to IMA SDK (IMA will fetch XML and handle everything)
+                    android.util.Log.d("ExoPlayerIMA", "📡 VAST Tag mode: Passing tag URL to IMA SDK")
+                    android.util.Log.d("ExoPlayerIMA", "   Tag URL: $url")
+                    android.util.Log.d("ExoPlayerIMA", "   Content video: $contentVideoUri")
+                    android.util.Log.d("ExoPlayerIMA", "   IMA will: fetch XML, parse, select media, track quartiles")
+                    
                     mediaItemBuilder
                         .setUri(Uri.parse(contentVideoUri))
                         .setAdsConfiguration(
                             MediaItem.AdsConfiguration.Builder(Uri.parse(url)).build()
                         )
                 }
-                creative.delivery == "vast_xml" -> {
-                    // VAST XML: ExoPlayer+IMA doesn't support raw XML directly
-                    // This will be better supported in GoogleImaSDKPlayer
-                    // For now, show error message
+                "vast_xml" -> {
+                    // VAST XML: ExoPlayer+IMA doesn't support adsResponse easily
+                    // Recommend GoogleImaSDKPlayer which has direct IMA SDK access
+                    android.util.Log.w("ExoPlayerIMA", "⚠️  VAST XML not fully supported by ExoPlayer+IMA")
+                    android.util.Log.w("ExoPlayerIMA", "   Reason: Media3's ImaAdsLoader doesn't expose adsResponse parameter")
+                    android.util.Log.w("ExoPlayerIMA", "   Recommendation: Use 'Google IMA SDK' player for VAST XML")
+                    
                     playbackError = "VAST XML is not supported by this player.\n\nPlease use 'Google IMA SDK' player for VAST XML delivery."
                     return@LaunchedEffect
                 }
                 else -> {
                     // JSON delivery: Play video directly
+                    android.util.Log.d("ExoPlayerIMA", "📹 JSON mode: Playing video directly (no IMA)")
+                    android.util.Log.d("ExoPlayerIMA", "   Video URL: $url")
+                    android.util.Log.d("ExoPlayerIMA", "   Manual tracking: YES (via SDK trackingEvents)")
+                    
                     mediaItemBuilder.setUri(Uri.parse(url))
                 }
             }
@@ -1338,50 +1562,11 @@ fun ExoPlayerImaVideoPlayer(
                             completeTracked = true
                         }
                     }
-                    needsVastFetch -> {
-                        // VAST Tag + Native End-card: Fire VAST tracking beacons automatically
-                        vastData?.trackingEvents?.let { events ->
-                            if (exoPlayer.isPlaying && !hasStarted) {
-                                hasStarted = true
-                            }
-                            
-                            if (hasStarted && !startTracked) {
-                                events["start"]?.let { urls ->
-                                    fireVastTrackingBeacons(urls)
-                                }
-                                startTracked = true
-                            }
-                            
-                            if (progress >= 0.25f && !firstQuartileTracked) {
-                                events["firstQuartile"]?.let { urls ->
-                                    fireVastTrackingBeacons(urls)
-                                }
-                                firstQuartileTracked = true
-                            }
-                            
-                            if (progress >= 0.5f && !midpointTracked) {
-                                events["midpoint"]?.let { urls ->
-                                    fireVastTrackingBeacons(urls)
-                                }
-                                midpointTracked = true
-                            }
-                            
-                            if (progress >= 0.75f && !thirdQuartileTracked) {
-                                events["thirdQuartile"]?.let { urls ->
-                                    fireVastTrackingBeacons(urls)
-                                }
-                                thirdQuartileTracked = true
-                            }
-                            
-                            if (progress >= 0.98f && !completeTracked) {
-                                events["complete"]?.let { urls ->
-                                    fireVastTrackingBeacons(urls)
-                                }
-                                completeTracked = true
-                            }
-                        }
+                    useImaSDK -> {
+                        // VAST Tag/XML: IMA SDK handles all tracking automatically
+                        // We don't need to do anything here - IMA fires quartile beacons
+                        // No manual tracking needed - IMA does it all
                     }
-                    // useImaSDK -> IMA handles tracking automatically
                 }
                 
                 // Show overlay at specified percentage (for JSON + native end-card or VAST + native end-card)
@@ -1850,160 +2035,243 @@ fun GoogleImaSDKPlayer(
     var thirdQuartileTracked by remember { mutableStateOf(false) }
     var completeTracked by remember { mutableStateOf(false) }
     
-    // Determine tracking mode:
-    // - JSON: Manual SDK tracking
-    // - VAST Tag + Native End-card: Fetch VAST, use VAST beacons (automatic)
-    // - VAST Tag alone: IMA SDK (automatic)
-    // - VAST XML: Parse VAST, use VAST beacons (automatic)
+    // Determine playback mode:
+    // - VAST Tag: Use Pure IMA SDK with adTagUrl (IMA handles everything)
+    // - VAST XML: Use Pure IMA SDK with adsResponse (IMA handles everything) ⭐
+    // - JSON: Play video directly, manual SDK tracking
+    // - Native end-card: Just a Compose overlay on top (doesn't change playback method)
     val hasNativeEndCard = videoConfig.companionHeadline != null
-    val needsVastFetch = creative.delivery == "vast_tag" && hasNativeEndCard
-    val useImaSDK = creative.delivery == "vast_tag" && !hasNativeEndCard
+    val useImaSDK = creative.delivery == "vast_tag" || creative.delivery == "vast_xml"
     val isJsonDelivery = creative.delivery == null || creative.delivery == "json"
-    val useVastBeacons = creative.delivery == "vast_xml" || needsVastFetch
     
-    // For VAST XML or VAST Tag + Native End-card, fetch/decode and parse VAST
-    var vastData by remember { mutableStateOf<VastData?>(null) }
+    android.util.Log.d("PureIMA_SDK", "═══════════════════════════════════════")
+    android.util.Log.d("PureIMA_SDK", "Player: Google IMA SDK (PURE)")
+    android.util.Log.d("PureIMA_SDK", "✅ Using ImaSdkFactory.getInstance()")
+    android.util.Log.d("PureIMA_SDK", "Delivery: ${creative.delivery ?: "json"}")
+    android.util.Log.d("PureIMA_SDK", "End-card: ${if (hasNativeEndCard) "Native" else "None"}")
+    android.util.Log.d("PureIMA_SDK", "")
+    when (creative.delivery) {
+        "vast_tag" -> {
+            android.util.Log.d("PureIMA_SDK", "  VAST Tag: Using adsRequest.adTagUrl")
+            android.util.Log.d("PureIMA_SDK", "  ✅ Pure IMA SDK in control")
+            android.util.Log.d("PureIMA_SDK", "  → IMA watermarks WILL appear")
+        }
+        "vast_xml" -> {
+            android.util.Log.d("PureIMA_SDK", "  VAST XML: Using adsRequest.adsResponse ⭐")
+            android.util.Log.d("PureIMA_SDK", "  ✅ Pure IMA SDK in control")
+            android.util.Log.d("PureIMA_SDK", "  → IMA watermarks WILL appear")
+            android.util.Log.d("PureIMA_SDK", "  → Automatic tracking (IMA handles it)")
+        }
+        else -> {
+            android.util.Log.d("PureIMA_SDK", "  JSON: Direct playback, manual tracking")
+        }
+    }
+    android.util.Log.d("PureIMA_SDK", "═══════════════════════════════════════")
     
-    LaunchedEffect(creative.delivery, hasNativeEndCard) {
-        when {
-            creative.delivery == "vast_xml" -> {
-                // VAST XML: Decode Base64 and parse
-                creative.vast?.xmlBase64?.let { base64Xml ->
-                    try {
-                        val decodedXml = String(android.util.Base64.decode(base64Xml, android.util.Base64.DEFAULT))
-                        android.util.Log.d("GoogleIMA", "Decoded VAST XML (${decodedXml.length} chars)")
-                        vastData = parseVastXml(decodedXml)
-                        android.util.Log.d("GoogleIMA", "Parsed VAST: video=${vastData?.mediaFileUrl}, tracking=${vastData?.trackingEvents?.size} events")
-                    } catch (e: Exception) {
-                        android.util.Log.e("GoogleIMA", "Error decoding VAST XML: ${e.message}", e)
-                        playbackError = "Failed to decode VAST XML: ${e.message}"
-                    }
-                }
-            }
-            needsVastFetch && videoConfig.videoAssetUrl != null -> {
-                // VAST Tag + Native End-card: Fetch VAST XML from tag URL
-                android.util.Log.d("GoogleIMA", "Fetching VAST XML from tag URL for native end-card")
-                val vastXml = fetchVastXmlFromUrl(videoConfig.videoAssetUrl!!)
-                if (vastXml != null) {
-                    vastData = parseVastXml(vastXml)
-                    android.util.Log.d("GoogleIMA", "Parsed VAST: video=${vastData?.mediaFileUrl}, tracking=${vastData?.trackingEvents?.size} events")
-                } else {
-                    playbackError = "Failed to fetch VAST XML from tag URL"
+    // For VAST XML, decode the Base64 XML (pass to IMA as adsResponse)
+    var decodedVastXml by remember { mutableStateOf<String?>(null) }
+    
+    LaunchedEffect(creative.delivery) {
+        if (creative.delivery == "vast_xml") {
+            creative.vast?.xmlBase64?.let { base64Xml ->
+                try {
+                    val decoded = String(android.util.Base64.decode(base64Xml, android.util.Base64.DEFAULT))
+                    decodedVastXml = decoded
+                    android.util.Log.d("PureIMA_SDK", "✓ Decoded VAST XML (${decoded.length} chars)")
+                    android.util.Log.d("PureIMA_SDK", "✓ Will pass to IMA as adsResponse")
+                } catch (e: Exception) {
+                    android.util.Log.e("PureIMA_SDK", "✗ Error decoding VAST XML: ${e.message}")
+                    playbackError = "Failed to decode VAST XML: ${e.message}"
                 }
             }
         }
     }
     
-    // IMA ads loader - for VAST Tag without native end-card
-    val adsLoader = remember {
-        ImaAdsLoader.Builder(context)
-            .setAdEventListener { adEvent ->
-                android.util.Log.d("GOOGLE_IMA", "Ad Event: ${adEvent.type}")
-                when (adEvent.type) {
-                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.COMPLETED -> {
-                        android.util.Log.d("GOOGLE_IMA", "✅ Ad COMPLETED")
-                        hasCompleted = true
-                        onComplete()
-                    }
-                    else -> Unit
-                }
-            }
-            .setAdErrorListener { adErrorEvent ->
-                android.util.Log.e("GOOGLE_IMA", "❌ Ad Error: ${adErrorEvent.error.message}")
-                playbackError = "IMA Error: ${adErrorEvent.error.message}"
-            }
-            .build()
-    }
+    // PURE GOOGLE IMA SDK SETUP
+    val imaSdkFactory = remember { com.google.ads.interactivemedia.v3.api.ImaSdkFactory.getInstance() }
+    var adsManager by remember { mutableStateOf<com.google.ads.interactivemedia.v3.api.AdsManager?>(null) }
+    var adDisplayContainer by remember { mutableStateOf<com.google.ads.interactivemedia.v3.api.AdDisplayContainer?>(null) }
+    var imaAdsLoader by remember { mutableStateOf<com.google.ads.interactivemedia.v3.api.AdsLoader?>(null) }
+    var adsRequested by remember { mutableStateOf(false) }
     
-    // PlayerView reference for AdViewProvider
-    var playerView: PlayerView? by remember { mutableStateOf(null) }
+    // Container view for IMA UI overlays
+    var adUiContainer by remember { mutableStateOf<android.view.ViewGroup?>(null) }
     
-    // ExoPlayer with conditional IMA integration
+    // ExoPlayer for video playback (Pure IMA SDK will control it)
     val exoPlayer = remember {
-        val mediaSourceFactory = DefaultMediaSourceFactory(context)
-            .setDataSourceFactory(DefaultDataSource.Factory(context))
-        
-        // Only use IMA for VAST Tag without native end-card
-        if (useImaSDK) {
-            mediaSourceFactory
-                .setAdsLoaderProvider { adsLoader }
-                .setAdViewProvider { playerView!! }
-        }
-        
-        ExoPlayer.Builder(context)
-            .setMediaSourceFactory(mediaSourceFactory)
-            .build()
+        androidx.media3.exoplayer.ExoPlayer.Builder(context).build()
     }
     
-    // Setup media source (wait for VAST data if needed)
-    LaunchedEffect(videoConfig.videoAssetUrl, vastData, creative.delivery) {
-        // For VAST XML or VAST Tag + Native End-card, wait until parsed/fetched
-        if (useVastBeacons && vastData == null) {
-            android.util.Log.d("GoogleIMASDK", "Waiting for VAST to be fetched/parsed...")
+    // Create VideoAdPlayer for IMA SDK
+    val videoAdPlayer = remember(exoPlayer) {
+        SimpleVideoAdPlayer(exoPlayer)
+    }
+    
+    // Setup Pure IMA SDK when container is ready
+    LaunchedEffect(adUiContainer) {
+        if (useImaSDK && adUiContainer != null) {
+            android.util.Log.d("PureIMA_SDK", "→ Initializing Pure IMA SDK")
+            
+            // Create AdDisplayContainer with proper view hierarchy
+            // The adUiContainer now contains the PlayerView as a child
+            val container = imaSdkFactory.createAdDisplayContainer()
+            container.adContainer = adUiContainer!! // The FrameLayout that contains PlayerView
+            container.player = videoAdPlayer
+            adDisplayContainer = container
+            android.util.Log.d("PureIMA_SDK", "✓ AdDisplayContainer created (view hierarchy: FrameLayout > PlayerView)")
+            
+            // Create IMA settings
+            val settings = imaSdkFactory.createImaSdkSettings()
+            settings.language = "en"
+            settings.setDebugMode(true) // Enable debug logging
+            android.util.Log.d("PureIMA_SDK", "✓ IMA settings configured (debug mode enabled)")
+            
+            // Create AdsLoader
+            val loader = imaSdkFactory.createAdsLoader(context, settings, container)
+            imaAdsLoader = loader
+            android.util.Log.d("PureIMA_SDK", "✓ AdsLoader created")
+            
+            // Setup AdsLoader listeners
+            imaAdsLoader?.addAdsLoadedListener { adsManagerLoadedEvent ->
+                android.util.Log.d("PureIMA_SDK", "✅ Ads loaded successfully")
+                adsManager = adsManagerLoadedEvent.adsManager
+                
+                // Add ad event listener
+                adsManager?.addAdEventListener { adEvent ->
+                    android.util.Log.d("PureIMA_SDK", "Ad Event: ${adEvent.type}")
+                    when (adEvent.type) {
+                        com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.LOADED -> {
+                            android.util.Log.d("PureIMA_SDK", "✅ Ad LOADED")
+                            // Start playback only after LOADED per IMA docs
+                            adsManager?.start()
+                            android.util.Log.d("PureIMA_SDK", "▶️ AdsManager start() called after LOADED")
+                        }
+                        com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.STARTED -> {
+                            android.util.Log.d("PureIMA_SDK", "✅ Ad STARTED")
+                        }
+                        com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.FIRST_QUARTILE ->
+                            android.util.Log.d("PureIMA_SDK", "✅ Ad FIRST_QUARTILE")
+                        com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.MIDPOINT ->
+                            android.util.Log.d("PureIMA_SDK", "✅ Ad MIDPOINT")
+                        com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.THIRD_QUARTILE ->
+                            android.util.Log.d("PureIMA_SDK", "✅ Ad THIRD_QUARTILE")
+                        com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.COMPLETED -> {
+                            android.util.Log.d("PureIMA_SDK", "✅ Ad COMPLETED")
+                            hasCompleted = true
+                            onComplete()
+                        }
+                        com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.PAUSED ->
+                            android.util.Log.d("PureIMA_SDK", "✅ Ad PAUSED")
+                        com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.RESUMED ->
+                            android.util.Log.d("PureIMA_SDK", "✅ Ad RESUMED")
+                        else -> Unit
+                    }
+                }
+                
+                // Add ad error listener
+                adsManager?.addAdErrorListener { adErrorEvent ->
+                    android.util.Log.e("PureIMA_SDK", "❌ Ad Error: ${adErrorEvent.error.message}")
+                    playbackError = "IMA Error: ${adErrorEvent.error.message}"
+                }
+                
+                // Create rendering settings for the ads manager
+                val renderingSettings = imaSdkFactory.createAdsRenderingSettings()
+                renderingSettings.enablePreloading = true
+                
+                // Initialize ads manager (start is triggered on LOADED event)
+                adsManager?.init(renderingSettings)
+                android.util.Log.d("PureIMA_SDK", "✅ AdsManager initialized with rendering settings")
+            }
+            
+            imaAdsLoader?.addAdErrorListener { adErrorEvent ->
+                android.util.Log.e("PureIMA_SDK", "❌ AdsLoader Error: ${adErrorEvent.error.message}")
+                playbackError = "IMA Loader Error: ${adErrorEvent.error.message}"
+            }
+        }
+    }
+    
+    // Request ads with Pure IMA SDK (wait for VAST XML to be decoded if needed)
+    LaunchedEffect(imaAdsLoader, videoConfig.videoAssetUrl, decodedVastXml) {
+        // Only request once
+        if (adsRequested) {
+            android.util.Log.d("PureIMA_SDK", "⏭️ Ads already requested, skipping")
+            return@LaunchedEffect
+        }
+        
+        // For VAST XML, wait until decoded
+        if (creative.delivery == "vast_xml" && decodedVastXml == null) {
+            android.util.Log.d("PureIMA_SDK", "⏳ Waiting for VAST XML to be decoded...")
             return@LaunchedEffect
         }
         
         videoConfig.videoAssetUrl?.let { url ->
-            android.util.Log.d("GoogleIMASDK", "Loading ${creative.delivery ?: "JSON"} delivery")
-            
-            val contentVideoUri = "https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8"
-            val mediaItemBuilder = MediaItem.Builder()
-            
-            when {
-                useVastBeacons -> {
-                    // VAST XML or VAST Tag + Native End-card: Use parsed video URL
-                    val videoUrl = vastData?.mediaFileUrl
-                    if (videoUrl == null) {
-                        playbackError = "Could not extract video URL from VAST"
-                        return@LaunchedEffect
+            when (creative.delivery) {
+                "vast_tag", "vast_xml" -> {
+                    // Use Pure IMA SDK for VAST
+                    if (imaAdsLoader != null) {
+                        android.util.Log.d("PureIMA_SDK", "🎬 Requesting ads from Pure IMA SDK...")
+                        
+                        val request = imaSdkFactory.createAdsRequest()
+                        
+                        when (creative.delivery) {
+                            "vast_tag" -> {
+                                android.util.Log.d("PureIMA_SDK", "📡 VAST Tag: Setting adTagUrl")
+                                android.util.Log.d("PureIMA_SDK", "   Tag URL: $url")
+                                request.adTagUrl = url
+                            }
+                            "vast_xml" -> {
+                                android.util.Log.d("PureIMA_SDK", "📄 VAST XML: Setting adsResponse ⭐")
+                                android.util.Log.d("PureIMA_SDK", "   XML length: ${decodedVastXml?.length} chars")
+                                decodedVastXml?.let { request.adsResponse = it }
+                            }
+                        }
+                        
+                        // Set content progress provider (ad-only playback => tell IMA no content timeline)
+                        request.contentProgressProvider = com.google.ads.interactivemedia.v3.api.player.ContentProgressProvider {
+                            com.google.ads.interactivemedia.v3.api.player.VideoProgressUpdate.VIDEO_TIME_NOT_READY
+                        }
+                        
+                        // Request ads
+                        imaAdsLoader?.requestAds(request)
+                        adsRequested = true
+                        android.util.Log.d("PureIMA_SDK", "✓ Ads requested, IMA will handle playback")
                     }
-                    android.util.Log.d("GoogleIMASDK", "Using VAST parsed video URL: $videoUrl")
-                    mediaItemBuilder.setUri(Uri.parse(videoUrl))
-                }
-                useImaSDK -> {
-                    // VAST Tag without native end-card: Use IMA SDK
-                    android.util.Log.d("GoogleIMASDK", "Using VAST Tag URL with IMA: $url")
-                    mediaItemBuilder
-                        .setUri(Uri.parse(contentVideoUri))
-                        .setAdsConfiguration(
-                            MediaItem.AdsConfiguration.Builder(Uri.parse(url)).build()
-                        )
                 }
                 else -> {
-                    // JSON delivery: Play video directly
-                    android.util.Log.d("GoogleIMASDK", "Using JSON video URL: $url")
-                    mediaItemBuilder.setUri(Uri.parse(url))
-                }
-            }
-            
-            // Add poster image
-            videoConfig.posterImageUrl?.let { posterUrl ->
-                mediaItemBuilder.setMediaMetadata(
-                    androidx.media3.common.MediaMetadata.Builder()
-                        .setArtworkUri(Uri.parse(posterUrl))
-                        .build()
-                )
-            }
-            
-            exoPlayer.apply {
-                setMediaItem(mediaItemBuilder.build())
-                prepare()
-                playWhenReady = true
-                
-                // Error listener
-                addListener(object : androidx.media3.common.Player.Listener {
-                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                        android.util.Log.e("GoogleIMASDK", "Playback error: ${error.message}", error)
-                        playbackError = "Playback error: ${error.message ?: "Unknown error"}"
+                    // JSON delivery: Play video directly (no IMA)
+                    android.util.Log.d("PureIMA_SDK", "📹 JSON mode: Playing video directly (no IMA)")
+                    android.util.Log.d("PureIMA_SDK", "   Video URL: $url")
+                    
+                    val mediaItemBuilder = androidx.media3.common.MediaItem.Builder()
+                        .setUri(android.net.Uri.parse(url))
+                    
+                    // Add poster image
+                    videoConfig.posterImageUrl?.let { posterUrl ->
+                        mediaItemBuilder.setMediaMetadata(
+                            androidx.media3.common.MediaMetadata.Builder()
+                                .setArtworkUri(android.net.Uri.parse(posterUrl))
+                                .build()
+                        )
                     }
-                })
+                    
+                    exoPlayer.apply {
+                        setMediaItem(mediaItemBuilder.build())
+                        prepare()
+                        playWhenReady = true
+                    }
+                }
             }
         }
     }
     
-    // Set adsLoader's player
+    // ExoPlayer error listener
     LaunchedEffect(exoPlayer) {
-        adsLoader.setPlayer(exoPlayer)
+        exoPlayer.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                android.util.Log.e("PureIMA_SDK", "Playback error: ${error.message}", error)
+                playbackError = "Playback error: ${error.message ?: "Unknown error"}"
+            }
+        })
     }
     
     // Monitor playback state and fire tracking events
@@ -2021,7 +2289,7 @@ fun GoogleImaSDKPlayer(
                 // Tracking based on delivery mode
                 when {
                     isJsonDelivery -> {
-                        // JSON: Manual SDK tracking
+                        // JSON: Manual SDK tracking (IMA not involved)
                         if (exoPlayer.isPlaying && !hasStarted) {
                             hasStarted = true
                         }
@@ -2051,50 +2319,13 @@ fun GoogleImaSDKPlayer(
                             completeTracked = true
                         }
                     }
-                    useVastBeacons -> {
-                        // VAST XML or VAST Tag + Native End-card: Fire VAST tracking beacons automatically
-                        vastData?.trackingEvents?.let { events ->
-                            if (exoPlayer.isPlaying && !hasStarted) {
-                                hasStarted = true
-                            }
-                            
-                            if (hasStarted && !startTracked) {
-                                events["start"]?.let { urls ->
-                                    fireVastTrackingBeacons(urls)
-                                }
-                                startTracked = true
-                            }
-                            
-                            if (progress >= 0.25f && !firstQuartileTracked) {
-                                events["firstQuartile"]?.let { urls ->
-                                    fireVastTrackingBeacons(urls)
-                                }
-                                firstQuartileTracked = true
-                            }
-                            
-                            if (progress >= 0.5f && !midpointTracked) {
-                                events["midpoint"]?.let { urls ->
-                                    fireVastTrackingBeacons(urls)
-                                }
-                                midpointTracked = true
-                            }
-                            
-                            if (progress >= 0.75f && !thirdQuartileTracked) {
-                                events["thirdQuartile"]?.let { urls ->
-                                    fireVastTrackingBeacons(urls)
-                                }
-                                thirdQuartileTracked = true
-                            }
-                            
-                            if (progress >= 0.98f && !completeTracked) {
-                                events["complete"]?.let { urls ->
-                                    fireVastTrackingBeacons(urls)
-                                }
-                                completeTracked = true
-                            }
-                        }
+                    useImaSDK -> {
+                        // VAST Tag/XML: Pure IMA SDK handles all tracking automatically
+                        // No manual tracking needed - IMA does it all
                     }
-                    // useImaSDK -> IMA handles tracking automatically
+                    else -> {
+                        // No tracking needed for other modes
+                    }
                 }
                 
                 // Show overlay at specified percentage
@@ -2115,23 +2346,36 @@ fun GoogleImaSDKPlayer(
         }
     }
     
-    // Cleanup
-    DisposableEffect(exoPlayer) {
+    // Cleanup Pure IMA SDK resources
+    DisposableEffect(Unit) {
         onDispose {
-            adsLoader.release()
+            android.util.Log.d("PureIMA_SDK", "Cleaning up resources...")
+            adsManager?.destroy()
+            imaAdsLoader?.contentComplete()
             exoPlayer.release()
         }
     }
     
     Box(modifier = modifier) {
-        // ExoPlayer view with IMA support
+        // IMA UI container with PlayerView inside
+        // This is the correct hierarchy for IMA SDK to overlay its UI
         AndroidView(
             factory = { ctx ->
-                PlayerView(ctx).apply {
-                    player = exoPlayer
-                    useController = true
-                    useArtwork = true
-                    playerView = this
+                android.widget.FrameLayout(ctx).apply {
+                    // Add TextureView as the video surface so IMA overlays (WebView) can appear above it
+                    val textureView = android.view.TextureView(ctx).apply {
+                        layoutParams = android.widget.FrameLayout.LayoutParams(
+                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                        )
+                    }
+                    addView(textureView)
+                    // Bind ExoPlayer to use this TextureView
+                    exoPlayer.setVideoTextureView(textureView)
+                    
+                    // Set this as the IMA UI container
+                    adUiContainer = this
+                    android.util.Log.d("PureIMA_SDK", "✓ IMA UI container created with TextureView inside (overlays supported)")
                 }
             },
             modifier = Modifier.fillMaxSize()

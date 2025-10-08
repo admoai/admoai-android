@@ -215,11 +215,32 @@ fun VideoPlayerSection(
                 data class PlayerOption(val value: String, val label: String, val description: String, val isVastOnly: Boolean = false)
                 
                 listOf(
-                    PlayerOption("ima", "Google IMA SDK", "Works with both JSON and VAST delivery", false),
-                    PlayerOption("exoplayer", "ExoPlayer + Google IMA", "Works with both JSON and VAST delivery", false),
-                    PlayerOption("basic", "Basic Player", "Best for JSON delivery (manual tracking)", false)
+                    PlayerOption("exoplayer", "Media3 ExoPlayer + IMA", "Media3's IMA wrapper - VAST Tag only", false),
+                    PlayerOption("ima", "Google IMA SDK (Pure)", "Pure IMA SDK - VAST Tag & VAST XML via adsResponse", false),
+                    PlayerOption("basic", "Basic Player", "JSON only - Manual tracking", false)
                 ).forEach { option ->
-                    val isDisabled = option.value == "basic" && isVastDelivery
+                    // Determine if this player option should be disabled based on delivery method
+                    val isDisabled = when {
+                        // Basic Player: Only supports JSON, disabled for all VAST
+                        option.value == "basic" && isVastDelivery -> true
+                        // Media3 ExoPlayer + IMA: Doesn't support VAST XML (no adsResponse)
+                        option.value == "exoplayer" && videoDelivery == "vast_xml" -> true
+                        else -> false
+                    }
+                    
+                    // Auto-select appropriate player when delivery changes
+                    LaunchedEffect(videoDelivery, videoPlayer) {
+                        when {
+                            // VAST XML: Only Google IMA SDK supports it
+                            videoDelivery == "vast_xml" && videoPlayer != "ima" -> {
+                                viewModel.setVideoPlayer("ima")
+                            }
+                            // VAST Tag: If Basic Player is selected, switch to Media3 ExoPlayer + IMA
+                            videoDelivery == "vast_tag" && videoPlayer == "basic" -> {
+                                viewModel.setVideoPlayer("exoplayer")
+                            }
+                        }
+                    }
                     
                     FilterChip(
                         selected = videoPlayer == option.value,

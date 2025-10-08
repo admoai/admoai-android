@@ -6,6 +6,7 @@ This document describes the complete **Video Ad** player implementation in the A
 **Key Concept**: The video itself IS the advertisement. This is not pre-roll ads before content - the entire video creative is the ad unit. After playback, the publisher can replay or fetch another video ad via the Decision API.
 
 This covers all UI flows, player selection logic, VAST tag handling, overlay rendering, and tracking integration.
+See: `/admoai-android/VIDEO_CONCEPTS.md` for the canonical definitions (delivery methods, content keys, tracking rules, player capabilities).
 
 ---
 
@@ -14,16 +15,14 @@ This covers all UI flows, player selection logic, VAST tag handling, overlay ren
 **File:** `/sample/src/main/java/com/admoai/sample/ui/screens/VideoAdDemoScreen.kt`
 
 ### UI Components:
-1. **Placement Selector** - Choose where the ad appears (home, rider_waiting, etc.)
-2. **Video Options Section** - Select delivery method and end-card type:
+1. **Video Options Section** - Select delivery method and end-card type:
    - **Delivery Method**: JSON, VAST Tag, VAST XML
    - **End Card Type**: None, Native End-card, VAST Companion
-3. **Video Player Section** - Choose player implementation:
-   - **ExoPlayer + IMA** ⭐ (Recommended, VAST-friendly)
+2. **Video Player Section** - Choose player implementation:
+   - **Media3 ExoPlayer + IMA** ⭐ (Recommended for VAST Tag + JSON)
+   - **Google IMA SDK** (Pure IMA SDK - Target: VAST XML support via adsResponse)
    - **Basic Player** (Non-VAST, JSON only) - DISABLED for VAST delivery
-   - **Google IMA SDK** (Pure IMA, VAST-only)
-   - **JW Player** (Commercial, full VAST support)
-4. **Launch Video Demo Button** - Triggers video preview
+3. **Launch Video Demo Button** - Triggers video preview
 
 ### Key Logic:
 - **Scenario Generation** (`getLocalMockScenario`): Maps UI selections to mock server scenarios
@@ -64,9 +63,31 @@ This covers all UI flows, player selection logic, VAST tag handling, overlay ren
 
 ---
 
-## 3. ExoPlayer + IMA Player Implementation
+## 3. Media3 ExoPlayer + IMA Player Implementation
 
-**Function:** `ExoPlayerImaVideoPlayer()` (lines 925-1172)
+**Function:** `ExoPlayerImaVideoPlayer()`
+
+### Architecture - Separation of Responsibilities:
+
+**Media3 ExoPlayer Responsibilities:**
+- Video playback engine
+- Buffering and streaming
+- Video decoding (codec support)
+- Video rendering to surface
+- UI controls (play/pause, seek bar)
+
+**IMA SDK Extension Responsibilities:**
+- Ad logic and decision making
+- VAST Tag fetching and parsing
+- Tracking beacon firing (impressions, quartiles)
+- Click-through handling
+- OMID compliance
+
+**Implementation Details:**
+- Uses `androidx.media3.exoplayer.ima.ImaAdsLoader` (Media3's IMA wrapper)
+- Integrates via `MediaSourceFactory.setAdsLoaderProvider()`
+- VAST Tag passed via `MediaItem.AdsConfiguration.Builder(adTagUrl)`
+- **Limitation**: Cannot use `adsResponse` for VAST XML (Media3 doesn't expose it)
 
 ### IMA SDK Integration:
 ```kotlin
@@ -109,7 +130,84 @@ MediaItem.Builder()
 
 ---
 
-## 4. Basic Video Player Implementation
+## 4. Google IMA SDK Player Implementation
+
+**Function:** `GoogleImaSDKPlayer()`
+
+### Architecture - Current vs Target:
+
+**Current Implementation (⚠️ Using Media3 wrapper):**
+- Still using `androidx.media3.exoplayer.ima.ImaAdsLoader`
+- Same architecture as Media3 ExoPlayer + IMA
+- **Cannot access adsResponse parameter for VAST XML**
+- Works with VAST Tag (adTagUrl) only
+
+**Target Implementation (Pure Google IMA SDK):**
+
+**Pure IMA SDK Responsibilities:**
+- Ad playback engine
+- VAST Tag fetching via adTagUrl
+- **VAST XML ingestion via adsResponse** ⭐
+- Tracking beacon firing (all events)
+- Click-through handling
+- OMID compliance
+- Video player control
+
+**Custom VideoAdPlayer Responsibilities:**
+- Implement VideoAdPlayer interface
+- Handle play/pause commands from IMA
+- Report progress to IMA via ContentProgressProvider
+- Render video surface
+
+**Target Implementation Code:**
+```kotlin
+// 1. Create AdDisplayContainer
+val adUiContainer: ViewGroup = findViewById(R.id.adUiContainer)
+val displayContainer = ImaSdkFactory.getInstance()
+    .createAdDisplayContainer(adUiContainer, videoAdPlayer)
+
+// 2. Create AdsLoader (Pure IMA, not Media3)
+val adsLoader = ImaSdkFactory.getInstance()
+    .createAdsLoader(context, displayContainer)
+
+// 3. Build AdsRequest with adsResponse for VAST XML
+val request = ImaSdkFactory.getInstance().createAdsRequest().apply {
+    adsResponse = decodedVastXmlString  // ⭐ This is the key!
+    // OR: adTagUrl = "https://..." for VAST Tag
+    contentProgressProvider = ContentProgressProvider {
+        VideoProgressUpdate(currentMs, totalMs)
+    }
+}
+
+// 4. Listen for ad events
+adsLoader.addAdsLoadedListener { ev ->
+    adsManager = ev.adsManager
+    adsManager.addAdEventListener { adEvent ->
+        // STARTED, FIRST_QUARTILE, MIDPOINT, THIRD_QUARTILE, COMPLETE, CLICK
+    }
+    adsManager.init()
+}
+
+// 5. Request ads
+adsLoader.requestAds(request)
+```
+
+### Key Benefits of Pure IMA SDK:
+- ✅ Direct access to `adsResponse` parameter for VAST XML
+- ✅ Full control over video player integration
+- ✅ Supports both VAST Tag (adTagUrl) AND VAST XML (adsResponse)
+- ✅ No Media3 wrapper limitations
+
+### Features (Target):
+- ✅ VAST Tag playback via adTagUrl
+- ✅ VAST XML playback via adsResponse
+- ✅ Native end-card support (Compose overlay)
+- ✅ Automatic tracking (IMA handles all beacons)
+- ✅ JSON delivery support (manual tracking)
+
+---
+
+## 5. Basic Video Player Implementation
 
 **Function:** `BasicVideoPlayer()` (lines 1174-1405)
 
@@ -127,7 +225,7 @@ MediaItem.Builder()
 
 ---
 
-## 5. Mock Server Integration
+## 6. Mock Server Integration
 
 **Location:** `/Users/matias-admoai/Documents/repos/mock-endpoints/main.go`
 
@@ -154,7 +252,7 @@ case "tagurl_vasttag_none":
 
 ---
 
-## 6. Video Player Options UI
+## 7. Video Player Options UI
 
 **File:** `/sample/src/main/java/com/admoai/sample/ui/components/VideoOptionsSection.kt`
 
@@ -169,9 +267,11 @@ FilterChip(enabled = !isDisabled, ...)
 
 ---
 
-## 7. Content Keys & Delivery Methods - Complete Reference
+## 8. Content Keys & Delivery Methods - Complete Reference
 
-### 7.1 Delivery Methods Overview
+Note: For canonical definitions and examples, see `/admoai-android/VIDEO_CONCEPTS.md`.
+
+### 8.1 Delivery Methods Overview
 
 The `delivery` field determines how video assets and tracking are delivered:
 
@@ -189,7 +289,7 @@ The `delivery` field determines how video assets and tracking are delivered:
 
 ---
 
-### 7.2 Canonical Content Keys
+### 8.2 Canonical Content Keys
 
 These keys are **non-editable by users** and represent specific video ad behaviors defined by Admoai:
 
@@ -211,7 +311,7 @@ These keys are **non-editable by users** and represent specific video ad behavio
 
 ---
 
-### 7.3 User-Defined Content Keys (Standard Convention)
+### 8.3 User-Defined Content Keys (Standard Convention)
 
 These keys are **editable by users** but follow standard naming conventions throughout the sample app:
 
@@ -228,7 +328,7 @@ These keys are **editable by users** but follow standard naming conventions thro
 
 ---
 
-### 7.4 End-Card Modes
+### 8.4 End-Card Modes
 
 Three modes determine how companion content is displayed:
 
@@ -500,8 +600,8 @@ The sample app Video Demo Playground should display all these combinations to de
 
 1. **Video Player Capability Mapping:**
    - **Basic Player**: Only supports `delivery: "json"` with `videoAsset`. Cannot parse VAST.
-   - **ExoPlayer + IMA**: Supports all delivery methods. Natively handles VAST Tag/XML.
-   - **Google IMA SDK**: VAST-only, best for pure VAST workflows.
+   - **ExoPlayer + IMA**: Supports VAST Tag and JSON. VAST XML via `adsResponse` is NOT supported by the Media3 wrapper.
+   - **Google IMA SDK (Pure)**: Supports VAST Tag and VAST XML via `adsResponse`; best for pure VAST workflows.
    - **JW Player**: Full VAST support with commercial features.
 
 2. **Delivery Method Detection:**
@@ -550,7 +650,7 @@ when (creative.delivery) {
 
 ---
 
-## 8. Tracking Integration
+## 9. Tracking Integration
 
 ### IMA SDK (ExoPlayer + IMA):
 - **Automatic**: VAST Tag returns VAST XML containing `<Tracking>` event URLs that fire automatically by IMA SDK
@@ -572,7 +672,7 @@ when (creative.delivery) {
 
 ---
 
-## 9. Key Fixes Applied
+## 10. Key Fixes Applied
 
 ### Issue 1: Player/Delivery Mismatch Warning
 **Fix**: Removed warning when using JSON with ExoPlayer + IMA (publishers use single player)
@@ -600,7 +700,7 @@ when (creative.delivery) {
 
 ---
 
-## 10. File Structure
+## 11. File Structure
 
 ```
 /sample/src/main/java/com/admoai/sample/ui/
@@ -614,7 +714,7 @@ when (creative.delivery) {
 
 ---
 
-## 11. Testing Checklist & Rules
+## 12. Testing Checklist & Rules
 
 ### Core Rules:
 1. **Video Options** (Delivery + End-Card) are independent from **Video Player** selection
@@ -658,11 +758,52 @@ when (creative.delivery) {
 
 ---
 
-## 12. Next Steps / Known Issues
+## 13. Player Architecture Summary
 
-### 🚨 **CRITICAL ISSUES BLOCKING IMA SDK:**
+### Current Implementation Status:
 
-#### Issue 1: CORS Policy Error ❌
+#### ✅ Media3 ExoPlayer + IMA (Fully Implemented)
+- **Separation of Responsibilities**: Media3 ExoPlayer for playback, IMA extension for ad logic
+- **Supports**: VAST Tag (adTagUrl), JSON (direct video)
+- **Limitation**: Cannot use adsResponse for VAST XML (Media3 wrapper doesn't expose it)
+- **Native End-card**: ✅ Compose overlay on top of IMA player
+- **Tracking**: ✅ Automatic for VAST Tag, Manual for JSON
+
+#### ⚠️ Google IMA SDK (Partially Implemented - Needs Refactoring)
+- **Current Status**: Still using Media3's ImaAdsLoader (same as Media3 player)
+- **Target**: Pure IMA SDK using ImaSdkFactory
+- **Key Benefit**: Direct access to adsResponse parameter for VAST XML
+- **Required Changes**:
+  1. Replace `ImaAdsLoader.Builder(context)` with `ImaSdkFactory.getInstance().createAdsLoader()`
+  2. Use `ImaSdkFactory.getInstance().createAdsRequest()` with `adsResponse = vastXmlString`
+  3. Implement VideoAdPlayer interface for video control
+  4. Create AdDisplayContainer for ad rendering
+
+#### ✅ Basic Player (Fully Implemented)
+- **Architecture**: Simple ExoPlayer without IMA integration
+- **Supports**: JSON delivery only
+- **Tracking**: Manual via Admoai SDK
+- **Native End-card**: ✅ Compose overlay
+
+---
+
+## 14. Next Steps / Known Issues
+
+### 🎯 **TODO: Refactor Google IMA SDK Player**
+
+**Goal**: Implement pure Google IMA SDK with ImaSdkFactory to support VAST XML via adsResponse
+
+**Current Blocker**: Both "Media3 ExoPlayer + IMA" and "Google IMA SDK" use the same Media3 wrapper
+
+**Action Items**:
+1. Create new implementation using ImaSdkFactory (not Media3 wrapper)
+2. Implement VideoAdPlayer interface
+3. Add adsResponse support for VAST XML delivery
+4. Test VAST XML with native end-card combinations
+
+### 🚨 **RESOLVED ISSUES:**
+
+#### Issue 1: CORS Policy Error ✅ FIXED
 **Error:**
 ```
 Access to XMLHttpRequest at 'http://10.0.2.2:8080/endpoint?scenario=tagurl_vasttag_none' 
@@ -757,75 +898,6 @@ Invalid internal message. Make sure the Google IMA SDK library is up to date.
 
 ---
 
-### 🎯 **Future Enhancement: IMA SDK Watermark Customization**
-
-#### Problem:
-IMA SDK shows default "Ad" and "Learn More" watermarks that publishers cannot customize when using Google IMA SDK alone. This limits branding and user experience customization.
-
-#### Solution: ExoPlayer + IMA Allows Full UI Control
-
-When using **ExoPlayer + IMA** (not pure IMA SDK), you can turn off IMA's default badges/buttons and draw your own overlays:
-
-**Implementation Steps (Android/Kotlin):**
-
-1. **Wire IMA to ExoPlayer**
-```kotlin
-val adsLoader = ImaAdsLoader.Builder(context).build()
-// Attach to PlayerView or AdViewProvider
-```
-
-2. **Control IMA's Built-in UI**
-```kotlin
-val ars = ImaAdsLoader.Builder(context)
-    .setAdsRenderingSettingsProvider {
-        AdsRenderingSettings().apply {
-            uiElements = EnumSet.noneOf(AdUiElement::class.java) // Hide IMA UI
-            // or keep some: EnumSet.of(AdUiElement.AD_ATTRIBUTION, ...)
-        }
-    }.build()
-```
-
-3. **Overlay Your Own Views**
-   - Place a `FrameLayout` above `PlayerView` and inflate:
-     - **Ad badge** ("Ad"/"Sponsored") - Required for compliance
-     - **Learn more** button (your CTA)
-     - Optional countdown/skip UI if you want to mirror IMA
-
-4. **Wire Clicks to IMA** (to fire VAST beacons)
-```kotlin
-learnMore.setOnClickListener { 
-    adsLoader.adsManager?.click() 
-}
-```
-   - If you open a custom URL yourself, you must also hit your click tracker, but using `adsManager.click()` is safest to keep VAST/DV beacons correct.
-
-5. **Caveats:**
-   - You **must still show an "Ad" disclosure** to be compliant (if you hide IMA's badge, draw your own)
-   - IMA does not expose OMID session to register your overlay as a **friendly obstruction**; OM still runs, but your overlay won't be explicitly registered (generally OK if minimal)
-   - Skip button timing is governed by VAST `skipoffset`; if you hide IMA's skip, replicate behavior accurately
-
-**Net Result:** ExoPlayer + IMA = VAST/OMID handled; you control visual chrome by disabling IMA UI and overlaying your own "Ad"/"Learn more" elements, forwarding CTA via `adsManager.click()`.
-
-#### Key Showcase Opportunities:
-
-**Pure Google IMA SDK:**
-- ❌ Cannot customize "Ad" and "Learn More" watermarks
-- ❌ Limited branding options
-- ❌ Fixed UI elements
-
-**ExoPlayer + IMA:**
-- ✅ Full control over UI elements
-- ✅ Custom "Ad" badge styling
-- ✅ Custom "Learn More" / CTA button
-- ✅ Publisher controls all visual chrome
-- ✅ Maintains VAST/OMID compliance
-
-**Demo Idea:** Show side-by-side comparison in Video Demo Playground:
-- Left: Pure IMA SDK with default watermarks
-- Right: ExoPlayer + IMA with custom branded overlays
-
----
-
 ### 🎯 **VAST XML Delivery: Native Support vs Manual Decoding**
 
 #### Two Approaches for `delivery: "vast_xml"`
@@ -835,8 +907,7 @@ When the Decision API returns `vast.xmlBase64` (Base64-encoded VAST XML), there 
 #### Approach 1: Native VAST XML Support (Recommended for IMA-based players)
 
 **Supported By:**
-- Google IMA SDK (stand-alone)
-- ExoPlayer + IMA
+- Google IMA SDK (pure, via `adsResponse`)
 
 **How it Works:**
 ```kotlin
@@ -952,11 +1023,13 @@ Create two video player demos for `vast_xml`:
 - Show companion ad extraction
 - Highlight: "Full control but more complexity"
 
-**Key Takeaway:** ExoPlayer + IMA can accept VAST XML natively via `AdsRequest.setAdsResponse()`, while Basic Player requires manual parsing and tracking implementation.
+**Key Takeaway:** Pure Google IMA SDK can accept VAST XML via `AdsRequest.setAdsResponse()`. The Media3 ExoPlayer+IMA wrapper does NOT expose `adsResponse`; Basic Player requires manual parsing and tracking implementation.
 
 ---
 
 ## 13. HTTPS Mock Server Setup Guide
+
+For setup steps and troubleshooting, see `/admoai-android/TESTING_INSTRUCTIONS.md`. The summary below is for quick reference.
 
 ### ✅ **Setup Complete - Ready to Use!**
 

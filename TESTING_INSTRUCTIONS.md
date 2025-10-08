@@ -31,10 +31,32 @@ All configurations are done. Follow these steps to test the video ad player with
 3. **VAST Companion** - XML contains `<CompanionAds>`
 
 ### Player Capabilities:
-- **Basic Player**: JSON delivery only (no VAST support)
-- **ExoPlayer + IMA**: All delivery methods (recommended)
-- **Google IMA SDK**: VAST only
-- **JW Player**: Full VAST support
+- **Media3 ExoPlayer + IMA**: Media3 ExoPlayer for playback, IMA extension for ad logic (VAST Tag, JSON)
+- **Google IMA SDK**: Pure IMA SDK - Full control over VAST Tag & VAST XML 
+- **Basic Player**: JSON delivery only (no VAST support, manual tracking)
+
+---
+
+##  Player Architecture
+
+### Media3 ExoPlayer + IMA
+**Separation of Responsibilities:**
+- **Media3 ExoPlayer**: Video playback, buffering, decoding, rendering, UI
+- **IMA SDK Extension**: Ad logic, VAST tag parsing, tracking beacon firing
+- **Implementation**: Uses `androidx.media3.exoplayer.ima.ImaAdsLoader` (Media3's IMA wrapper)
+- **Supports**: VAST Tag (adTagUrl), JSON (direct video)
+- **Limitation**: Cannot use `adsResponse` for VAST XML (Media3 doesn't expose it)
+
+### Google IMA SDK
+**Pure IMA SDK Architecture:**
+- **Supports (when refactored)**: VAST Tag (adTagUrl), VAST XML (adsResponse), all delivery methods
+
+### Basic Player
+**Simple ExoPlayer:**
+- No IMA integration
+- Direct video playback from `videoAsset` URL
+- Manual tracking via Admoai SDK
+- **Supports**: JSON delivery only
 
 ---
 
@@ -90,52 +112,15 @@ Or use Android Studio's "Run" button.
 2. **Navigate to "Video Ad Demo"** (bottom navigation)
 
 3. **Select Test Configuration:**
-   - **Placement**: Any (e.g., "Home")
    - **Delivery Method**: **VAST Tag** ⭐
    - **End-Card Type**: **None** (for simplest test)
-   - **Video Player**: **ExoPlayer + IMA** ⭐
+   - **Video Player**: **Media3 ExoPlayer + IMA** ⭐
 
 4. **Click "Launch Video Demo"**
 
 ---
 
-### Step 4: What to Look For
-
-#### ✅ **Success Indicators (in Logcat):**
-
-**Filter:** `com.admoai.sample`
-
-**Expected logs:**
-```
-ExoPlayerIMA: Loading VAST tag URL: https://10.0.2.2:8080/endpoint?scenario=tagurl_vasttag_none
-VideoAdDemo: Fetched mock data for scenario: vasttag_none (1305 chars)
-```
-
-**IMA SDK should load ads (no errors):**
-```
-IMA: Ad event: LOADED
-IMA: Ad event: STARTED
-IMA: Tracking impression
-IMA: Tracking start
-IMA: Tracking firstQuartile
-IMA: Tracking midpoint
-IMA: Tracking thirdQuartile
-IMA: Tracking complete
-```
-
-#### ❌ **Errors to Watch For:**
-
-**If you see this - FIXED!**
-```
-❌ Mixed Content: ... requested an insecure XMLHttpRequest endpoint 'http://...'
-❌ Access to XMLHttpRequest ... blocked by CORS policy
-```
-
-**These should NOT appear anymore!**
-
----
-
-### Step 5: Test Matrix
+### Step 4: Test Matrix
 
 Test these configurations to verify full functionality across delivery methods and end-card modes:
 
@@ -167,12 +152,14 @@ Test these configurations to verify full functionality across delivery methods a
 - ✅ `tracking.impressions` and `tracking.videoEvents` empty
 - ✅ IMA SDK loads VAST XML from tagUrl
 - ✅ Video plays with automatic tracking
+- ✅ IMA "Ad" and "Learn more" badges appear (non-removable) → confirms IMA/VAST path
 - ✅ Poster image displays before playback
 
 #### Test 5: VAST Tag + Native End-Card + ExoPlayer + IMA
 - ✅ `delivery: "vast_tag"`
 - ✅ `companion*` keys present in contents
 - ✅ Video plays via IMA (automatic tracking)
+- ✅ IMA "Ad" and "Learn more" badges appear (non-removable) → confirms IMA/VAST path
 - ✅ Custom overlay appears at `overlayAtPercentage`
 - ✅ Publisher-drawn UI over IMA player
 - ✅ CTA and close button tracked via custom events
@@ -182,71 +169,14 @@ Test these configurations to verify full functionality across delivery methods a
 - ✅ NO `companion*` keys in contents
 - ✅ VAST XML contains `<CompanionAds>` with multiple size options
 - ✅ IMA loads video + companion creatives
+- ✅ IMA "Ad" and "Learn more" badges appear (non-removable) → confirms IMA/VAST path
 - ✅ Companion ad displays (player/publisher selects best-fit size)
 - ✅ Companion click tracking fires
 
-#### Test 7: VAST XML + Skippable + ExoPlayer + IMA
-- ✅ `delivery: "vast_xml"`, `vast.xmlBase64` present
-- ✅ Decode Base64 → Parse VAST XML
-- ✅ XML contains `skipoffset="00:00:05"` on `<Linear>`
-- ✅ XML contains `<Tracking event="skip">`
-- ✅ IMA shows skip button at 5 seconds
-- ✅ Skip tracking fires automatically
-
-#### Test 8: VAST XML + Native End-Card + ExoPlayer + IMA
-- ✅ `delivery: "vast_xml"`
-- ✅ Hybrid approach: Video from XML + overlay from JSON `companion*` keys
-- ✅ IMA handles video playback
-- ✅ Publisher overlays custom end-card
-- ✅ Mixed tracking: IMA auto + manual custom events
+> Note: `delivery: "vast_xml"` requires the **Pure Google IMA SDK** (adsResponse) which is not yet implemented. VAST XML testing is tracked in the Future section below.
 
 ---
 
-## 🔍 Troubleshooting
-
-### Issue: Certificate Not Trusted
-
-**Symptom:** `javax.net.ssl.SSLHandshakeException`
-
-**Solution:**
-1. Verify certificate exists: `/sample/src/main/res/raw/mock_server_cert.der`
-2. Check Network Security Config references it
-3. Clean and rebuild app
-
-### Issue: Server Not Responding
-
-**Check if server is running:**
-```bash
-lsof -i :8080
-```
-
-**Restart server:**
-```bash
-cd /Users/matias-admoai/Documents/repos/mock-endpoints
-kill $(lsof -ti :8080)
-./start-https.sh
-```
-
-### Issue: "Ad" Indicator Shows
-
-**This is normal** - IMA SDK displays "Ad" label. See documentation for how to hide it if needed.
-
----
-
-## 📊 Expected Results
-
-### Before HTTPS Fix:
-- ❌ CORS errors
-- ❌ Mixed content errors
-- ❌ IMA SDK cannot load ads
-- ❌ No tracking events
-
-### After HTTPS Fix:
-- ✅ No CORS errors
-- ✅ No mixed content errors  
-- ✅ IMA SDK loads VAST XML
-- ✅ Video plays with ads
-- ✅ Tracking events fire automatically
 
 ### Content Keys Validation (What to Check in Responses):
 
@@ -302,6 +232,7 @@ kill $(lsof -ti :8080)
 
 ## 📄 Related Documentation
 
+- **Video Concepts (Canonical)**: `/admoai-android/VIDEO_CONCEPTS.md`
 - **Full Flow Documentation**: `/admoai-android/VIDEO_PLAYER_FLOW_SUMMARY.md`
 - **Network Security Config**: `/sample/src/main/res/xml/network_security_config.xml`
 - **Mock Server Code**: `/mock-endpoints/main.go`
@@ -321,153 +252,17 @@ You'll know everything works when:
 
 ---
 
-## 🔮 Future Testing Scenarios
+## 🔮 Future
 
-### Scenario 1: IMA SDK Watermark Customization Testing
+- **VAST XML via Pure Google IMA SDK (adsResponse)**
+  - Status: Not yet implemented; will enable native VAST XML ingestion.
+  - Tests will mirror VAST Tag behavior with automatic tracking and companion handling.
 
-**Purpose:** Verify that ExoPlayer + IMA allows full UI control vs Pure Google IMA SDK
+- **Side‑by‑Side UI Showcase (Compliance)**
+  - Compare IMA default badges vs publisher overlays for JSON flows.
+  - For VAST via IMA, "Ad" and "Learn more" badges must appear and cannot be removed; use them as a validation signal of correct IMA/VAST integration.
 
-**Test A: Pure IMA SDK (Default Watermarks)**
-1. Select player: **Google IMA SDK**
-2. Select delivery: **VAST Tag** or **VAST XML**
-3. Launch video
-4. **Expected Results:**
-   - ✅ IMA's default "Ad" watermark appears
-   - ✅ IMA's default "Learn More" button appears
-   - ❌ Cannot customize watermark styling
-   - ❌ Cannot customize button text/appearance
-
-**Test B: ExoPlayer + IMA (Custom Overlays)**
-1. Select player: **ExoPlayer + IMA**
-2. Enable feature flag: **Custom IMA Overlays** (when implemented)
-3. Select delivery: **VAST Tag** or **VAST XML**
-4. Launch video
-5. **Expected Results:**
-   - ✅ IMA's default UI is hidden via `AdsRenderingSettings`
-   - ✅ Custom "Ad" badge appears (publisher-styled)
-   - ✅ Custom "Learn More" / CTA button appears (publisher-styled)
-   - ✅ Clicks on custom button fire `adsManager.click()`
-   - ✅ VAST tracking events still fire automatically
-   - ✅ OMID compliance maintained
-
-**Validation Points:**
-```
-Logcat Filter: com.admoai.sample
-
-✅ Check: "Setting AdsRenderingSettings with uiElements = NONE"
-✅ Check: "IMA: Ad event: LOADED"
-✅ Check: "IMA: Ad event: STARTED"  
-✅ Check: "Custom overlay shown"
-✅ Check: "IMA: Tracking impression"
-✅ Check: "Custom CTA clicked, forwarding to adsManager.click()"
-✅ Check: "IMA: Tracking click"
-```
-
-**Side-by-Side Demo:**
-- Compare default IMA watermarks vs custom branded overlays
-- Document UI control differences in README
-
----
-
-### Scenario 2: VAST XML Native Support vs Manual Decoding
-
-**Purpose:** Verify two approaches for handling `delivery: "vast_xml"`
-
-**Test A: ExoPlayer + IMA (Native VAST XML Support)**
-1. Select player: **ExoPlayer + IMA**
-2. Select delivery: **VAST XML**
-3. Select end-card: Any option
-4. Launch video
-5. **Expected Results:**
-   - ✅ App decodes `vast.xmlBase64` from Base64
-   - ✅ Pass decoded XML to `AdsRequest.setAdsResponse(decodedXml)`
-   - ✅ IMA parses VAST XML automatically
-   - ✅ IMA fires all tracking events automatically
-   - ✅ Video plays from `<MediaFile>` URL
-   - ✅ Companion ads handled automatically (if present)
-   - ⭐ **Zero manual tracking code**
-
-**Validation Points:**
-```
-Logcat Filter: com.admoai.sample
-
-✅ Check: "Decoding VAST XML from Base64"
-✅ Check: "Decoded XML length: XXX characters"
-✅ Check: "Setting AdsRequest with XML response"
-✅ Check: "IMA: Parsing VAST XML"
-✅ Check: "IMA: Ad event: LOADED"
-✅ Check: "IMA: Tracking impression"
-✅ Check: "IMA: Tracking start"
-✅ Check: "IMA: Tracking firstQuartile"
-✅ Check: "IMA: Tracking midpoint"
-✅ Check: "IMA: Tracking thirdQuartile"
-✅ Check: "IMA: Tracking complete"
-❌ Should NOT see: Manual tracking URL firing
-```
-
-**Test B: Basic Player (Manual VAST XML Decoding)**
-1. Select player: **Basic Player**
-2. Select delivery: **VAST XML**
-3. Enable feature flag: **Manual VAST Parsing** (when implemented)
-4. Launch video
-5. **Expected Results:**
-   - ✅ App decodes `vast.xmlBase64` from Base64
-   - ✅ Custom `VastXmlParser` extracts `<MediaFile>` URL
-   - ✅ Custom parser extracts all `<Tracking>` event URLs
-   - ✅ Custom parser extracts `skipoffset` (if present)
-   - ✅ Custom parser extracts `<CompanionAds>` (if present)
-   - ✅ Video plays from extracted MediaFile URL
-   - ✅ Publisher manually fires tracking at video progress milestones
-   - ⚠️ **High complexity, full control**
-
-**Validation Points:**
-```
-Logcat Filter: com.admoai.sample
-
-✅ Check: "Decoding VAST XML from Base64"
-✅ Check: "VastXmlParser: Extracting MediaFile URL"
-✅ Check: "VastXmlParser: Found MediaFile: https://..."
-✅ Check: "VastXmlParser: Extracting tracking events"
-✅ Check: "VastXmlParser: Found impression tracking: https://..."
-✅ Check: "VastXmlParser: Found start tracking: https://..."
-✅ Check: "VastXmlParser: Found firstQuartile tracking: https://..."
-✅ Check: "Playing video from extracted URL"
-✅ Check: "Video progress: 0% - Firing impression tracking"
-✅ Check: "Video progress: 0% - Firing start tracking"
-✅ Check: "Video progress: 25% - Firing firstQuartile tracking"
-✅ Check: "Video progress: 50% - Firing midpoint tracking"
-✅ Check: "Video progress: 75% - Firing thirdQuartile tracking"
-✅ Check: "Video progress: 100% - Firing complete tracking"
-```
-
-**Comparison Matrix:**
-
-| Aspect | ExoPlayer + IMA (Native) | Basic Player (Manual) |
-|--------|--------------------------|----------------------|
-| Base64 Decoding | ✅ Manual | ✅ Manual |
-| VAST XML Parsing | ✅ IMA Auto | ❌ Custom Parser |
-| MediaFile Extraction | ✅ IMA Auto | ❌ Custom Code |
-| Tracking Beacon Firing | ✅ IMA Auto | ❌ Manual Firing |
-| Companion Ad Handling | ✅ IMA Auto | ❌ Custom Parsing |
-| Skip Button | ✅ IMA Auto | ❌ Manual UI |
-| OMID Compliance | ✅ IMA Auto | ❌ Manual Implementation |
-| Code Complexity | ⭐ Very Low | ⚠️ High |
-| Publisher Control | 🟡 Limited | ✅ Full Control |
-
-**Demo Showcase Ideas:**
-- Show code side-by-side for both approaches
-- Highlight tracking event logs
-- Display complexity badges ("Zero tracking code" vs "Full control")
-- Add toggle to switch between native/manual parsing
-- Show VAST XML structure in debug panel
-
----
-
-## 📚 Related Documentation for Future Features
-
-- **IMA Watermark Customization**: See Section 12 in VIDEO_PLAYER_FLOW_SUMMARY.md
-- **VAST XML Approaches**: See Section 12 in VIDEO_PLAYER_FLOW_SUMMARY.md
-- **Implementation Tasks**: See "Future Enhancements" in VIDEO_IMPLEMENTATION_ROADMAP.md
+References: `/admoai-android/VIDEO_CONCEPTS.md`, `/admoai-android/VIDEO_IMPLEMENTATION_ROADMAP.md`.
 
 ---
 
