@@ -10,8 +10,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.content.Intent
+import android.net.Uri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.VideoOptionsSection
@@ -99,6 +102,7 @@ fun VideoAdDemoScreen(
     val videoDelivery by viewModel.videoDelivery.collectAsStateWithLifecycle()
     val videoEndCard by viewModel.videoEndCard.collectAsStateWithLifecycle()
     val isSkippable by viewModel.isSkippable.collectAsStateWithLifecycle()
+    val videoPlayer by viewModel.videoPlayer.collectAsStateWithLifecycle()
     
     // Compute current scenario (derived state, updates when inputs change)
     val currentScenario = getLocalMockScenario(videoDelivery, videoEndCard, isSkippable)
@@ -111,6 +115,7 @@ fun VideoAdDemoScreen(
     var showResultDialog by remember { mutableStateOf(false) }
     
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     Scaffold(
         topBar = {
             TopAppBar(
@@ -156,7 +161,13 @@ fun VideoAdDemoScreen(
             Spacer(modifier = Modifier.height(16.dp))
             
             // Video player selection
-            VideoPlayerSection(viewModel = viewModel)
+            VideoPlayerSection(
+                viewModel = viewModel,
+                onOpenUrl = { url ->
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    context.startActivity(intent)
+                }
+            )
             
             Spacer(modifier = Modifier.height(24.dp))
             
@@ -213,7 +224,7 @@ fun VideoAdDemoScreen(
             Button(
                 onClick = { showModeDialog = true },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = currentScenario != null,
+                enabled = currentScenario != null && videoPlayer != "jwplayer",
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 )

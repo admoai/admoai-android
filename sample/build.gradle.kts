@@ -80,6 +80,9 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-dash:1.2.1") // DASH support
     implementation("androidx.media3:media3-datasource:1.2.1") // Data source support
     
+    // VAST parser for manual VAST handling (TODO: Add when implementing full VAST parsing)
+    // implementation("com.github.InteractiveAdvertisingBureau:vast-client-java:1.0.0")
+    
     // Ktor and Serialization (for sample app usage)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp) // OkHttp engine for Ktor

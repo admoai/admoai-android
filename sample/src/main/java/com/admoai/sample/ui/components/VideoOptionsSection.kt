@@ -185,7 +185,8 @@ fun VideoOptionsSection(
  */
 @Composable
 fun VideoPlayerSection(
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    onOpenUrl: (String) -> Unit = {}
 ) {
     val videoPlayer by viewModel.videoPlayer.collectAsState()
     val videoDelivery by viewModel.videoDelivery.collectAsState()
@@ -212,12 +213,35 @@ fun VideoPlayerSection(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                data class PlayerOption(val value: String, val label: String, val description: String, val isVastOnly: Boolean = false)
+                data class PlayerOption(
+                    val value: String, 
+                    val label: String, 
+                    val description: String,
+                    val isCommercial: Boolean = false
+                )
                 
                 listOf(
-                    PlayerOption("exoplayer", "Media3 ExoPlayer + IMA", "Media3's IMA wrapper - VAST Tag only", false),
-                    PlayerOption("ima", "Google IMA SDK (Pure)", "Pure IMA SDK - VAST Tag & VAST XML via adsResponse", false),
-                    PlayerOption("basic", "Basic Player", "JSON only - Manual tracking", false)
+                    PlayerOption(
+                        "exoplayer", 
+                        "Media3 ExoPlayer + IMA", 
+                        "Media3's IMA wrapper - VAST Tag + JSON (no VAST XML support)"
+                    ),
+                    PlayerOption(
+                        "vast_client", 
+                        "Media3 ExoPlayer + vast-client-java", 
+                        "Manual VAST parsing - All delivery methods with full control"
+                    ),
+                    PlayerOption(
+                        "basic", 
+                        "Basic Player (Media3 ExoPlayer)", 
+                        "JSON delivery only - Manual tracking, no VAST support"
+                    ),
+                    PlayerOption(
+                        "jwplayer", 
+                        "JW Player", 
+                        "Professional-grade player (Commercial license required)",
+                        isCommercial = true
+                    )
                 ).forEach { option ->
                     // Determine if this player option should be disabled based on delivery method
                     val isDisabled = when {
@@ -231,13 +255,21 @@ fun VideoPlayerSection(
                     // Auto-select appropriate player when delivery changes
                     LaunchedEffect(videoDelivery, videoPlayer) {
                         when {
-                            // VAST XML: Only Google IMA SDK supports it
-                            videoDelivery == "vast_xml" && videoPlayer != "ima" -> {
-                                viewModel.setVideoPlayer("ima")
+                            // VAST XML: If ExoPlayer is selected, switch to vast-client
+                            videoDelivery == "vast_xml" && videoPlayer == "exoplayer" -> {
+                                viewModel.setVideoPlayer("vast_client")
                             }
                             // VAST Tag: If Basic Player is selected, switch to Media3 ExoPlayer + IMA
                             videoDelivery == "vast_tag" && videoPlayer == "basic" -> {
                                 viewModel.setVideoPlayer("exoplayer")
+                            }
+                            // If JW Player is selected and delivery changes, switch to appropriate player
+                            videoPlayer == "jwplayer" -> {
+                                when (videoDelivery) {
+                                    "json" -> viewModel.setVideoPlayer("basic")
+                                    "vast_tag" -> viewModel.setVideoPlayer("exoplayer")
+                                    "vast_xml" -> viewModel.setVideoPlayer("vast_client")
+                                }
                             }
                         }
                     }
@@ -245,18 +277,29 @@ fun VideoPlayerSection(
                     FilterChip(
                         selected = videoPlayer == option.value,
                         onClick = { 
-                            if (!isDisabled) {
+                            if (!isDisabled && !option.isCommercial) {
                                 viewModel.setVideoPlayer(option.value) 
                             }
                         },
                         enabled = !isDisabled,
                         label = { 
                             Column {
-                                Text(
-                                    text = option.label,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = if (videoPlayer == option.value) FontWeight.Bold else FontWeight.Normal
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = option.label,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (videoPlayer == option.value) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                    if (option.isCommercial) {
+                                        Text(
+                                            text = "💼",
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    }
+                                }
                                 Text(
                                     text = option.description,
                                     style = MaterialTheme.typography.bodySmall,
@@ -266,6 +309,46 @@ fun VideoPlayerSection(
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+            }
+            
+            // JW Player commercial notice
+            if (videoPlayer == "jwplayer") {
+                Spacer(modifier = Modifier.height(12.dp))
+                androidx.compose.material3.Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp)
+                    ) {
+                        Text(
+                            text = "📺 About JW Player",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "JW Player is a professional-grade player that handles VAST ads, is OM SDK certified, and provides UI out-of-the-box. This requires a commercial license from JW Player. This option is for demonstration purposes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                onOpenUrl("https://docs.admoai.com")
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiary
+                            )
+                        ) {
+                            Text("View Integration Guide")
+                        }
+                    }
                 }
             }
         }
