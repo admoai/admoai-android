@@ -32,7 +32,7 @@ Terminology:
 
 ## 3) End‑Card Modes
 - None: Video only.
-- Native End‑Card: Publisher draws overlay using `companion*` keys from JSON.
+- Native End‑Card: Publisher draws overlay using `companion*` keys from JSON, using `overlayAtPercentage` to determine when to show it.
 - VAST Companion: From `<CompanionAds>` in VAST XML (applies to VAST deliveries).
 
 Hybrid: VAST video + native end‑card overlay is allowed.
