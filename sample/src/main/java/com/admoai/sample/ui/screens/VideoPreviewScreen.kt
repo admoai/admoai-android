@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -57,6 +58,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -69,6 +71,7 @@ import androidx.media3.exoplayer.ima.ImaAdsLoader
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import androidx.media3.datasource.DefaultDataSource
+import coil.compose.rememberAsyncImagePainter
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.utils.getSkipOffset
 import com.admoai.sdk.utils.isSkippable
@@ -898,29 +901,25 @@ private class SimpleVideoAdPlayer(
         // Listen to ExoPlayer events and notify IMA SDK
         exoPlayer.addListener(object : androidx.media3.common.Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
+                val adInfo = currentAdMediaInfo ?: return
                 when (playbackState) {
                     androidx.media3.common.Player.STATE_BUFFERING -> {
-                        android.util.Log.d("VideoAdPlayer", "↻ Player STATE_BUFFERING - notifying IMA: onBuffering()")
-                        currentAdMediaInfo?.let { adInfo ->
+                        android.util.Log.d("VideoAdPlayer", "↻ Player STATE_BUFFERING")
+                        if (hasNotifiedLoaded) {
                             callbacks.forEach { it.onBuffering(adInfo) }
                         }
                     }
                     androidx.media3.common.Player.STATE_READY -> {
                         android.util.Log.d("VideoAdPlayer", "✓ Player STATE_READY")
-                        // Ensure onLoaded is sent before onPlay
-                        currentAdMediaInfo?.let { adInfo ->
-                            if (!hasNotifiedLoaded) {
-                                android.util.Log.d("VideoAdPlayer", "→ notifying IMA: onLoaded()")
-                                callbacks.forEach { it.onLoaded(adInfo) }
-                                hasNotifiedLoaded = true
-                            }
+                        if (!hasNotifiedLoaded) {
+                            android.util.Log.d("VideoAdPlayer", "   → notifying IMA: onLoaded() [Player is ready]")
+                            callbacks.forEach { it.onLoaded(adInfo) }
+                            hasNotifiedLoaded = true
                         }
                     }
                     androidx.media3.common.Player.STATE_ENDED -> {
-                        android.util.Log.d("VideoAdPlayer", "✓ Player STATE_ENDED - notifying IMA: onEnded()")
-                        currentAdMediaInfo?.let { adInfo ->
-                            callbacks.forEach { it.onEnded(adInfo) }
-                        }
+                        android.util.Log.d("VideoAdPlayer", "✓ Player STATE_ENDED")
+                        callbacks.forEach { it.onEnded(adInfo) }
                         hasNotifiedPlay = false
                         hasNotifiedLoaded = false
                     }
@@ -928,30 +927,23 @@ private class SimpleVideoAdPlayer(
             }
             
             override fun onRenderedFirstFrame() {
-                // ⭐ THIS is what IMA SDK is waiting for - actual video frame rendered!
-                currentAdMediaInfo?.let { adInfo ->
-                    // Guarantee onLoaded before onPlay
-                    if (!hasNotifiedLoaded) {
-                        android.util.Log.d("VideoAdPlayer", "⭐ FIRST FRAME RENDERED - backfilling onLoaded() before onPlay()")
-                        callbacks.forEach { it.onLoaded(adInfo) }
-                        hasNotifiedLoaded = true
-                    }
-                    if (!hasNotifiedPlay) {
-                        android.util.Log.d("VideoAdPlayer", "⭐ FIRST FRAME RENDERED - notifying IMA: onPlay()")
-                        callbacks.forEach { it.onPlay(adInfo) }
-                        hasNotifiedPlay = true
-                    }
-                }
+                android.util.Log.d("VideoAdPlayer", "⭐ FIRST FRAME RENDERED")
+                // We now use onIsPlayingChanged for more reliable play/pause signals.
             }
             
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                currentAdMediaInfo?.let { adInfo ->
-                    if (isPlaying) {
-                        // Don't notify onPlay here - wait for first frame
-                        android.util.Log.d("VideoAdPlayer", "isPlaying=true (buffering...)")
-                    } else {
-                        android.util.Log.d("VideoAdPlayer", "isPlaying=false - notifying IMA: onPause()")
+                val adInfo = currentAdMediaInfo ?: return
+                if (isPlaying) {
+                    if (!hasNotifiedPlay) {
+                         android.util.Log.d("VideoAdPlayer", "isPlaying=true, notifying IMA: onPlay()")
+                         callbacks.forEach { it.onPlay(adInfo) }
+                         hasNotifiedPlay = true
+                    }
+                } else {
+                    if (hasNotifiedPlay) {
+                        android.util.Log.d("VideoAdPlayer", "isPlaying=false, notifying IMA: onPause()")
                         callbacks.forEach { it.onPause(adInfo) }
+                        hasNotifiedPlay = false
                     }
                 }
             }
@@ -966,42 +958,38 @@ private class SimpleVideoAdPlayer(
     }
     
     override fun playAd(adMediaInfo: com.google.ads.interactivemedia.v3.api.player.AdMediaInfo) {
-        android.util.Log.d("VideoAdPlayer", "playAd called: ${adMediaInfo?.url ?: "null"}")
-        currentAdMediaInfo = adMediaInfo
-        // Media is already loaded by loadAd() - just start playback
-        hasNotifiedPlay = false
-        // If we somehow haven't notified LOADED yet, do it now to preserve order
-        if (!hasNotifiedLoaded) {
-            android.util.Log.d("VideoAdPlayer", "playAd(): backfilling onLoaded() before play()")
-            callbacks.forEach { it.onLoaded(adMediaInfo) }
-            hasNotifiedLoaded = true
-        }
-        // do not reset hasNotifiedLoaded here after this point
+        android.util.Log.d("VideoAdPlayer", "playAd called: ${adMediaInfo.url}")
+        // Start playback, then notify IMA.
         exoPlayer.play()
+        if (!hasNotifiedPlay) {
+            android.util.Log.d("VideoAdPlayer", "   → notifying IMA: onPlay()")
+            callbacks.forEach { it.onPlay(adMediaInfo) }
+            hasNotifiedPlay = true
+        }
     }
     
     override fun loadAd(
         adMediaInfo: com.google.ads.interactivemedia.v3.api.player.AdMediaInfo,
         adPodInfo: com.google.ads.interactivemedia.v3.api.AdPodInfo
     ) {
-        android.util.Log.d("VideoAdPlayer", "loadAd called: ${adMediaInfo?.url ?: "null"}")
+        android.util.Log.d("VideoAdPlayer", "loadAd called: ${adMediaInfo.url}")
         currentAdMediaInfo = adMediaInfo
         hasNotifiedLoaded = false
         hasNotifiedPlay = false
-        adMediaInfo?.url?.let { url ->
-            val mediaItem = androidx.media3.common.MediaItem.fromUri(url)
-            exoPlayer.setMediaItem(mediaItem)
-            exoPlayer.prepare()
-        }
+
+        // Load media and prepare the player. onLoaded() will be called when player is ready.
+        val mediaItem = androidx.media3.common.MediaItem.fromUri(adMediaInfo.url)
+        exoPlayer.setMediaItem(mediaItem)
+        exoPlayer.prepare()
     }
     
     override fun stopAd(adMediaInfo: com.google.ads.interactivemedia.v3.api.player.AdMediaInfo) {
-        android.util.Log.d("VideoAdPlayer", "stopAd called: ${adMediaInfo?.url ?: "null"}")
+        android.util.Log.d("VideoAdPlayer", "stopAd called: ${adMediaInfo.url}")
         exoPlayer.stop()
     }
     
     override fun pauseAd(adMediaInfo: com.google.ads.interactivemedia.v3.api.player.AdMediaInfo) {
-        android.util.Log.d("VideoAdPlayer", "pauseAd called: ${adMediaInfo?.url ?: "null"}")
+        android.util.Log.d("VideoAdPlayer", "pauseAd called: ${adMediaInfo.url}")
         exoPlayer.pause()
     }
     
@@ -1587,6 +1575,19 @@ fun ExoPlayerImaVideoPlayer(
         }
     }
     
+    // Track first frame rendered for poster image
+    var firstFrameRendered by remember { mutableStateOf(false) }
+    
+    // Listen for first frame rendered
+    LaunchedEffect(exoPlayer) {
+        exoPlayer.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onRenderedFirstFrame() {
+                android.util.Log.d("ExoPlayerIMA", "✅ First frame rendered - hiding poster")
+                firstFrameRendered = true
+            }
+        })
+    }
+    
     // Cleanup
     DisposableEffect(exoPlayer) {
         onDispose {
@@ -1602,12 +1603,31 @@ fun ExoPlayerImaVideoPlayer(
                 PlayerView(ctx).apply {
                     player = exoPlayer
                     useController = true // Use IMA's built-in controls
-                    useArtwork = true // Enable artwork display (poster image)
+                    useArtwork = false // We'll handle poster image explicitly in Compose
                     playerView = this // Assign for AdViewProvider
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
+        
+        // POSTER IMAGE OVERLAY - Shows before video starts, hides after first frame
+        if (!firstFrameRendered && videoConfig.posterImageUrl != null) {
+            androidx.compose.foundation.Image(
+                painter = rememberAsyncImagePainter(
+                    model = androidx.compose.ui.platform.LocalContext.current.let { ctx ->
+                        coil.request.ImageRequest.Builder(ctx)
+                            .data(videoConfig.posterImageUrl)
+                            .crossfade(true)
+                            .build()
+                    }
+                ),
+                contentDescription = "Poster image",
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+            )
+        }
         
         // Custom overlay UI (for JSON delivery with companion ads) - matches BasicVideoPlayer
         if (overlayShown && !hasCompleted && videoConfig.companionHeadline != null) {
@@ -1737,6 +1757,9 @@ fun BasicVideoPlayer(
     var overlayShown by remember { mutableStateOf(false) }
     var overlayTracked by remember { mutableStateOf(false) }
     
+    // Track first frame rendered for poster image
+    var firstFrameRendered by remember { mutableStateOf(false) }
+    
     // ExoPlayer instance with proper data source factory
     val exoPlayer = remember {
         ExoPlayer.Builder(context)
@@ -1749,19 +1772,20 @@ fun BasicVideoPlayer(
                 videoConfig.videoAssetUrl?.let { url ->
                     val mediaItemBuilder = MediaItem.Builder().setUri(url)
                     
-                    // Add poster image as artwork if available
-                    videoConfig.posterImageUrl?.let { posterUrl ->
-                        mediaItemBuilder.setMediaMetadata(
-                            androidx.media3.common.MediaMetadata.Builder()
-                                .setArtworkUri(Uri.parse(posterUrl))
-                                .build()
-                        )
-                    }
+                    // Don't use MediaMetadata artwork - we'll handle poster explicitly
                     
                     setMediaItem(mediaItemBuilder.build())
                     prepare()
                     playWhenReady = true // Autoplay
                 }
+                
+                // Listen for first frame rendered
+                addListener(object : androidx.media3.common.Player.Listener {
+                    override fun onRenderedFirstFrame() {
+                        android.util.Log.d("BasicPlayer", "✅ First frame rendered - hiding poster")
+                        firstFrameRendered = true
+                    }
+                })
             }
     }
     
@@ -1839,11 +1863,30 @@ fun BasicVideoPlayer(
                 PlayerView(ctx).apply {
                     player = exoPlayer
                     useController = false // Use custom controls
-                    useArtwork = true // Enable artwork display (poster image)
+                    useArtwork = false // We'll handle poster image explicitly in Compose
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
+        
+        // POSTER IMAGE OVERLAY - Shows before video starts, hides after first frame
+        if (!firstFrameRendered && videoConfig.posterImageUrl != null) {
+            androidx.compose.foundation.Image(
+                painter = rememberAsyncImagePainter(
+                    model = androidx.compose.ui.platform.LocalContext.current.let { ctx ->
+                        coil.request.ImageRequest.Builder(ctx)
+                            .data(videoConfig.posterImageUrl)
+                            .crossfade(true)
+                            .build()
+                    }
+                ),
+                contentDescription = "Poster image",
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+            )
+        }
         
         // Custom overlay UI (shown at overlayAtPercentage) - Minimal, native design (max 15% height)
         if (overlayShown && !hasCompleted && videoConfig.companionHeadline != null) {
@@ -2346,6 +2389,20 @@ fun GoogleImaSDKPlayer(
         }
     }
     
+    // Track first frame rendered for poster image
+    var firstFrameRendered by remember { mutableStateOf(false) }
+    
+    // Listen for first frame rendered (must be outside AndroidView factory)
+    LaunchedEffect(exoPlayer) {
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onRenderedFirstFrame() {
+                android.util.Log.d("PureIMA_SDK", "✅ First frame rendered - hiding poster")
+                firstFrameRendered = true
+            }
+        }
+        exoPlayer.addListener(listener)
+    }
+    
     // Cleanup Pure IMA SDK resources
     DisposableEffect(Unit) {
         onDispose {
@@ -2358,28 +2415,49 @@ fun GoogleImaSDKPlayer(
     
     Box(modifier = modifier) {
         // IMA UI container with PlayerView inside
-        // This is the correct hierarchy for IMA SDK to overlay its UI
+        // CRITICAL: Use PlayerView (not raw TextureView) so IMA can properly inject its overlay UI
         AndroidView(
             factory = { ctx ->
                 android.widget.FrameLayout(ctx).apply {
-                    // Add TextureView as the video surface so IMA overlays (WebView) can appear above it
-                    val textureView = android.view.TextureView(ctx).apply {
+                    // Add PlayerView as the video surface - IMA requires this for proper overlay rendering
+                    val playerView = PlayerView(ctx).apply {
                         layoutParams = android.widget.FrameLayout.LayoutParams(
                             android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
                             android.widget.FrameLayout.LayoutParams.MATCH_PARENT
                         )
+                        player = exoPlayer
+                        useController = true  // Enable IMA's built-in controls
+                        useArtwork = false    // We'll handle poster image explicitly in Compose
                     }
-                    addView(textureView)
-                    // Bind ExoPlayer to use this TextureView
-                    exoPlayer.setVideoTextureView(textureView)
+                    addView(playerView)
                     
                     // Set this as the IMA UI container
+                    // IMA SDK will add its overlay views (WebView-based "Ad" and "Learn more" badges) as children
                     adUiContainer = this
-                    android.util.Log.d("PureIMA_SDK", "✓ IMA UI container created with TextureView inside (overlays supported)")
+                    android.util.Log.d("PureIMA_SDK", "✓ IMA UI container created with PlayerView (IMA overlays will appear)")
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
+        
+        // POSTER IMAGE OVERLAY - Shows before video starts, hides after first frame
+        if (!firstFrameRendered && videoConfig.posterImageUrl != null) {
+            androidx.compose.foundation.Image(
+                painter = rememberAsyncImagePainter(
+                    model = androidx.compose.ui.platform.LocalContext.current.let { ctx ->
+                        coil.request.ImageRequest.Builder(ctx)
+                            .data(videoConfig.posterImageUrl)
+                            .crossfade(true)
+                            .build()
+                    }
+                ),
+                contentDescription = "Poster image",
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+            )
+        }
         
         // Custom overlay UI (for JSON delivery with companion ads)
         if (overlayShown && !hasCompleted && videoConfig.companionHeadline != null) {
