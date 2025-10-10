@@ -224,17 +224,12 @@ fun VideoPlayerSection(
                     PlayerOption(
                         "exoplayer", 
                         "Media3 ExoPlayer + IMA", 
-                        "Media3's IMA wrapper - VAST Tag + JSON (no VAST XML support)"
+                        "Media3 IMA wrapper - VAST Tag out automatically - VAST XML and JSON manually"
                     ),
                     PlayerOption(
                         "vast_client", 
-                        "Media3 ExoPlayer + vast-client-java", 
+                        "Media3 ExoPlayer", 
                         "Manual VAST parsing - All delivery methods with full control"
-                    ),
-                    PlayerOption(
-                        "basic", 
-                        "Basic Player (Media3 ExoPlayer)", 
-                        "JSON delivery only - Manual tracking, no VAST support"
                     ),
                     PlayerOption(
                         "jwplayer", 
@@ -243,29 +238,11 @@ fun VideoPlayerSection(
                         isCommercial = true
                     )
                 ).forEach { option ->
-                    // Determine if this player option should be disabled based on delivery method
-                    val isDisabled = when {
-                        // Basic Player: Only supports JSON, disabled for all VAST
-                        option.value == "basic" && isVastDelivery -> true
-                        // Media3 ExoPlayer + IMA: Doesn't support VAST XML (no adsResponse)
-                        option.value == "exoplayer" && videoDelivery == "vast_xml" -> true
-                        else -> false
-                    }
+                    // All players now support all delivery methods
+                    val isDisabled = false
                     
-                    // Auto-select appropriate player when delivery changes
-                    LaunchedEffect(videoDelivery, videoPlayer) {
-                        when {
-                            // VAST XML: If ExoPlayer is selected, switch to vast-client
-                            videoDelivery == "vast_xml" && videoPlayer == "exoplayer" -> {
-                                viewModel.setVideoPlayer("vast_client")
-                            }
-                            // VAST Tag: If Basic Player is selected, switch to Media3 ExoPlayer + IMA
-                            videoDelivery == "vast_tag" && videoPlayer == "basic" -> {
-                                viewModel.setVideoPlayer("exoplayer")
-                            }
-                            // Note: JW Player can stay selected to show integration guide
-                        }
-                    }
+                    // Auto-select logic: JW Player can stay selected to show integration guide
+                    // All other players support all delivery methods now
                     
                     FilterChip(
                         selected = videoPlayer == option.value,

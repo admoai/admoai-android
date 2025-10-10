@@ -79,6 +79,8 @@ import com.admoai.sample.ui.MainViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
@@ -106,7 +108,6 @@ fun VideoPreviewScreen(
     val playerType = when {
         selectedPlayer == "vast_client" && videoConfig?.videoAssetUrl != null -> "vast_client"
         selectedPlayer == "exoplayer" && videoConfig?.videoAssetUrl != null -> "exoplayer_ima"
-        selectedPlayer == "basic" && videoConfig?.videoAssetUrl != null -> "basic"
         else -> "simulated"
     }
     
@@ -299,7 +300,7 @@ fun VideoPreviewScreen(
                     // Video player - Select based on playerType
                     when (playerType) {
                         "vast_client" -> {
-                            // Media3 ExoPlayer + vast-client-java - Manual VAST handling
+                            // Media3 ExoPlayer - Manual VAST handling
                             videoConfig?.let { config ->
                                 VastClientVideoPlayer(
                                     videoConfig = config,
@@ -316,26 +317,9 @@ fun VideoPreviewScreen(
                             }
                         }
                         "exoplayer_ima" -> {
-                            // ExoPlayer + IMA - Best for VAST
+                            // Media3 ExoPlayer + IMA
                             videoConfig?.let { config ->
                                 ExoPlayerImaVideoPlayer(
-                                    videoConfig = config,
-                                    creative = crtv,
-                                    viewModel = viewModel,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .aspectRatio(16f / 9f)
-                                        .clip(RoundedCornerShape(8.dp)),
-                                    onComplete = {
-                                        showEndCard = true
-                                    }
-                                )
-                            }
-                        }
-                        "basic" -> {
-                            // Basic Player - Best for JSON delivery
-                            videoConfig?.let { config ->
-                                BasicVideoPlayer(
                                     videoConfig = config,
                                     creative = crtv,
                                     viewModel = viewModel,
@@ -481,7 +465,7 @@ fun VideoPreviewScreen(
                     val playerLabel = when (playerType) {
                         "ima_sdk" -> "Google IMA SDK"
                         "exoplayer_ima" -> "Media3 ExoPlayer + IMA"
-                        "basic" -> "Basic Player"
+                        "vast_client" -> "Media3 ExoPlayer"
                         else -> "Simulated Player"
                     }
                     Text(
@@ -1326,12 +1310,12 @@ fun ExoPlayerImaVideoPlayer(
     var completeTracked by remember { mutableStateOf(false) }
     
     // Determine playback mode:
-    // - VAST Tag: Always use IMA SDK with ad tag URL (IMA handles everything)
-    // - VAST XML: Always use IMA SDK with decoded XML as adsResponse (IMA handles everything)
+    // - VAST Tag: Use IMA SDK with ad tag URL (IMA handles everything automatically)
+    // - VAST XML: Manual parsing + manual tracking (IMA doesn't support adsResponse in Media3)
     // - JSON: Play video directly, manual SDK tracking
     // - Native end-card: Just a Compose overlay on top (doesn't change playback method)
     val hasNativeEndCard = videoConfig.companionHeadline != null
-    val useImaSDK = creative.delivery == "vast_tag" || creative.delivery == "vast_xml"
+    val useImaSDK = creative.delivery == "vast_tag"  // Only VAST Tag uses IMA automatically
     val isJsonDelivery = creative.delivery == null || creative.delivery == "json"
     
     android.util.Log.d("Media3Player", "═══════════════════════════════════════")
@@ -1443,14 +1427,31 @@ fun ExoPlayerImaVideoPlayer(
                         )
                 }
                 "vast_xml" -> {
-                    // VAST XML: ExoPlayer+IMA doesn't support adsResponse easily
-                    // Recommend GoogleImaSDKPlayer which has direct IMA SDK access
-                    android.util.Log.w("ExoPlayerIMA", "⚠️  VAST XML not fully supported by ExoPlayer+IMA")
-                    android.util.Log.w("ExoPlayerIMA", "   Reason: Media3's ImaAdsLoader doesn't expose adsResponse parameter")
-                    android.util.Log.w("ExoPlayerIMA", "   Recommendation: Use 'Google IMA SDK' player for VAST XML")
+                    // VAST XML: Media3's IMA doesn't expose adsResponse, so handle manually
+                    android.util.Log.d("ExoPlayerIMA", "📄 VAST XML mode: Manual handling (IMA doesn't support adsResponse)")
+                    android.util.Log.d("ExoPlayerIMA", "   Parsing XML to extract video URL")
+                    android.util.Log.d("ExoPlayerIMA", "   Manual tracking: YES (via SDK)")
                     
-                    playbackError = "VAST XML is not supported by this player.\n\nPlease use 'Google IMA SDK' player for VAST XML delivery."
-                    return@LaunchedEffect
+                    val xmlContent = decodedVastXml
+                    if (xmlContent != null) {
+                        // Extract video URL from VAST XML
+                        val mediaFileRegex = "<MediaFile[^>]*>\\s*<!\\[CDATA\\[([^\\]]+)\\]\\]>".toRegex()
+                        val match = mediaFileRegex.find(xmlContent)
+                        
+                        if (match != null) {
+                            val vastVideoUrl = match.groupValues[1].trim()
+                            android.util.Log.d("ExoPlayerIMA", "   Extracted video: $vastVideoUrl")
+                            mediaItemBuilder.setUri(Uri.parse(vastVideoUrl))
+                        } else {
+                            android.util.Log.e("ExoPlayerIMA", "   ✗ No MediaFile found in VAST XML")
+                            playbackError = "Could not extract video URL from VAST XML"
+                            return@LaunchedEffect
+                        }
+                    } else {
+                        android.util.Log.e("ExoPlayerIMA", "   ✗ VAST XML not decoded")
+                        playbackError = "VAST XML not available"
+                        return@LaunchedEffect
+                    }
                 }
                 else -> {
                     // JSON delivery: Play video directly
@@ -1519,8 +1520,8 @@ fun ExoPlayerImaVideoPlayer(
                 
                 // Tracking based on delivery mode
                 when {
-                    isJsonDelivery -> {
-                        // JSON: Manual SDK tracking
+                    isJsonDelivery || creative.delivery == "vast_xml" -> {
+                        // JSON or VAST XML: Manual SDK tracking
                         if (exoPlayer.isPlaying && !hasStarted) {
                             hasStarted = true
                         }
@@ -1551,7 +1552,7 @@ fun ExoPlayerImaVideoPlayer(
                         }
                     }
                     useImaSDK -> {
-                        // VAST Tag/XML: IMA SDK handles all tracking automatically
+                        // VAST Tag: IMA SDK handles all tracking automatically
                         // We don't need to do anything here - IMA fires quartile beacons
                         // No manual tracking needed - IMA does it all
                     }
@@ -2092,8 +2093,11 @@ fun VastClientVideoPlayer(
     val isVastDelivery = creative.delivery == "vast_tag" || creative.delivery == "vast_xml"
     val isJsonDelivery = creative.delivery == null || creative.delivery == "json"
     
+    // Coroutine scope for firing tracking URLs
+    val scope = rememberCoroutineScope()
+    
     android.util.Log.d("VastClient", "═══════════════════════════════════════")
-    android.util.Log.d("VastClient", "Player: Media3 ExoPlayer + vast-client-java")
+    android.util.Log.d("VastClient", "Player: Media3 ExoPlayer")
     android.util.Log.d("VastClient", "✅ Manual VAST parsing with full control")
     android.util.Log.d("VastClient", "Delivery: ${creative.delivery ?: "json"}")
     android.util.Log.d("VastClient", "End-card: ${if (hasNativeEndCard) "Native" else "None"}")
@@ -2147,30 +2151,63 @@ fun VastClientVideoPlayer(
             try {
                 android.util.Log.d("VastClient", "→ Starting VAST parsing...")
                 
-                // NOTE: vast-client-java parsing would go here
-                // For now, we'll use a simplified approach:
-                // Extract video URL from the creative's videoAssetUrl (which contains VAST tag URL)
-                // In a full implementation, you would:
-                // 1. Fetch XML from VAST Tag URL or use decoded VAST XML
-                // 2. Parse with VastParser from vast-client-java
-                // 3. Extract MediaFile URLs and tracking URLs
-                // 4. Store them in state variables
-                
                 when (creative.delivery) {
                     "vast_tag" -> {
-                        // Simplified: Use videoAssetUrl as the video URL
-                        // Full impl: Fetch and parse VAST XML from videoConfig.videoAssetUrl
-                        vastVideoUrl = videoConfig.videoAssetUrl
-                        android.util.Log.d("VastClient", "✓ VAST Tag parsed (simplified)")
-                        android.util.Log.d("VastClient", "  Video URL: $vastVideoUrl")
+                        // For VAST Tag: Fetch XML from the tag URL, then parse it
+                        val tagUrl = videoConfig.videoAssetUrl
+                        android.util.Log.d("VastClient", "→ Fetching VAST XML from: $tagUrl")
+                        
+                        withContext(Dispatchers.IO) {
+                            try {
+                                val url = java.net.URL(tagUrl)
+                                val connection = url.openConnection() as java.net.HttpURLConnection
+                                connection.requestMethod = "GET"
+                                connection.connectTimeout = 5000
+                                connection.readTimeout = 10000
+                                
+                                val responseCode = connection.responseCode
+                                if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
+                                    val xmlContent = connection.inputStream.bufferedReader().use { it.readText() }
+                                    android.util.Log.d("VastClient", "✓ Fetched VAST XML (${xmlContent.length} chars)")
+                                    
+                                    // Simple XML parsing to extract MediaFile URL
+                                    // Look for <MediaFile> tag and extract the URL
+                                    val mediaFileRegex = "<MediaFile[^>]*>\\s*<!\\[CDATA\\[([^\\]]+)\\]\\]>".toRegex()
+                                    val match = mediaFileRegex.find(xmlContent)
+                                    
+                                    if (match != null) {
+                                        vastVideoUrl = match.groupValues[1].trim()
+                                        android.util.Log.d("VastClient", "✓ Extracted video URL: $vastVideoUrl")
+                                    } else {
+                                        android.util.Log.e("VastClient", "✗ Could not find MediaFile in VAST XML")
+                                        vastParseError = "No MediaFile found in VAST XML"
+                                    }
+                                } else {
+                                    android.util.Log.e("VastClient", "✗ HTTP error fetching VAST: $responseCode")
+                                    vastParseError = "HTTP error $responseCode fetching VAST XML"
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("VastClient", "✗ Error fetching VAST: ${e.message}", e)
+                                vastParseError = "Error fetching VAST XML: ${e.message}"
+                            }
+                        }
                     }
                     "vast_xml" -> {
-                        if (decodedVastXml != null) {
-                            // Simplified: Use videoAssetUrl as the video URL
-                            // Full impl: Parse decodedVastXml with VastParser
-                            vastVideoUrl = videoConfig.videoAssetUrl
-                            android.util.Log.d("VastClient", "✓ VAST XML parsed (simplified)")
-                            android.util.Log.d("VastClient", "  Video URL: $vastVideoUrl")
+                        val xmlContent = decodedVastXml
+                        if (xmlContent != null) {
+                            android.util.Log.d("VastClient", "→ Parsing embedded VAST XML")
+                            
+                            // Simple XML parsing to extract MediaFile URL
+                            val mediaFileRegex = "<MediaFile[^>]*>\\s*<!\\[CDATA\\[([^\\]]+)\\]\\]>".toRegex()
+                            val match = mediaFileRegex.find(xmlContent)
+                            
+                            if (match != null) {
+                                vastVideoUrl = match.groupValues[1].trim()
+                                android.util.Log.d("VastClient", "✓ Extracted video URL: $vastVideoUrl")
+                            } else {
+                                android.util.Log.e("VastClient", "✗ Could not find MediaFile in VAST XML")
+                                vastParseError = "No MediaFile found in VAST XML"
+                            }
                         }
                     }
                 }
@@ -2260,14 +2297,27 @@ fun VastClientVideoPlayer(
                 if (hasStarted && !startTracked) {
                     when {
                         isVastDelivery -> {
-                            // Fire VAST tracking URLs manually
+                            // Fire VAST tracking URLs manually via HTTP GET
                             vastTrackingUrls["start"]?.forEach { trackingUrl ->
-                                android.util.Log.d("VastClient", "Fire VAST tracking: start")
-                                // TODO: Fire tracking URL via HTTP GET
+                                android.util.Log.d("VastClient", "🔥 Firing VAST tracking: start -> $trackingUrl")
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        val url = java.net.URL(trackingUrl)
+                                        val connection = url.openConnection() as java.net.HttpURLConnection
+                                        connection.requestMethod = "GET"
+                                        connection.connectTimeout = 3000
+                                        connection.readTimeout = 3000
+                                        val responseCode = connection.responseCode
+                                        android.util.Log.d("VastClient", "✓ Tracking fired: $responseCode")
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("VastClient", "✗ Tracking failed: ${e.message}")
+                                    }
+                                }
                             }
                         }
                         isJsonDelivery -> {
                             viewModel.fireVideoEvent(creative, "start")
+                            android.util.Log.d("VastClient", "🔥 Fired JSON tracking: start")
                         }
                     }
                     startTracked = true
@@ -2277,11 +2327,25 @@ fun VastClientVideoPlayer(
                     when {
                         isVastDelivery -> {
                             vastTrackingUrls["firstQuartile"]?.forEach { trackingUrl ->
-                                android.util.Log.d("VastClient", "Fire VAST tracking: firstQuartile")
+                                android.util.Log.d("VastClient", "🔥 Firing VAST tracking: firstQuartile -> $trackingUrl")
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        val url = java.net.URL(trackingUrl)
+                                        (url.openConnection() as java.net.HttpURLConnection).apply {
+                                            requestMethod = "GET"
+                                            connectTimeout = 3000
+                                            readTimeout = 3000
+                                            android.util.Log.d("VastClient", "✓ Tracking fired: $responseCode")
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("VastClient", "✗ Tracking failed: ${e.message}")
+                                    }
+                                }
                             }
                         }
                         isJsonDelivery -> {
                             viewModel.fireVideoEvent(creative, "firstQuartile")
+                            android.util.Log.d("VastClient", "🔥 Fired JSON tracking: firstQuartile")
                         }
                     }
                     firstQuartileTracked = true
@@ -2291,11 +2355,25 @@ fun VastClientVideoPlayer(
                     when {
                         isVastDelivery -> {
                             vastTrackingUrls["midpoint"]?.forEach { trackingUrl ->
-                                android.util.Log.d("VastClient", "Fire VAST tracking: midpoint")
+                                android.util.Log.d("VastClient", "🔥 Firing VAST tracking: midpoint -> $trackingUrl")
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        val url = java.net.URL(trackingUrl)
+                                        (url.openConnection() as java.net.HttpURLConnection).apply {
+                                            requestMethod = "GET"
+                                            connectTimeout = 3000
+                                            readTimeout = 3000
+                                            android.util.Log.d("VastClient", "✓ Tracking fired: $responseCode")
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("VastClient", "✗ Tracking failed: ${e.message}")
+                                    }
+                                }
                             }
                         }
                         isJsonDelivery -> {
                             viewModel.fireVideoEvent(creative, "midpoint")
+                            android.util.Log.d("VastClient", "🔥 Fired JSON tracking: midpoint")
                         }
                     }
                     midpointTracked = true
@@ -2305,11 +2383,25 @@ fun VastClientVideoPlayer(
                     when {
                         isVastDelivery -> {
                             vastTrackingUrls["thirdQuartile"]?.forEach { trackingUrl ->
-                                android.util.Log.d("VastClient", "Fire VAST tracking: thirdQuartile")
+                                android.util.Log.d("VastClient", "🔥 Firing VAST tracking: thirdQuartile -> $trackingUrl")
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        val url = java.net.URL(trackingUrl)
+                                        (url.openConnection() as java.net.HttpURLConnection).apply {
+                                            requestMethod = "GET"
+                                            connectTimeout = 3000
+                                            readTimeout = 3000
+                                            android.util.Log.d("VastClient", "✓ Tracking fired: $responseCode")
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("VastClient", "✗ Tracking failed: ${e.message}")
+                                    }
+                                }
                             }
                         }
                         isJsonDelivery -> {
                             viewModel.fireVideoEvent(creative, "thirdQuartile")
+                            android.util.Log.d("VastClient", "🔥 Fired JSON tracking: thirdQuartile")
                         }
                     }
                     thirdQuartileTracked = true
@@ -2319,11 +2411,25 @@ fun VastClientVideoPlayer(
                     when {
                         isVastDelivery -> {
                             vastTrackingUrls["complete"]?.forEach { trackingUrl ->
-                                android.util.Log.d("VastClient", "Fire VAST tracking: complete")
+                                android.util.Log.d("VastClient", "🔥 Firing VAST tracking: complete -> $trackingUrl")
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        val url = java.net.URL(trackingUrl)
+                                        (url.openConnection() as java.net.HttpURLConnection).apply {
+                                            requestMethod = "GET"
+                                            connectTimeout = 3000
+                                            readTimeout = 3000
+                                            android.util.Log.d("VastClient", "✓ Tracking fired: $responseCode")
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("VastClient", "✗ Tracking failed: ${e.message}")
+                                    }
+                                }
                             }
                         }
                         isJsonDelivery -> {
                             viewModel.fireVideoEvent(creative, "complete")
+                            android.util.Log.d("VastClient", "🔥 Fired JSON tracking: complete")
                         }
                     }
                     completeTracked = true
