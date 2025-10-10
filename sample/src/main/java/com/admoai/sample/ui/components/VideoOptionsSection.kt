@@ -263,21 +263,14 @@ fun VideoPlayerSection(
                             videoDelivery == "vast_tag" && videoPlayer == "basic" -> {
                                 viewModel.setVideoPlayer("exoplayer")
                             }
-                            // If JW Player is selected and delivery changes, switch to appropriate player
-                            videoPlayer == "jwplayer" -> {
-                                when (videoDelivery) {
-                                    "json" -> viewModel.setVideoPlayer("basic")
-                                    "vast_tag" -> viewModel.setVideoPlayer("exoplayer")
-                                    "vast_xml" -> viewModel.setVideoPlayer("vast_client")
-                                }
-                            }
+                            // Note: JW Player can stay selected to show integration guide
                         }
                     }
                     
                     FilterChip(
                         selected = videoPlayer == option.value,
                         onClick = { 
-                            if (!isDisabled && !option.isCommercial) {
+                            if (!isDisabled) {
                                 viewModel.setVideoPlayer(option.value) 
                             }
                         },
@@ -291,7 +284,7 @@ fun VideoPlayerSection(
                                     Text(
                                         text = option.label,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = if (videoPlayer == option.value) FontWeight.Bold else FontWeight.Normal
+                                        fontWeight = FontWeight.Bold
                                     )
                                     if (option.isCommercial) {
                                         Text(
