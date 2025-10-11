@@ -39,8 +39,18 @@ See: `/admoai-android/VIDEO_CONCEPTS.md` for canonical keys, delivery methods, e
 
 ### End-Card Modes:
 1. **None** - Video only, no overlays
-2. **Native End-Card** - Publisher draws overlay using `companion*` keys
-3. **VAST Companion** - XML contains `<CompanionAds>` with size options
+2. **Native** - Publisher draws overlay using `companion*` keys
+3. **VAST Companion** - XML contains `<CompanionAds>` with size options (requires explicit template-level configuration)
+
+**Note**: None/Native modes are for demo purposes. In production, end-cards are determined by template configuration and how the publisher interprets template fields. Only VAST Companion requires explicit template-level configuration.
+
+### Skippable Videos:
+- Skip button appears as a badge bubble in the top-right corner when `isSkippable: true`
+- Button only appears once skip offset is reached (parsed from `skipOffset` in ad response, defaults to 5s)
+- Skip offset supports both "00:00:05" time format and plain numbers like "5"
+- Clicking skip stops video playback, sets completion state, and fires skip tracking event
+- JSON delivery: uses SDK's `fireVideoEvent(creative, "skip")`
+- VAST delivery: fires skip tracking URLs via HTTP GET
 
 ---
 

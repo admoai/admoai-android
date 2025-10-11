@@ -863,7 +863,9 @@ suspend fun fetchVastXmlFromUrl(tagUrl: String): String? = kotlinx.coroutines.wi
  */
 data class VastData(
     val mediaFileUrl: String?,
-    val trackingEvents: Map<String, List<String>>  // event name -> list of tracking URLs
+    val trackingEvents: Map<String, List<String>>,  // event name -> list of tracking URLs
+    val skipOffset: Int? = null,  // Skip offset in seconds
+    val isSkippable: Boolean = false
 )
 
 /**
@@ -1068,6 +1070,8 @@ private class SimpleVideoAdPlayer(
 fun parseVastXml(xmlContent: String): VastData {
     val trackingEvents = mutableMapOf<String, MutableList<String>>()
     var mediaFileUrl: String? = null
+    var skipOffset: Int? = null
+    var isSkippable = false
     
     try {
         val parser = android.util.Xml.newPullParser()
@@ -1084,6 +1088,21 @@ fun parseVastXml(xmlContent: String): VastData {
                 when (eventType) {
                     org.xmlpull.v1.XmlPullParser.START_TAG -> {
                         when (parser.name) {
+                            "Linear" -> {
+                                // Check for skipoffset attribute on Linear element
+                                parser.getAttributeValue(null, "skipoffset")?.let { offset ->
+                                    android.util.Log.d("VAST_PARSER", "Found skipoffset attribute: $offset")
+                                    // Parse "00:00:05" format or plain number
+                                    skipOffset = if (offset.contains(":")) {
+                                        val parts = offset.split(":")
+                                        parts.lastOrNull()?.toIntOrNull()
+                                    } else {
+                                        offset.toIntOrNull()
+                                    }
+                                    isSkippable = skipOffset != null
+                                    android.util.Log.d("VAST_PARSER", "Parsed skip: isSkippable=$isSkippable, offset=$skipOffset")
+                                }
+                            }
                             "MediaFile" -> {
                                 insideMediaFile = true
                             }
@@ -1179,8 +1198,8 @@ fun parseVastXml(xmlContent: String): VastData {
         }
     }
     
-    android.util.Log.d("VAST_PARSER", "Final result: video=$mediaFileUrl, tracking events=${trackingEvents.keys}")
-    return VastData(mediaFileUrl, trackingEvents)
+    android.util.Log.d("VAST_PARSER", "Final result: video=$mediaFileUrl, tracking events=${trackingEvents.keys}, isSkippable=$isSkippable, skipOffset=$skipOffset")
+    return VastData(mediaFileUrl, trackingEvents, skipOffset, isSkippable)
 }
 
 /**
@@ -1222,12 +1241,26 @@ fun parseVideoData(creative: Creative): VideoPlayerConfig {
     }
     
     // Extract skippable settings
+    // First try from contents (JSON delivery), then fallback to SDK utility functions (VAST deliveries)
     val isSkippable = contents["isSkippable"]?.let {
-        (it as? JsonPrimitive)?.contentOrNull?.toBoolean()
-    } ?: false
+        val value = (it as? JsonPrimitive)?.contentOrNull
+        android.util.Log.d("VideoParser", "isSkippable from contents: '$value'")
+        // Support both integer (1/0) and text ("true"/"false") formats
+        when (value) {
+            "1" -> true
+            "0" -> false
+            else -> value?.toBooleanStrictOrNull() ?: false
+        }
+    } ?: run {
+        // Fallback: use SDK utility function (parses from VAST XML for VAST Tag/XML deliveries)
+        val fromSdk = creative.isSkippable()
+        android.util.Log.d("VideoParser", "isSkippable from SDK: $fromSdk")
+        fromSdk
+    }
     
     val skipOffsetSeconds = contents["skipOffset"]?.let {
         (it as? JsonPrimitive)?.contentOrNull?.let { offset ->
+            android.util.Log.d("VideoParser", "skipOffset from contents: '$offset'")
             // Parse "00:00:05" format or plain number
             if (offset.contains(":")) {
                 val parts = offset.split(":")
@@ -1236,7 +1269,14 @@ fun parseVideoData(creative: Creative): VideoPlayerConfig {
                 offset.toIntOrNull() ?: 5
             }
         }
-    } ?: 5
+    } ?: run {
+        // Fallback: use SDK utility function (parses from VAST XML)
+        val fromSdk = creative.getSkipOffset()?.toIntOrNull() ?: 5
+        android.util.Log.d("VideoParser", "skipOffset from SDK: $fromSdk")
+        fromSdk
+    }
+    
+    android.util.Log.d("VideoParser", "✅ Parsed skippable settings: isSkippable=$isSkippable, skipOffset=$skipOffsetSeconds")
     
     // Extract overlay settings
     val overlayAtPercentage = contents["overlayAtPercentage"]?.let {
@@ -1325,6 +1365,7 @@ fun ExoPlayerImaVideoPlayer(
     android.util.Log.d("Media3Player", "Media3 ExoPlayer: Video playback, buffering, rendering")
     android.util.Log.d("Media3Player", "IMA Extension: Ad logic, VAST parsing, tracking")
     android.util.Log.d("Media3Player", "Will use IMA SDK: $useImaSDK")
+    android.util.Log.d("Media3Player", "UI Strategy: ${if (hasNativeEndCard || !useImaSDK) "Custom overlays + skip button" else "IMA native UI"}")
     android.util.Log.d("Media3Player", "═══════════════════════════════════════")
     
     // For VAST XML, decode the Base64 XML
@@ -1597,6 +1638,13 @@ fun ExoPlayerImaVideoPlayer(
         }
     }
     
+    // HYBRID UI STRATEGY:
+    // - VAST Tag WITHOUT native end-card: Use IMA's native UI (no custom overlays)
+    // - Everything else: Use custom overlays (poster + skip button + end-card)
+    val useCustomOverlays = hasNativeEndCard || !useImaSDK
+    
+    android.util.Log.d("Media3Player", "useCustomOverlays=$useCustomOverlays (hasNativeEndCard=$hasNativeEndCard, useImaSDK=$useImaSDK)")
+    
     Box(modifier = modifier) {
         // ExoPlayer view with IMA support
         AndroidView(
@@ -1604,15 +1652,19 @@ fun ExoPlayerImaVideoPlayer(
                 PlayerView(ctx).apply {
                     player = exoPlayer
                     useController = true // Use IMA's built-in controls
-                    useArtwork = false // We'll handle poster image explicitly in Compose
+                    // CONDITIONAL: Let IMA handle poster when using native UI, otherwise we handle it
+                    useArtwork = !useCustomOverlays && videoConfig.posterImageUrl != null
                     playerView = this // Assign for AdViewProvider
+                    
+                    android.util.Log.d("Media3Player", "PlayerView.useArtwork=$useArtwork (posterUrl=${videoConfig.posterImageUrl})")
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
         
-        // POSTER IMAGE OVERLAY - Shows before video starts, hides after first frame
-        if (!firstFrameRendered && videoConfig.posterImageUrl != null) {
+        // POSTER IMAGE OVERLAY - Only show custom poster if using custom overlays
+        // (Otherwise IMA will handle poster via useArtwork)
+        if (useCustomOverlays && !firstFrameRendered && videoConfig.posterImageUrl != null) {
             androidx.compose.foundation.Image(
                 painter = rememberAsyncImagePainter(
                     model = androidx.compose.ui.platform.LocalContext.current.let { ctx ->
@@ -1630,8 +1682,62 @@ fun ExoPlayerImaVideoPlayer(
             )
         }
         
-        // Custom overlay UI (for JSON delivery with companion ads) - matches BasicVideoPlayer
-        if (overlayShown && !hasCompleted && videoConfig.companionHeadline != null) {
+        // CUSTOM SKIP BUTTON - Only render when using custom overlays
+        // For VAST Tag without native end-card, IMA renders its own skip button
+        if (useCustomOverlays && videoConfig.isSkippable && !hasCompleted) {
+            val canSkip = currentPosition >= videoConfig.skipOffsetSeconds
+            
+            // Debug logging every 100ms to track skip button state
+            LaunchedEffect(currentPosition, videoConfig.skipOffsetSeconds) {
+                android.util.Log.d("Media3Player", "Skip (Custom): isSkippable=${videoConfig.isSkippable}, pos=$currentPosition, offset=${videoConfig.skipOffsetSeconds}, canSkip=$canSkip")
+            }
+            
+            if (canSkip) {
+                android.util.Log.d("Media3Player", "⭐ RENDERING SKIP BUTTON")
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    shadowElevation = 4.dp
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clickable {
+                                // Fire skip tracking event
+                                android.util.Log.d("Media3Player", "Skip button clicked")
+                                when {
+                                    isJsonDelivery || creative.delivery == "vast_xml" -> {
+                                        viewModel.fireVideoEvent(creative, "skip")
+                                        android.util.Log.d("Media3Player", "🔥 Fired skip event (JSON/VAST_XML)")
+                                    }
+                                    creative.delivery == "vast_tag" -> {
+                                        // For VAST Tag, IMA SDK handles skip tracking automatically
+                                        android.util.Log.d("Media3Player", "🔥 Skip event (VAST Tag - IMA handles tracking)")
+                                    }
+                                }
+                                // Terminate playback - pause and seek to end
+                                exoPlayer.pause()
+                                exoPlayer.seekTo(exoPlayer.duration)
+                                hasCompleted = true
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "Skip",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+        }
+        
+        // NATIVE END-CARD OVERLAY - Only render when using custom overlays
+        // This triggers the hybrid strategy (useCustomOverlays = true when this exists)
+        if (useCustomOverlays && overlayShown && !hasCompleted && videoConfig.companionHeadline != null) {
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -1688,6 +1794,38 @@ fun ExoPlayerImaVideoPlayer(
                             )
                         }
                     }
+                }
+            }
+        }
+        
+        // IMA SDK Skip Warning - Show for VAST Tag + skippable + no native end-card
+        if (useImaSDK && videoConfig.isSkippable && !hasNativeEndCard && !hasCompleted) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 60.dp, start = 12.dp, end = 12.dp)
+                    .fillMaxWidth(0.95f),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    Text(
+                        text = "ℹ️",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text(
+                        text = "IMA SDK's native skip button is unreliable in this configuration. This is for demonstration purposes only.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
                 }
             }
         }
@@ -2101,6 +2239,7 @@ fun VastClientVideoPlayer(
     android.util.Log.d("VastClient", "✅ Manual VAST parsing with full control")
     android.util.Log.d("VastClient", "Delivery: ${creative.delivery ?: "json"}")
     android.util.Log.d("VastClient", "End-card: ${if (hasNativeEndCard) "Native" else "None"}")
+    android.util.Log.d("VastClient", "UI Strategy: Always custom overlays (no IMA SDK)")
     android.util.Log.d("VastClient", "")
     when (creative.delivery) {
         "vast_tag" -> {
@@ -2128,6 +2267,8 @@ fun VastClientVideoPlayer(
     var vastVideoUrl by remember { mutableStateOf<String?>(null) }
     var vastTrackingUrls by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
     var vastParseError by remember { mutableStateOf<String?>(null) }
+    var vastSkipOffset by remember { mutableStateOf<Int?>(null) }
+    var vastIsSkippable by remember { mutableStateOf(false) }
     
     // Decode VAST XML if needed
     LaunchedEffect(creative.delivery) {
@@ -2170,15 +2311,17 @@ fun VastClientVideoPlayer(
                                     val xmlContent = connection.inputStream.bufferedReader().use { it.readText() }
                                     android.util.Log.d("VastClient", "✓ Fetched VAST XML (${xmlContent.length} chars)")
                                     
-                                    // Simple XML parsing to extract MediaFile URL
-                                    // Look for <MediaFile> tag and extract the URL
-                                    val mediaFileRegex = "<MediaFile[^>]*>\\s*<!\\[CDATA\\[([^\\]]+)\\]\\]>".toRegex()
-                                    val match = mediaFileRegex.find(xmlContent)
+                                    // Use XmlPullParser to parse VAST XML (proper Android XML parsing)
+                                    val parsedData = parseVastXml(xmlContent)
                                     
-                                    if (match != null) {
-                                        vastVideoUrl = match.groupValues[1].trim()
-                                        android.util.Log.d("VastClient", "✓ Extracted video URL: $vastVideoUrl")
-                                    } else {
+                                    vastVideoUrl = parsedData.mediaFileUrl
+                                    vastTrackingUrls = parsedData.trackingEvents
+                                    vastSkipOffset = parsedData.skipOffset
+                                    vastIsSkippable = parsedData.isSkippable
+                                    
+                                    android.util.Log.d("VastClient", "✓ Parsed VAST: video=${parsedData.mediaFileUrl}, skip=${parsedData.isSkippable}, offset=${parsedData.skipOffset}")
+                                    
+                                    if (parsedData.mediaFileUrl == null) {
                                         android.util.Log.e("VastClient", "✗ Could not find MediaFile in VAST XML")
                                         vastParseError = "No MediaFile found in VAST XML"
                                     }
@@ -2197,30 +2340,23 @@ fun VastClientVideoPlayer(
                         if (xmlContent != null) {
                             android.util.Log.d("VastClient", "→ Parsing embedded VAST XML")
                             
-                            // Simple XML parsing to extract MediaFile URL
-                            val mediaFileRegex = "<MediaFile[^>]*>\\s*<!\\[CDATA\\[([^\\]]+)\\]\\]>".toRegex()
-                            val match = mediaFileRegex.find(xmlContent)
+                            // Use XmlPullParser to parse VAST XML (proper Android XML parsing)
+                            val parsedData = parseVastXml(xmlContent)
                             
-                            if (match != null) {
-                                vastVideoUrl = match.groupValues[1].trim()
-                                android.util.Log.d("VastClient", "✓ Extracted video URL: $vastVideoUrl")
-                            } else {
+                            vastVideoUrl = parsedData.mediaFileUrl
+                            vastTrackingUrls = parsedData.trackingEvents
+                            vastSkipOffset = parsedData.skipOffset
+                            vastIsSkippable = parsedData.isSkippable
+                            
+                            android.util.Log.d("VastClient", "✓ Parsed VAST: video=${parsedData.mediaFileUrl}, skip=${parsedData.isSkippable}, offset=${parsedData.skipOffset}")
+                            
+                            if (parsedData.mediaFileUrl == null) {
                                 android.util.Log.e("VastClient", "✗ Could not find MediaFile in VAST XML")
                                 vastParseError = "No MediaFile found in VAST XML"
                             }
                         }
                     }
                 }
-                
-                // Extract tracking URLs (simplified - in full impl, extract from parsed VAST)
-                vastTrackingUrls = mapOf(
-                    "impression" to listOf(),
-                    "start" to listOf(),
-                    "firstQuartile" to listOf(),
-                    "midpoint" to listOf(),
-                    "thirdQuartile" to listOf(),
-                    "complete" to listOf()
-                )
                 
             } catch (e: Exception) {
                 android.util.Log.e("VastClient", "✗ VAST parsing error: ${e.message}", e)
@@ -2505,6 +2641,78 @@ fun VastClientVideoPlayer(
                     .fillMaxSize()
                     .background(Color.Black)
             )
+        }
+        
+        // Skip button (top-right corner badge bubble) - only shows when skip is available
+        // For VAST deliveries, use parsed skip info; for JSON, use videoConfig
+        val isSkippable = if (isVastDelivery) vastIsSkippable else videoConfig.isSkippable
+        val skipOffsetSeconds = if (isVastDelivery) (vastSkipOffset ?: videoConfig.skipOffsetSeconds) else videoConfig.skipOffsetSeconds
+        
+        if (isSkippable && !hasCompleted) {
+            val canSkip = currentPosition >= skipOffsetSeconds
+            
+            // Debug logging every time position or offset changes
+            LaunchedEffect(currentPosition, skipOffsetSeconds) {
+                val source = if (isVastDelivery) "VAST XML" else "JSON"
+                android.util.Log.d("VastClient", "Skip ($source): isSkippable=$isSkippable, pos=$currentPosition, offset=$skipOffsetSeconds, canSkip=$canSkip")
+            }
+            
+            if (canSkip) {
+                android.util.Log.d("VastClient", "⭐ RENDERING SKIP BUTTON")
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    shadowElevation = 4.dp
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clickable {
+                                // Fire skip tracking event
+                                android.util.Log.d("VastClient", "Skip button clicked")
+                                when {
+                                    isJsonDelivery -> {
+                                        viewModel.fireVideoEvent(creative, "skip")
+                                        android.util.Log.d("VastClient", "🔥 Fired skip event (JSON)")
+                                    }
+                                    isVastDelivery -> {
+                                        // For VAST XML, fire skip tracking URL via HTTP GET
+                                        vastTrackingUrls["skip"]?.forEach { trackingUrl ->
+                                            android.util.Log.d("VastClient", "🔥 Firing VAST skip tracking: $trackingUrl")
+                                            scope.launch(Dispatchers.IO) {
+                                                try {
+                                                    val url = java.net.URL(trackingUrl)
+                                                    (url.openConnection() as java.net.HttpURLConnection).apply {
+                                                        requestMethod = "GET"
+                                                        connectTimeout = 3000
+                                                        readTimeout = 3000
+                                                        android.util.Log.d("VastClient", "✓ Skip tracking fired: $responseCode")
+                                                    }
+                                                } catch (e: Exception) {
+                                                    android.util.Log.e("VastClient", "✗ Skip tracking failed: ${e.message}")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                // Terminate playback - pause and seek to end
+                                exoPlayer.pause()
+                                exoPlayer.seekTo(exoPlayer.duration)
+                                hasCompleted = true
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "Skip",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
         }
         
         // Custom overlay UI (for JSON delivery with companion ads)

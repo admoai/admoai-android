@@ -17,9 +17,10 @@ See: `/admoai-android/VIDEO_CONCEPTS.md` for the canonical definitions (delivery
 ### UI Components:
 1. **Video Options Section** - Select delivery method and end-card type:
    - **Delivery Method**: JSON, VAST Tag, VAST XML
-   - **End Card Type**: None, Native End-card, VAST Companion
+   - **End Card Type**: None, Native, VAST Companion
+   - ℹ️ Note: None/Native are for demo purposes. In production, end-cards are based on template configuration and publisher interpretation.
 2. **Video Player Section** - Choose player implementation:
-   - **Media3 ExoPlayer + IMA** - VAST Tag (auto), VAST XML (manual), JSON (manual)
+   - **Media3 ExoPlayer + IMA** - VAST Tag: auto-tracking. The rest is manual: tracking, end-cards, and skip
    - **Media3 ExoPlayer** - All deliveries with full manual control
    - **JW Player** - Commercial option (info only)
 3. **Launch Video Demo Button** - Triggers video preview
@@ -133,7 +134,16 @@ MediaItem.Builder()
 - ✅ JSON: Direct playback + SDK tracking
 - ✅ Poster images (all deliveries)
 - ✅ Publisher-drawn overlays (native end-cards)
+- ✅ Custom skip button overlay (IMA's native skip unreliable - see Skip Button Limitations below)
 - ✅ Error handling with diagnostics
+
+### Skip Button Limitations:
+⚠️ **IMA SDK's native skip button is unreliable** for VAST Tag scenarios in this Compose-based implementation. Even when VAST XML contains valid `skipoffset="00:00:05"`, IMA may not render its native skip button due to:
+1. Custom Compose overlays blocking IMA's UI layer
+2. Sample/test VAST tags potentially configured for non-skippable behavior
+3. Media3 + Compose architecture limitations preventing access to IMA's internal UI components
+
+**Solution:** Custom skip button overlays are rendered for all skippable scenarios (VAST Tag, VAST XML, JSON) to ensure consistent, reliable skip functionality. A warning banner appears for VAST Tag + skippable scenarios informing users this is for demonstration purposes.
 
 ---
 
@@ -656,9 +666,10 @@ when (creative.delivery) {
 ### Test Matrix:
 
 #### Media3 ExoPlayer + IMA:
-- ✅ **JSON + All end-cards**: Direct playback, SDK tracking
-- ✅ **VAST Tag + All end-cards**: IMA auto-tracking, poster, "Ad" indicator shown
-- ✅ **VAST XML + All end-cards**: Manual parsing, SDK tracking
+- ✅ **JSON + All end-cards**: Direct playback, manual SDK tracking, custom overlay end-cards
+- ✅ **VAST Tag + All end-cards**: IMA auto-tracking, poster, "Ad" indicator shown, custom overlay end-cards
+- ✅ **VAST XML + All end-cards**: Manual parsing, manual SDK tracking, custom overlay end-cards
+- ✅ **Skippable**: Custom skip overlay UI (IMA's built-in skip unavailable in Compose/Media3)
 
 #### Media3 ExoPlayer:
 - ✅ **All delivery methods + All end-cards**: Full manual control
@@ -690,15 +701,16 @@ when (creative.delivery) {
 - **Architecture**: Media3 ExoPlayer for playback, IMA extension for ad logic
 - **Supports**: VAST Tag (IMA auto), VAST XML (manual parsing), JSON (manual tracking)
 - **VAST XML Handling**: Media3 wrapper doesn't expose `adsResponse`, so XML is parsed manually with regex
-- **Native End-card**: ✅ Compose overlay
-- **Tracking**: Automatic (VAST Tag), Manual (VAST XML + JSON)
+- **End-cards**: ✅ Custom Compose overlays (always manual, publisher-drawn)
+- **Skippable**: ✅ Custom skip overlay UI (IMA's built-in skip button unavailable due to Compose/Media3 API architecture preventing access to IMA's internal UI layer)
+- **Tracking**: Automatic (VAST Tag only), Manual (VAST XML + JSON + custom events)
 
 #### ✅ Media3 ExoPlayer (Fully Implemented)
 - **Architecture**: Media3 ExoPlayer with full manual control
 - **Supports**: All deliveries (JSON, VAST Tag, VAST XML)
 - **VAST Parsing**: Fetches XML via HTTP GET or decodes Base64, regex parses `<MediaFile>`
 - **Tracking**: HTTP GET for VAST tracking URLs, SDK methods for JSON
-- **Native End-card**: ✅ Compose overlay
+- **End-cards**: ✅ Compose overlay
 
 #### ℹ️ JW Player (Info Only)
 - **Status**: Commercial option - not implemented in sample

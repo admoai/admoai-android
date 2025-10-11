@@ -65,6 +65,8 @@ User‑defined (editable convention):
   - VAST Tag: IMA SDK handles fetching, parsing, tracking automatically.
   - VAST XML: Manual parsing (regex), video playback, SDK tracking (Media3 wrapper doesn't expose `adsResponse`).
   - JSON: Direct video playback, manual SDK tracking.
+  - End-cards: Always manual (publisher-drawn overlays).
+  - Skippable: Custom overlay UI only. IMA's built-in skip button is unavailable due to Compose/Media3 API architecture limitations (no access to IMA's internal UI components in Compose environment).
   - Custom events: Always manual (overlay/CTA/close).
 
 - **Media3 ExoPlayer**

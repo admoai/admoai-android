@@ -112,7 +112,7 @@ fun VideoOptionsSection(
             ) {
                 listOf(
                     "none" to "None",
-                    "native_endcard" to "Native End-card",
+                    "native_endcard" to "Native",
                     "vast_companion" to "VAST Companion"
                 ).forEach { (value, label) ->
                     FilterChip(
@@ -123,6 +123,15 @@ fun VideoOptionsSection(
                     )
                 }
             }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Clarification about end-card modes
+            Text(
+                text = "💡 None/Native modes are for demo purposes. In production, end-cards are determined by template configuration and how the publisher interprets template fields. Only VAST Companion requires explicit template-level configuration.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -189,10 +198,6 @@ fun VideoPlayerSection(
     onOpenUrl: (String) -> Unit = {}
 ) {
     val videoPlayer by viewModel.videoPlayer.collectAsState()
-    val videoDelivery by viewModel.videoDelivery.collectAsState()
-    
-    // Basic Player is not VAST-compliant
-    val isVastDelivery = videoDelivery in listOf("vast_tag", "vast_xml")
     
     SectionContainer(title = "Video Player") {
         Column(
@@ -224,7 +229,7 @@ fun VideoPlayerSection(
                     PlayerOption(
                         "exoplayer", 
                         "Media3 ExoPlayer + IMA", 
-                        "Media3 IMA wrapper - VAST Tag out automatically - VAST XML and JSON manually"
+                        "VAST Tag: auto-tracking. The rest is manual: tracking, end-cards, and skip"
                     ),
                     PlayerOption(
                         "vast_client", 

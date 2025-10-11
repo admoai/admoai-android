@@ -27,13 +27,24 @@ All configurations are done. Follow these steps to test the video ad player with
 
 ### End-Card Modes:
 1. **None** - Video only
-2. **Native End-Card** - Publisher draws overlay using `companion*` keys
-3. **VAST Companion** - XML contains `<CompanionAds>`
+2. **Native** - Publisher draws overlay using `companion*` keys
+3. **VAST Companion** - XML contains `<CompanionAds>` (requires explicit template-level configuration)
+
+**Note**: None/Native modes are for demo purposes. In production, end-cards are determined by template configuration and how the publisher interprets template fields. Only VAST Companion requires explicit template-level configuration.
+
+### Skippable Videos:
+- When `isSkippable: true`, a skip button appears as a badge bubble in the top-right corner
+- Button only appears once the skip offset is reached (read from `skipOffset` in JSON response, defaults to 5s)
+- Clicking skip stops video playback, sets completion state, and fires the skip tracking event
+- For JSON delivery: fires via SDK's `fireVideoEvent(creative, "skip")`
+- For VAST delivery: fires skip tracking URLs via HTTP GET
+- The skip offset is parsed from the ad response (supports both "00:00:05" format and plain numbers like "5")
 
 ### Player Capabilities:
-- **Media3 ExoPlayer + IMA**: Media3 ExoPlayer for playback, IMA extension for ad logic (VAST Tag, JSON)
-- **Google IMA SDK**: Pure IMA SDK - Full control over VAST Tag & VAST XML 
-- **Basic Player**: JSON delivery only (no VAST support, manual tracking)
+- **Media3 ExoPlayer + IMA**: VAST Tag: auto-tracking. VAST XML/JSON: manual tracking. End-cards and skip: custom overlays (IMA's built-in skip unavailable due to Compose/Media3 API limitations).
+  - **⚠️ Skip Button Limitation**: For VAST Tag scenarios, IMA SDK's native skip button is unreliable and may not render even when the VAST XML contains valid `skipoffset`. This is due to how sample/test VAST tags are structured and how IMA integrates with custom Compose overlays. Custom skip buttons are used for consistent behavior across all scenarios.
+- **Media3 ExoPlayer**: All deliveries with full manual control - tracking, end-cards, and skip UI. Parses VAST XML manually to extract skip information.
+- **JW Player**: Commercial option (info only)
 
 ---
 
@@ -42,9 +53,11 @@ All configurations are done. Follow these steps to test the video ad player with
 ### Media3 ExoPlayer + IMA
 **Separation of Responsibilities:**
 - **Media3 ExoPlayer**: Video playback, buffering, decoding, rendering, UI
-- **IMA SDK Extension**: Ad logic, VAST tag parsing, tracking beacon firing
+- **IMA SDK Extension**: Ad logic, VAST tag parsing (VAST Tag only), tracking beacon firing (VAST Tag only)
 - **Implementation**: Uses `androidx.media3.exoplayer.ima.ImaAdsLoader` (Media3's IMA wrapper)
-- **Supports**: VAST Tag (adTagUrl), JSON (direct video)
+- **Supports**: VAST Tag (auto-tracking), VAST XML (manual), JSON (manual)
+- **End-cards**: Custom Compose overlays (publisher-drawn, always manual)
+- **Skippable**: Custom overlay UI only (IMA's built-in skip button unavailable due to Compose/Media3 API architecture preventing access to IMA's internal UI components)
 - **Limitation**: Cannot use `adsResponse` for VAST XML (Media3 doesn't expose it)
 
 ### Google IMA SDK
@@ -154,6 +167,7 @@ Test these configurations to verify full functionality across delivery methods a
 - ✅ Video plays with automatic tracking
 - ✅ IMA "Ad" and "Learn more" badges appear (non-removable) → confirms IMA/VAST path
 - ✅ Poster image displays before playback
+- ⚠️ **Skip Button Note**: For VAST Tag + skippable scenarios, a warning banner appears stating "IMA SDK's native skip button is unreliable in this configuration. This is for demonstration purposes only." This is expected behavior as IMA's native skip UI doesn't reliably render in this Compose-based implementation.
 
 #### Test 5: VAST Tag + Native End-Card + ExoPlayer + IMA
 - ✅ `delivery: "vast_tag"`

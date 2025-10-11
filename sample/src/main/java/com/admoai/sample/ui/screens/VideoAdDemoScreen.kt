@@ -46,6 +46,7 @@ private fun getLocalMockScenario(delivery: String, endCard: String, skippable: B
         delivery == "json" && endCard == "none" && !skippable -> "json_none"
         delivery == "json" && endCard == "none" && skippable -> "json_none_skippable"
         delivery == "json" && endCard == "native_endcard" && !skippable -> "json_native-end-card"
+        delivery == "json" && endCard == "native_endcard" && skippable -> "json_native-end-card_skippable"
         delivery == "vast_tag" && endCard == "none" && !skippable -> "vasttag_none"
         delivery == "vast_tag" && endCard == "none" && skippable -> "vasttag_none_skippable"
         delivery == "vast_tag" && endCard == "native_endcard" && !skippable -> "vasttag_native-end-card"
@@ -192,7 +193,12 @@ fun VideoAdDemoScreen(
                     
                     Text(
                         text = "• Delivery: ${videoDelivery.uppercase().replace("_", " ")}\n" +
-                               "• End Card: ${videoEndCard.replace("_", " ").replaceFirstChar { it.uppercase() }}\n" +
+                               "• End Card: ${when(videoEndCard) {
+                                   "none" -> "None"
+                                   "native_endcard" -> "Native"
+                                   "vast_companion" -> "VAST Companion"
+                                   else -> videoEndCard.replace("_", " ").replaceFirstChar { it.uppercase() }
+                               }}\n" +
                                "• Skippable: ${if (isSkippable) "Yes (5s)" else "No"}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onTertiaryContainer
@@ -224,7 +230,7 @@ fun VideoAdDemoScreen(
             Button(
                 onClick = { showModeDialog = true },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = currentScenario != null && videoPlayer != "jwplayer",
+                enabled = currentScenario != null && videoPlayer.isNotEmpty() && videoPlayer != "jwplayer",
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 )

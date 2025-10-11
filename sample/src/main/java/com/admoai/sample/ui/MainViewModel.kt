@@ -107,7 +107,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _videoEndCard = MutableStateFlow("none") // "none", "native_endcard", "vast_companion"
     val videoEndCard = _videoEndCard.asStateFlow()
     
-    private val _videoPlayer = MutableStateFlow("ima") // "ima", "exoplayer", "basic"
+    private val _videoPlayer = MutableStateFlow("") // "exoplayer", "vast_client", "jwplayer"
     val videoPlayer = _videoPlayer.asStateFlow()
     
     private val _overlayAtPercent = MutableStateFlow(0.5f) // 0.0 to 1.0
