@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -1386,27 +1387,63 @@ fun ExoPlayerImaVideoPlayer(
         }
     }
     
-    // VAST Companion ad state - must be created BEFORE ads loader
+    // VAST Companion ad state
     var companionContainerView by remember { mutableStateOf<android.view.ViewGroup?>(null) }
     
     // Get screen dimensions for companion slot configuration
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp
+    val screenHeightDp = configuration.screenHeightDp
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     
-    // Companion slot dimensions (convert DP to pixels)
-    val companionWidthPx = (screenWidthDp * 0.95f * density).toInt()
-    val companionHeightPx = (200 * density).toInt() // 200dp height
+    // Calculate companion slot dimensions to match VAST companions (1920x1080 = 16:9 landscape)
+    // IMA SDK only fills companions when slot aspect matches VAST companions
+    val screenWidthPx = (screenWidthDp * density).toInt()
+    val screenHeightPx = (screenHeightDp * density).toInt()
     
-    // IMA ads loader with companion ad slot support
-    // Create AFTER companion container is ready (for VAST with companions)
+    // Calculate slot size: 16:9 landscape to match 1920x1080 companion
+    // Use full width, calculate height for 16:9 aspect
+    var companionWidthPx = (screenWidthPx * 0.95f).toInt()
+    var companionHeightPx = (companionWidthPx * 9f / 16f).toInt() // 16:9 landscape aspect
+    
+    // Ensure height doesn't exceed available space
+    val maxHeightPx = (screenHeightPx * 0.50f).toInt()
+    if (companionHeightPx > maxHeightPx) {
+        val scale = maxHeightPx.toFloat() / companionHeightPx
+        companionHeightPx = maxHeightPx
+        companionWidthPx = (companionWidthPx * scale).toInt()
+    }
+    
+    android.util.Log.d("IMA_COMPANION", "Screen: ${screenWidthPx}x${screenHeightPx}px")
+    android.util.Log.d("IMA_COMPANION", "Calculated companion slot: ${companionWidthPx}x${companionHeightPx}px")
+    
+    // Track when to show companion end-card
+    var showCompanionEndCard by remember { mutableStateOf(false) }
+    var companionAdAvailable by remember { mutableStateOf(false) }
+    var companionRenderingMode by remember { mutableStateOf<String?>(null) } // "end-card" or "concurrent"
+    
+    // IMA ads loader - PRE-REGISTER companion slots for proper rendering
+    // This MUST happen before the ad request for IMA to fill the companions
     val adsLoader = remember(companionContainerView) {
         val builder = ImaAdsLoader.Builder(context)
             .setAdEventListener { adEvent ->
                 android.util.Log.d("IMA_EVENT", "Ad Event: ${adEvent.type}")
                 when (adEvent.type) {
-                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.LOADED ->
+                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.LOADED -> {
                         android.util.Log.d("IMA_EVENT", "✅ Ad LOADED")
+                        // Check if ad has companions
+                        adEvent.ad?.let { ad ->
+                            val hasCompanions = ad.companionAds != null && !ad.companionAds.isEmpty()
+                            android.util.Log.d("IMA_EVENT", "Ad has companions: $hasCompanions")
+                            if (hasCompanions) {
+                                // Log companion details
+                                ad.companionAds.forEach { companion ->
+                                    android.util.Log.d("IMA_EVENT", "  Companion: ${companion.width}x${companion.height} (${companion.resourceValue})")
+                                }
+                            }
+                            companionAdAvailable = hasCompanions
+                        }
+                    }
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.STARTED ->
                         android.util.Log.d("IMA_EVENT", "✅ Ad STARTED")
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.FIRST_QUARTILE ->
@@ -1415,8 +1452,15 @@ fun ExoPlayerImaVideoPlayer(
                         android.util.Log.d("IMA_EVENT", "✅ Ad MIDPOINT")
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.THIRD_QUARTILE ->
                         android.util.Log.d("IMA_EVENT", "✅ Ad THIRD_QUARTILE")
-                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.COMPLETED ->
+                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.COMPLETED -> {
                         android.util.Log.d("IMA_EVENT", "✅ Ad COMPLETED")
+                        // Show companion end-card when video completes if renderingMode="end-card"
+                        // For "concurrent" mode, companion is already visible during playback
+                        if (companionAdAvailable && useImaSDK && companionRenderingMode == "end-card") {
+                            showCompanionEndCard = true
+                            android.util.Log.d("IMA_EVENT", "🎬 Showing companion end-card overlay")
+                        }
+                    }
                     else -> Unit
                 }
             }
@@ -1427,7 +1471,8 @@ fun ExoPlayerImaVideoPlayer(
                 playbackError = "IMA Ad Error: ${adErrorEvent.error.message}"
             }
         
-        // Register companion ad slot if container is available
+        // PRE-REGISTER companion slot if container is ready
+        // This is CRITICAL for IMA to fill companions - must happen before ad request
         val container = companionContainerView
         if (container != null && useImaSDK) {
             try {
@@ -1436,13 +1481,16 @@ fun ExoPlayerImaVideoPlayer(
                 companionSlot.setSize(companionWidthPx, companionHeightPx)
                 companionSlot.container = container
                 
-                android.util.Log.d("IMA_COMPANION", "✅ Registering companion slot: ${companionWidthPx}x${companionHeightPx}px")
+                android.util.Log.d("IMA_COMPANION", "✅ Pre-registering companion slot: ${companionWidthPx}x${companionHeightPx}px")
                 builder.setCompanionAdSlots(listOf(companionSlot))
+                
+                // Assume end-card mode for now (will support concurrent in next iteration)
+                companionRenderingMode = "end-card"
             } catch (e: Exception) {
-                android.util.Log.e("IMA_COMPANION", "Error creating companion slot: ${e.message}", e)
+                android.util.Log.e("IMA_COMPANION", "Error pre-registering companion slot: ${e.message}", e)
             }
         } else if (useImaSDK) {
-            android.util.Log.w("IMA_COMPANION", "⚠️ Companion container not ready yet - will recreate ads loader")
+            android.util.Log.w("IMA_COMPANION", "⚠️ Companion container not ready yet - will recreate ads loader when ready")
         }
         
         builder.build()
@@ -1452,11 +1500,10 @@ fun ExoPlayerImaVideoPlayer(
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
     
     // ExoPlayer with conditional IMA integration
-    // For VAST with companions, wait until container AND playerView are ready
     val exoPlayer = remember(adsLoader, playerViewRef) {
-        // If using IMA, wait for both companion container AND playerView to be ready
-        if (useImaSDK && (companionContainerView == null || playerViewRef == null)) {
-            android.util.Log.d("ExoPlayerIMA", "⏳ Waiting for companion container (${companionContainerView != null}) and playerView (${playerViewRef != null})...")
+        // If using IMA, wait for playerView to be ready
+        if (useImaSDK && playerViewRef == null) {
+            android.util.Log.d("ExoPlayerIMA", "⏳ Waiting for playerView...")
             return@remember null
         }
         
@@ -1596,6 +1643,33 @@ fun ExoPlayerImaVideoPlayer(
         exoPlayer?.let { adsLoader.setPlayer(it) }
     }
     
+    // Control companion container alpha (not visibility) based on rendering mode
+    // Keep VISIBLE for IMA detection but control opacity
+    LaunchedEffect(showCompanionEndCard, companionContainerView, companionRenderingMode) {
+        val container = companionContainerView ?: return@LaunchedEffect
+        
+        when (companionRenderingMode) {
+            "end-card" -> {
+                // For end-card mode: show companion only after video completes
+                container.alpha = if (showCompanionEndCard) {
+                    android.util.Log.d("IMA_COMPANION", "🎬 Showing end-card companion container (alpha=1)")
+                    1f
+                } else {
+                    android.util.Log.d("IMA_COMPANION", "⏸️ Hiding end-card companion container (alpha=0)")
+                    0f
+                }
+            }
+            "concurrent" -> {
+                // For concurrent mode: companion visible during playback
+                // Will be implemented in next iteration
+                container.alpha = 1f
+            }
+            else -> {
+                container.alpha = 0f
+            }
+        }
+    }
+    
     // Monitor playback state, fire tracking events, and manage overlays
     LaunchedEffect(exoPlayer) {
         val player = exoPlayer ?: return@LaunchedEffect
@@ -1698,76 +1772,44 @@ fun ExoPlayerImaVideoPlayer(
     
     android.util.Log.d("Media3Player", "useCustomOverlays=$useCustomOverlays (hasNativeEndCard=$hasNativeEndCard, useImaSDK=$useImaSDK)")
     
-    // Use Column for VAST with companions to stack video + companion vertically
-    // Use Box for everything else (overlays on video)
-    if (useImaSDK) {
-        // VAST delivery: Stack PlayerView + Companion Container vertically
-        Column(modifier = modifier) {
-            // ExoPlayer view with IMA support
-            AndroidView(
-                factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        useController = true // Use IMA's built-in controls
-                        useArtwork = !useCustomOverlays && videoConfig.posterImageUrl != null
-                        
-                        // Store reference immediately for AdViewProvider
-                        playerViewRef = this
-                        android.util.Log.d("Media3Player", "✅ PlayerView created and stored")
-                        android.util.Log.d("Media3Player", "PlayerView.useArtwork=$useArtwork (posterUrl=${videoConfig.posterImageUrl})")
-                    }
-                },
-                update = { view ->
-                    // Update player when it becomes available
-                    if (view.player != exoPlayer) {
-                        view.player = exoPlayer
-                        android.util.Log.d("Media3Player", "PlayerView.player updated: ${exoPlayer != null}")
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f) // Take remaining space
-            )
-            
-            // Companion container below video
+    // Use Box layout for all cases to support proper overlay behavior
+    Box(modifier = modifier) {
+        // COMPANION CONTAINER - Created FIRST (behind video) so it can be pre-registered
+        // CRITICAL: Must be VISIBLE (not GONE) for IMA to detect during ad load
+        // Kept transparent behind video, will show content after ad completes
+        if (useImaSDK) {
             AndroidView(
                 factory = { ctx ->
                     android.widget.FrameLayout(ctx).apply {
                         id = android.view.View.generateViewId()
                         layoutParams = android.view.ViewGroup.LayoutParams(
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                            (200 * density).toInt()
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
                         )
+                        // Keep VISIBLE but transparent so IMA can detect it
+                        // DO NOT set to GONE - IMA won't detect the slot
+                        visibility = android.view.View.VISIBLE
+                        alpha = 0f // Invisible but still measurable
                         
-                        // Store reference for IMA SDK
+                        // Store reference for IMA SDK pre-registration
                         companionContainerView = this
-                        android.util.Log.d("IMA_COMPANION", "✅ Companion container created: ${companionWidthPx}x${companionHeightPx}px")
+                        android.util.Log.d("IMA_COMPANION", "✅ Companion container created (transparent, visible): ${companionWidthPx}x${companionHeightPx}px")
                     }
                 },
-                update = { view ->
-                    android.util.Log.d("IMA_COMPANION", "Container child count: ${view.childCount}")
-                    for (i in 0 until view.childCount) {
-                        val child = view.getChildAt(i)
-                        android.util.Log.d("IMA_COMPANION", "  Child $i: ${child.javaClass.simpleName} - visibility=${child.visibility}")
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
+                modifier = Modifier.fillMaxSize()
             )
         }
-    } else {
-        // JSON delivery: Use Box with overlays
-        Box(modifier = modifier) {
-            // ExoPlayer view
-            AndroidView(
-                factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        useController = true
-                        useArtwork = !useCustomOverlays && videoConfig.posterImageUrl != null
-                        
-                        playerViewRef = this
-                        android.util.Log.d("Media3Player", "✅ PlayerView created and stored")
-                        android.util.Log.d("Media3Player", "PlayerView.useArtwork=$useArtwork (posterUrl=${videoConfig.posterImageUrl})")
+        
+        // ExoPlayer view - Full screen (on top of companion container)
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    useController = true
+                    useArtwork = !useCustomOverlays && videoConfig.posterImageUrl != null
+                    
+                    playerViewRef = this
+                    android.util.Log.d("Media3Player", "✅ PlayerView created and stored")
+                    android.util.Log.d("Media3Player", "PlayerView.useArtwork=$useArtwork (posterUrl=${videoConfig.posterImageUrl})")
                     }
                 },
                 update = { view ->
@@ -1917,6 +1959,35 @@ fun ExoPlayerImaVideoPlayer(
             }
         }
         
+        // VAST Companion End-Card - IMA renders companion directly in the pre-registered container
+        // We just add a close button overlay when the companion is showing
+        if (showCompanionEndCard && useImaSDK && companionAdAvailable) {
+            // Close button overlay (top-right corner)
+            IconButton(
+                onClick = {
+                    showCompanionEndCard = false
+                    hasCompleted = true
+                    android.util.Log.d("IMA_COMPANION", "Companion end-card closed by user")
+                },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                    shadowElevation = 4.dp
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close companion",
+                        modifier = Modifier.padding(8.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+        
         // IMA SDK Skip Warning - Show for VAST Tag + skippable + no native end-card
         if (useImaSDK && videoConfig.isSkippable && !hasNativeEndCard && !hasCompleted) {
             Card(
@@ -1947,15 +2018,16 @@ fun ExoPlayerImaVideoPlayer(
                     )
                 }
             }
+        }
         
-            // Error overlay (center)
-            if (playbackError != null) {
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(16.dp)
-                        .fillMaxWidth(0.9f),
-                    colors = CardDefaults.cardColors(
+        // Error overlay (center)
+        if (playbackError != null) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(16.dp)
+                    .fillMaxWidth(0.9f),
+                colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer
                 )
             ) {
@@ -1979,9 +2051,7 @@ fun ExoPlayerImaVideoPlayer(
                 }
             }
         }
-        }
     }
-}
 }
 
 /**

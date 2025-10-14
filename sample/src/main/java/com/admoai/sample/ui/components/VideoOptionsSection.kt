@@ -243,20 +243,9 @@ fun VideoPlayerSection(
                         isCommercial = true
                     )
                 ).forEach { option ->
-                    // All players now support all delivery methods
-                    val isDisabled = false
-                    
-                    // Auto-select logic: JW Player can stay selected to show integration guide
-                    // All other players support all delivery methods now
-                    
                     FilterChip(
                         selected = videoPlayer == option.value,
-                        onClick = { 
-                            if (!isDisabled) {
-                                viewModel.setVideoPlayer(option.value) 
-                            }
-                        },
-                        enabled = !isDisabled,
+                        onClick = { viewModel.setVideoPlayer(option.value) },
                         label = { 
                             Column {
                                 Row(
