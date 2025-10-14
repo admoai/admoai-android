@@ -1386,9 +1386,22 @@ fun ExoPlayerImaVideoPlayer(
         }
     }
     
-    // IMA ads loader with event listeners
-    val adsLoader = remember {
-        ImaAdsLoader.Builder(context)
+    // VAST Companion ad state - must be created BEFORE ads loader
+    var companionContainerView by remember { mutableStateOf<android.view.ViewGroup?>(null) }
+    
+    // Get screen dimensions for companion slot configuration
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val screenWidthDp = configuration.screenWidthDp
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
+    
+    // Companion slot dimensions (convert DP to pixels)
+    val companionWidthPx = (screenWidthDp * 0.95f * density).toInt()
+    val companionHeightPx = (200 * density).toInt() // 200dp height
+    
+    // IMA ads loader with companion ad slot support
+    // Create AFTER companion container is ready (for VAST with companions)
+    val adsLoader = remember(companionContainerView) {
+        val builder = ImaAdsLoader.Builder(context)
             .setAdEventListener { adEvent ->
                 android.util.Log.d("IMA_EVENT", "Ad Event: ${adEvent.type}")
                 when (adEvent.type) {
@@ -1413,23 +1426,50 @@ fun ExoPlayerImaVideoPlayer(
                 android.util.Log.e("IMA_ERROR", "Error Type: ${adErrorEvent.error.errorCodeNumber}")
                 playbackError = "IMA Ad Error: ${adErrorEvent.error.message}"
             }
-            .build()
+        
+        // Register companion ad slot if container is available
+        val container = companionContainerView
+        if (container != null && useImaSDK) {
+            try {
+                val imaFactory = com.google.ads.interactivemedia.v3.api.ImaSdkFactory.getInstance()
+                val companionSlot = imaFactory.createCompanionAdSlot()
+                companionSlot.setSize(companionWidthPx, companionHeightPx)
+                companionSlot.container = container
+                
+                android.util.Log.d("IMA_COMPANION", "✅ Registering companion slot: ${companionWidthPx}x${companionHeightPx}px")
+                builder.setCompanionAdSlots(listOf(companionSlot))
+            } catch (e: Exception) {
+                android.util.Log.e("IMA_COMPANION", "Error creating companion slot: ${e.message}", e)
+            }
+        } else if (useImaSDK) {
+            android.util.Log.w("IMA_COMPANION", "⚠️ Companion container not ready yet - will recreate ads loader")
+        }
+        
+        builder.build()
     }
     
-    // PlayerView reference for AdViewProvider
-    var playerView: PlayerView? by remember { mutableStateOf(null) }
+    // PlayerView reference for AdViewProvider - MUST be created before player
+    var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
     
     // ExoPlayer with conditional IMA integration
-    val exoPlayer = remember {
+    // For VAST with companions, wait until container AND playerView are ready
+    val exoPlayer = remember(adsLoader, playerViewRef) {
+        // If using IMA, wait for both companion container AND playerView to be ready
+        if (useImaSDK && (companionContainerView == null || playerViewRef == null)) {
+            android.util.Log.d("ExoPlayerIMA", "⏳ Waiting for companion container (${companionContainerView != null}) and playerView (${playerViewRef != null})...")
+            return@remember null
+        }
+        
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
             .setDataSourceFactory(DefaultDataSource.Factory(context))
         
         // Use IMA for VAST Tag and VAST XML (always, regardless of end-card)
         if (useImaSDK) {
             android.util.Log.d("ExoPlayerIMA", "→ Configuring MediaSourceFactory with IMA ads loader")
+            android.util.Log.d("ExoPlayerIMA", "→ PlayerView ready: ${playerViewRef != null}")
             mediaSourceFactory
                 .setAdsLoaderProvider { adsLoader }
-                .setAdViewProvider { playerView!! }
+                .setAdViewProvider { playerViewRef!! }
         } else {
             android.util.Log.d("ExoPlayerIMA", "→ MediaSourceFactory without ads (JSON delivery)")
         }
@@ -1440,7 +1480,13 @@ fun ExoPlayerImaVideoPlayer(
     }
     
     // Setup media source (wait for VAST XML to be decoded if needed)
-    LaunchedEffect(videoConfig.videoAssetUrl, decodedVastXml, creative.delivery) {
+    LaunchedEffect(exoPlayer, videoConfig.videoAssetUrl, decodedVastXml, creative.delivery) {
+        val player = exoPlayer
+        if (player == null) {
+            android.util.Log.d("ExoPlayerIMA", "⏳ Player not ready yet, waiting...")
+            return@LaunchedEffect
+        }
+        
         // For VAST XML, wait until decoded
         if (creative.delivery == "vast_xml" && decodedVastXml == null) {
             android.util.Log.d("ExoPlayerIMA", "⏳ Waiting for VAST XML to be decoded...")
@@ -1450,7 +1496,7 @@ fun ExoPlayerImaVideoPlayer(
         videoConfig.videoAssetUrl?.let { url ->
             android.util.Log.d("ExoPlayerIMA", "🎬 Setting up media source...")
             
-            val contentVideoUri = "https://videos.admoai.com/VwBe1DrWseFTdiIPnzPzKhoo7fX01N92Hih4h6pNCuDA.m3u8"
+            val contentVideoUri = "https://videos.admoai.com/02jJM5N02pffMDDei8s5EncgbBUJYMbNweR7Zwikeqtq00.m3u8"
             val mediaItemBuilder = MediaItem.Builder()
             
             when (creative.delivery) {
@@ -1506,14 +1552,18 @@ fun ExoPlayerImaVideoPlayer(
             
             // Add poster image as artwork if available
             videoConfig.posterImageUrl?.let { posterUrl ->
-                mediaItemBuilder.setMediaMetadata(
-                    androidx.media3.common.MediaMetadata.Builder()
-                        .setArtworkUri(Uri.parse(posterUrl))
-                        .build()
-                )
+                try {
+                    mediaItemBuilder.setMediaMetadata(
+                        androidx.media3.common.MediaMetadata.Builder()
+                            .setArtworkUri(Uri.parse(posterUrl))
+                            .build()
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.e("ExoPlayerIMA", "Error setting artwork: ${e.message}")
+                }
             }
             
-            exoPlayer.apply {
+            player.apply {
                 setMediaItem(mediaItemBuilder.build())
                 prepare()
                 playWhenReady = true
@@ -1543,19 +1593,21 @@ fun ExoPlayerImaVideoPlayer(
     
     // Set adsLoader's player
     LaunchedEffect(exoPlayer) {
-        adsLoader.setPlayer(exoPlayer)
+        exoPlayer?.let { adsLoader.setPlayer(it) }
     }
     
     // Monitor playback state, fire tracking events, and manage overlays
     LaunchedEffect(exoPlayer) {
+        val player = exoPlayer ?: return@LaunchedEffect
+        
         while (isActive) {
             delay(100)
-            isPlaying = exoPlayer.isPlaying
+            isPlaying = player.isPlaying
             
             // Track position and duration
-            if (exoPlayer.duration > 0) {
-                duration = exoPlayer.duration / 1000f
-                currentPosition = exoPlayer.currentPosition / 1000f
+            if (player.duration > 0) {
+                duration = player.duration / 1000f
+                currentPosition = player.currentPosition / 1000f
                 
                 val progress = if (duration > 0) currentPosition / duration else 0f
                 
@@ -1563,7 +1615,7 @@ fun ExoPlayerImaVideoPlayer(
                 when {
                     isJsonDelivery || creative.delivery == "vast_xml" -> {
                         // JSON or VAST XML: Manual SDK tracking
-                        if (exoPlayer.isPlaying && !hasStarted) {
+                        if (player.isPlaying && !hasStarted) {
                             hasStarted = true
                         }
                         
@@ -1610,7 +1662,7 @@ fun ExoPlayerImaVideoPlayer(
             }
             
             // Check for completion
-            if (exoPlayer.playbackState == androidx.media3.common.Player.STATE_ENDED && !hasCompleted) {
+            if (player.playbackState == androidx.media3.common.Player.STATE_ENDED && !hasCompleted) {
                 hasCompleted = true
                 onComplete()
             }
@@ -1622,7 +1674,8 @@ fun ExoPlayerImaVideoPlayer(
     
     // Listen for first frame rendered
     LaunchedEffect(exoPlayer) {
-        exoPlayer.addListener(object : androidx.media3.common.Player.Listener {
+        val player = exoPlayer ?: return@LaunchedEffect
+        player.addListener(object : androidx.media3.common.Player.Listener {
             override fun onRenderedFirstFrame() {
                 android.util.Log.d("ExoPlayerIMA", "✅ First frame rendered - hiding poster")
                 firstFrameRendered = true
@@ -1634,7 +1687,7 @@ fun ExoPlayerImaVideoPlayer(
     DisposableEffect(exoPlayer) {
         onDispose {
             adsLoader.release()
-            exoPlayer.release()
+            exoPlayer?.release()
         }
     }
     
@@ -1645,26 +1698,90 @@ fun ExoPlayerImaVideoPlayer(
     
     android.util.Log.d("Media3Player", "useCustomOverlays=$useCustomOverlays (hasNativeEndCard=$hasNativeEndCard, useImaSDK=$useImaSDK)")
     
-    Box(modifier = modifier) {
-        // ExoPlayer view with IMA support
-        AndroidView(
-            factory = { ctx ->
-                PlayerView(ctx).apply {
-                    player = exoPlayer
-                    useController = true // Use IMA's built-in controls
-                    // CONDITIONAL: Let IMA handle poster when using native UI, otherwise we handle it
-                    useArtwork = !useCustomOverlays && videoConfig.posterImageUrl != null
-                    playerView = this // Assign for AdViewProvider
-                    
-                    android.util.Log.d("Media3Player", "PlayerView.useArtwork=$useArtwork (posterUrl=${videoConfig.posterImageUrl})")
-                }
-            },
-            modifier = Modifier.fillMaxSize()
-        )
-        
-        // POSTER IMAGE OVERLAY - Only show custom poster if using custom overlays
-        // (Otherwise IMA will handle poster via useArtwork)
-        if (useCustomOverlays && !firstFrameRendered && videoConfig.posterImageUrl != null) {
+    // Use Column for VAST with companions to stack video + companion vertically
+    // Use Box for everything else (overlays on video)
+    if (useImaSDK) {
+        // VAST delivery: Stack PlayerView + Companion Container vertically
+        Column(modifier = modifier) {
+            // ExoPlayer view with IMA support
+            AndroidView(
+                factory = { ctx ->
+                    PlayerView(ctx).apply {
+                        useController = true // Use IMA's built-in controls
+                        useArtwork = !useCustomOverlays && videoConfig.posterImageUrl != null
+                        
+                        // Store reference immediately for AdViewProvider
+                        playerViewRef = this
+                        android.util.Log.d("Media3Player", "✅ PlayerView created and stored")
+                        android.util.Log.d("Media3Player", "PlayerView.useArtwork=$useArtwork (posterUrl=${videoConfig.posterImageUrl})")
+                    }
+                },
+                update = { view ->
+                    // Update player when it becomes available
+                    if (view.player != exoPlayer) {
+                        view.player = exoPlayer
+                        android.util.Log.d("Media3Player", "PlayerView.player updated: ${exoPlayer != null}")
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f) // Take remaining space
+            )
+            
+            // Companion container below video
+            AndroidView(
+                factory = { ctx ->
+                    android.widget.FrameLayout(ctx).apply {
+                        id = android.view.View.generateViewId()
+                        layoutParams = android.view.ViewGroup.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            (200 * density).toInt()
+                        )
+                        
+                        // Store reference for IMA SDK
+                        companionContainerView = this
+                        android.util.Log.d("IMA_COMPANION", "✅ Companion container created: ${companionWidthPx}x${companionHeightPx}px")
+                    }
+                },
+                update = { view ->
+                    android.util.Log.d("IMA_COMPANION", "Container child count: ${view.childCount}")
+                    for (i in 0 until view.childCount) {
+                        val child = view.getChildAt(i)
+                        android.util.Log.d("IMA_COMPANION", "  Child $i: ${child.javaClass.simpleName} - visibility=${child.visibility}")
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+            )
+        }
+    } else {
+        // JSON delivery: Use Box with overlays
+        Box(modifier = modifier) {
+            // ExoPlayer view
+            AndroidView(
+                factory = { ctx ->
+                    PlayerView(ctx).apply {
+                        useController = true
+                        useArtwork = !useCustomOverlays && videoConfig.posterImageUrl != null
+                        
+                        playerViewRef = this
+                        android.util.Log.d("Media3Player", "✅ PlayerView created and stored")
+                        android.util.Log.d("Media3Player", "PlayerView.useArtwork=$useArtwork (posterUrl=${videoConfig.posterImageUrl})")
+                    }
+                },
+                update = { view ->
+                    if (view.player != exoPlayer) {
+                        view.player = exoPlayer
+                        android.util.Log.d("Media3Player", "PlayerView.player updated: ${exoPlayer != null}")
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+            
+            // POSTER IMAGE OVERLAY - Only show custom poster if using custom overlays
+            // (Otherwise IMA will handle poster via useArtwork)
+            if (useCustomOverlays && !firstFrameRendered && videoConfig.posterImageUrl != null) {
             androidx.compose.foundation.Image(
                 painter = rememberAsyncImagePainter(
                     model = androidx.compose.ui.platform.LocalContext.current.let { ctx ->
@@ -1718,9 +1835,11 @@ fun ExoPlayerImaVideoPlayer(
                                     }
                                 }
                                 // Terminate playback - pause and seek to end
-                                exoPlayer.pause()
-                                exoPlayer.seekTo(exoPlayer.duration)
-                                hasCompleted = true
+                                exoPlayer?.let { player ->
+                                    player.pause()
+                                    player.seekTo(player.duration)
+                                    hasCompleted = true
+                                }
                             }
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
@@ -1828,16 +1947,15 @@ fun ExoPlayerImaVideoPlayer(
                     )
                 }
             }
-        }
         
-        // Error overlay (center)
-        if (playbackError != null) {
-            Card(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(16.dp)
-                    .fillMaxWidth(0.9f),
-                colors = CardDefaults.cardColors(
+            // Error overlay (center)
+            if (playbackError != null) {
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(16.dp)
+                        .fillMaxWidth(0.9f),
+                    colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer
                 )
             ) {
@@ -1861,7 +1979,9 @@ fun ExoPlayerImaVideoPlayer(
                 }
             }
         }
+        }
     }
+}
 }
 
 /**
