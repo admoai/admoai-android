@@ -58,41 +58,35 @@ User‑defined (editable convention):
 
 ---
 
-## 5) Player Capability Matrix (Current)
+## 5) Player Capability Matrix
 
 - **Media3 ExoPlayer + IMA**
-  - Delivery: VAST Tag (IMA auto), VAST XML (manual), JSON (manual).
-  - VAST Tag: IMA SDK handles fetching, parsing, tracking automatically.
-  - VAST XML: Manual parsing (regex), video playback, SDK tracking (Media3 wrapper doesn't expose `adsResponse`).
-  - JSON: Direct video playback, manual SDK tracking.
-  - End-cards: Always manual (publisher-drawn overlays).
-  - Skippable: Custom overlay UI only. IMA's built-in skip button is unavailable due to Compose/Media3 API architecture limitations (no access to IMA's internal UI components in Compose environment).
-  - Custom events: Always manual (overlay/CTA/close).
+  - VAST Tag: IMA auto-handles fetch/parse/tracking. Custom skip/companion overlays.
+  - VAST XML: Manual parse (regex), IMA playback. Custom overlays.
+  - JSON: Direct playback, manual SDK tracking. Custom overlays.
+  - End-cards: Publisher-drawn Compose overlays (all modes).
+  - Skip: Custom UI overlay (all modes). IMA native skip unavailable in Compose.
 
 - **Media3 ExoPlayer**
-  - Delivery: All (JSON, VAST Tag, VAST XML) - full manual control.
-  - VAST Tag: Fetches XML via HTTP, parses `<MediaFile>` with regex, fires tracking URLs manually.
-  - VAST XML: Decodes Base64, parses `<MediaFile>`, fires tracking URLs manually.
-  - JSON: Direct playback, manual SDK tracking.
-  - Tracking: HTTP GET for VAST tracking URLs, SDK methods for JSON.
+  - All deliveries with full manual control.
+  - VAST: HTTP fetch/Base64 decode → regex parse → manual HTTP tracking.
+  - JSON: Direct playback, SDK tracking.
+  - End-cards/Skip: Custom Compose overlays.
 
-- **JW Player** (Optional)
-  - Commercial SDK with full VAST/IMA/OMID support out-of-the-box.
+- **JW Player**
+  - Commercial. Full VAST/IMA/OMID support (info only).
 
 ---
 
 ## 6) Tracking Responsibility
 
-| Player | JSON | VAST Tag | VAST XML | Custom Events |
-|--------|------|----------|----------|---------------|
-| **Media3 ExoPlayer + IMA** | Manual (SDK) | IMA Auto | Manual (SDK) | Manual (SDK) |
-| **Media3 ExoPlayer** | Manual (SDK) | Manual (HTTP GET) | Manual (HTTP GET) | Manual (SDK) |
+| Player | JSON | VAST Tag | VAST XML | Custom |
+|--------|------|----------|----------|--------|
+| **Media3 + IMA** | SDK | IMA Auto | SDK | SDK |
+| **Media3** | SDK | HTTP | HTTP | SDK |
 
-**Quartile Thresholds**: start (0%), firstQuartile (25%), midpoint (50%), thirdQuartile (75%), complete (98%).
-
-Notes:
-- Complete event fires at 98% (not 100%) to avoid race conditions with player state transitions.
-- Custom UI events (overlay/CTA/close) are always publisher‑fired, never automatic.
+**Quartiles**: 0%, 25%, 50%, 75%, 98% (not 100% to avoid race conditions).
+**Custom events** (overlay/CTA/close): Always manual.
 
 ---
 
