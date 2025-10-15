@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -106,6 +107,7 @@ fun PlacementRow(
             "vehicleSelection" -> Icons.Default.DirectionsCar // Vehicle Selection placement
             "rideSummary" -> Icons.AutoMirrored.Filled.ReceiptLong       // Ride Summary placement
             "waiting" -> Icons.Default.Timer                  // Waiting placement
+            "freeMinutes" -> Icons.Default.CardGiftcard       // Free Minutes placement
             "invalidPlacement" -> Icons.Default.Warning       // Invalid Placement
             else -> Icons.Default.Home
         }

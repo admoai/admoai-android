@@ -63,6 +63,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         PlacementItem(id = "vehicleSelection", name = "Vehicle Selection", key = "vehicleSelection", title = "Vehicle Selection", icon = "car"),
         PlacementItem(id = "rideSummary", name = "Ride Summary", key = "rideSummary", title = "Ride Summary", icon = "doc.text"),
         PlacementItem(id = "waiting", name = "Waiting", key = "waiting", title = "Waiting", icon = "clock"),
+        PlacementItem(id = "freeMinutes", name = "Free Minutes", key = "freeMinutes", title = "Free Minutes", icon = "cardgiftcard"),
         PlacementItem(id = "invalidPlacement", name = "Invalid Placement", key = "invalidPlacement", title = "Invalid Placement", icon = "exclamationmark.triangle")
     ))
     val placements = _placements.asStateFlow()
@@ -148,6 +149,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         PlacementItem(id = "vehicleSelection", name = "Vehicle Selection", key = "vehicleSelection", title = "Vehicle Selection", icon = "car"),
         PlacementItem(id = "rideSummary", name = "Ride Summary", key = "rideSummary", title = "Ride Summary", icon = "doc.text"),
         PlacementItem(id = "waiting", name = "Waiting", key = "waiting", title = "Waiting", icon = "clock"),
+        PlacementItem(id = "freeMinutes", name = "Free Minutes", key = "freeMinutes", title = "Free Minutes", icon = "cardgiftcard"),
         PlacementItem(id = "invalidPlacement", name = "Invalid Placement", key = "invalidPlacement", title = "Invalid Placement", icon = "exclamationmark.triangle")
     )
 
@@ -432,8 +434,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun setFormatFilterEnabled(enabled: Boolean) {
         _formatFilterEnabled.value = enabled
-        // Reset format when disabled
-        if (!enabled) {
+        if (enabled) {
+            // Set default to "native" when filter is enabled
+            if (_selectedFormat.value == null) {
+                _selectedFormat.value = "native"
+            }
+        } else {
+            // Reset format when disabled
             _selectedFormat.value = null
         }
     }
@@ -492,11 +499,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun buildRequest(): DecisionRequest {
         // Determine placement format based on filter
+        // When filter is enabled, always include format (never null)
         val placementFormat = when {
-            !_formatFilterEnabled.value || _selectedFormat.value == null -> null // Any format
+            !_formatFilterEnabled.value -> null // Filter disabled = no format restriction
             _selectedFormat.value == "native" -> PlacementFormat.NATIVE
             _selectedFormat.value == "video" -> PlacementFormat.VIDEO
-            else -> null
+            else -> PlacementFormat.NATIVE // Default to native if somehow null when enabled
         }
         
         // Create request builder with placement including format

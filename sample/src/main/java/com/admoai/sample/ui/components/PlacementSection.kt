@@ -92,7 +92,7 @@ fun PlacementSection(
                             text = when (selectedFormat) {
                                 "native" -> "Native"
                                 "video" -> "Video"
-                                else -> "Any"
+                                else -> "Native" // Default to Native if somehow null
                             },
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -107,7 +107,7 @@ fun PlacementSection(
                 onClick = { showFormatPicker = true }
             )
             
-            // Simple inline format picker
+            // Simple inline format picker (only native and video)
             if (showFormatPicker) {
                 Column(
                     modifier = Modifier
@@ -115,7 +115,6 @@ fun PlacementSection(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     listOf(
-                        null to "Any",
                         "native" to "Native",
                         "video" to "Video"
                     ).forEach { (value, label) ->

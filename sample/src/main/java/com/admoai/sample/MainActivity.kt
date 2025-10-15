@@ -60,6 +60,7 @@ import com.admoai.sample.ui.screens.previews.RideSummaryPreviewScreen
 import com.admoai.sample.ui.screens.previews.SearchPreviewScreen
 import com.admoai.sample.ui.screens.previews.VehicleSelectionPreviewScreen
 import com.admoai.sample.ui.screens.previews.WaitingPreviewScreen
+import com.admoai.sample.ui.screens.previews.FreeMinutesPreviewScreen
 import com.admoai.sample.ui.screens.VideoPreviewScreen
 import com.admoai.sample.ui.theme.AdmoaikotlinTheme
 import kotlinx.coroutines.launch
@@ -113,6 +114,7 @@ object Routes {
     const val SEARCH_PREVIEW = "search_preview"
     const val MENU_PREVIEW = "menu_preview"
     const val WAITING_PREVIEW = "waiting_preview"
+    const val FREE_MINUTES_PREVIEW = "free_minutes_preview"
     const val VEHICLE_SELECTION_PREVIEW = "vehicle_selection_preview"
     const val RIDE_SUMMARY_PREVIEW = "ride_summary_preview"
     const val VIDEO_PREVIEW = "video_preview"
@@ -162,6 +164,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                         "menu" -> navController.navigate("${Routes.MENU_PREVIEW}/$placementKey")
                         "promotions" -> navController.navigate("${Routes.PROMOTIONS_PREVIEW}/$placementKey")
                         "waiting" -> navController.navigate("${Routes.WAITING_PREVIEW}/$placementKey")
+                        "freeMinutes" -> navController.navigate("${Routes.FREE_MINUTES_PREVIEW}/$placementKey")
                         "vehicleSelection" -> navController.navigate("${Routes.VEHICLE_SELECTION_PREVIEW}/$placementKey")
                         "rideSummary" -> navController.navigate("${Routes.RIDE_SUMMARY_PREVIEW}/$placementKey")
                         else -> navController.navigate("${Routes.HOME_PREVIEW}/$placementKey") // Default fallback
@@ -380,6 +383,34 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 WaitingPreviewScreen(
+                    viewModel = viewModel,
+                    placement = it,
+                    adData = adData,
+                    isLoading = isLoading,
+                    onBackClick = { navController.popBackStack() },
+                    onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
+                    onRefreshClick = { viewModel.loadAds() },
+                    onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
+                    onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) },
+                    onThemeToggle = { /* Theme toggle action */ }
+                )
+            }
+        }
+
+        // Free Minutes preview screen
+        composable(
+            route = "${Routes.FREE_MINUTES_PREVIEW}/{placementKey}",
+            arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val placementKey = backStackEntry.arguments?.getString("placementKey") ?: ""
+            val placement = viewModel.getPlacementByKey(placementKey)
+            val adData = viewModel.getAdDataForPlacement(placementKey)
+            
+            // Observe loading state
+            val isLoading by viewModel.isLoading.collectAsState()
+            
+            placement?.let {
+                FreeMinutesPreviewScreen(
                     viewModel = viewModel,
                     placement = it,
                     adData = adData,
