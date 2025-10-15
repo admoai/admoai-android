@@ -98,9 +98,9 @@ fun VideoOptionsSection(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // End-card mode
+            // Video Companion Ads
             Text(
-                text = "End-card Mode",
+                text = "Video Companion Ads",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -112,7 +112,7 @@ fun VideoOptionsSection(
             ) {
                 listOf(
                     "none" to "None",
-                    "native_endcard" to "Native",
+                    "native_endcard" to "Custom UI",
                     "vast_companion" to "VAST Companion"
                 ).forEach { (value, label) ->
                     FilterChip(
@@ -126,11 +126,15 @@ fun VideoOptionsSection(
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            // Clarification about end-card modes
+            // Clarification about companion ad modes
             Text(
-                text = "💡 None/Native modes are for demo purposes. In production, end-cards are determined by template configuration and how the publisher interprets template fields. Only VAST Companion requires explicit template-level configuration.",
+                text = when (videoEndCard) {
+                    "vast_companion" -> "⚠️ VAST Companion is for illustration purposes only. Commercial video players (like JW Player) or custom VAST XML parsing are required to properly handle companion ads in production Android apps. See IMA_SDK_COMPANION_LIMITATION.md for details."
+                    "native_endcard" -> "💡 Custom UI mode: App-rendered companion using data from the creative template. This gives you full control over the companion appearance and behavior."
+                    else -> "💡 None: No companion ad will be displayed. The video plays without additional UI elements after completion."
+                },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (videoEndCard == "vast_companion") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
             )
             
             Spacer(modifier = Modifier.height(16.dp))
