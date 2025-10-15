@@ -32,13 +32,6 @@ import java.net.URL
 import kotlinx.serialization.json.Json
 import com.admoai.sdk.model.response.DecisionResponse
 
-/**
- * Video preview display modes
- */
-enum class VideoPreviewMode {
-    FullScreen,
-    Inline
-}
 
 /**
  * Maps video options to localhost mock server scenario parameter
@@ -111,9 +104,6 @@ fun VideoAdDemoScreen(
     // Compute current scenario (derived state, updates when inputs change)
     val currentScenario = getLocalMockScenario(videoDelivery, videoEndCard, isSkippable)
     
-    var showVideoPreview by remember { mutableStateOf(false) }
-    var previewMode by remember { mutableStateOf<VideoPreviewMode>(VideoPreviewMode.FullScreen) }
-    var showModeDialog by remember { mutableStateOf(false) }
     var isLoadingMockData by remember { mutableStateOf(false) }
     var mockDataResult by remember { mutableStateOf<Result<String>?>(null) }
     var showResultDialog by remember { mutableStateOf(false) }
@@ -182,7 +172,43 @@ fun VideoAdDemoScreen(
             
             // Launch button
             Button(
-                onClick = { showModeDialog = true },
+                onClick = {
+                    isLoadingMockData = true
+                    
+                    // Fetch and parse mock data, then navigate directly to video preview
+                    scope.launch {
+                        currentScenario?.let { scenario ->
+                            val result = fetchMockVideoData(scenario)
+                            isLoadingMockData = false
+                            
+                            result.fold(
+                                onSuccess = { jsonString ->
+                                    try {
+                                        val json = Json { ignoreUnknownKeys = true }
+                                        val demoResponse = json.decodeFromString<DecisionResponse>(jsonString)
+                                        
+                                        // Store in ViewModel
+                                        viewModel.setDemoResponse(demoResponse)
+                                        
+                                        // Get placement key from response
+                                        val placementKey = demoResponse.data?.firstOrNull()?.placement ?: "demo"
+                                        
+                                        // Navigate to video preview
+                                        onNavigateToVideoPreview(placementKey)
+                                    } catch (e: Exception) {
+                                        Log.e("VideoAdDemo", "Parse error: ${e.message}", e)
+                                        mockDataResult = Result.failure(Exception("JSON parse error: ${e.message}"))
+                                        showResultDialog = true
+                                    }
+                                },
+                                onFailure = { error ->
+                                    mockDataResult = result
+                                    showResultDialog = true
+                                }
+                            )
+                        }
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = currentScenario != null && videoPlayer.isNotEmpty() && videoPlayer != "jwplayer",
                 colors = ButtonDefaults.buttonColors(
@@ -201,92 +227,6 @@ fun VideoAdDemoScreen(
         }
     }
     
-    // Preview mode selection dialog
-    if (showModeDialog) {
-        AlertDialog(
-            onDismissRequest = { showModeDialog = false },
-            title = { Text("Select Preview Mode") },
-            text = {
-                Column {
-                    Text("How would you like to view the video demo?")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Button(
-                        onClick = {
-                            previewMode = VideoPreviewMode.FullScreen
-                            showModeDialog = false
-                            isLoadingMockData = true
-                            
-                            // Fetch and parse mock data
-                            scope.launch {
-                                currentScenario?.let { scenario ->
-                                    val result = fetchMockVideoData(scenario)
-                                    isLoadingMockData = false
-                                    
-                                    result.fold(
-                                        onSuccess = { jsonString ->
-                                            try {
-                                                val json = Json { ignoreUnknownKeys = true }
-                                                val demoResponse = json.decodeFromString<DecisionResponse>(jsonString)
-                                                
-                                                // Store in ViewModel
-                                                viewModel.setDemoResponse(demoResponse)
-                                                
-                                                // Get placement key from response
-                                                val placementKey = demoResponse.data?.firstOrNull()?.placement ?: "demo"
-                                                
-                                                // Navigate to video preview
-                                                onNavigateToVideoPreview(placementKey)
-                                            } catch (e: Exception) {
-                                                Log.e("VideoAdDemo", "Parse error: ${e.message}", e)
-                                                mockDataResult = Result.failure(Exception("JSON parse error: ${e.message}"))
-                                                showResultDialog = true
-                                            }
-                                        },
-                                        onFailure = { error ->
-                                            mockDataResult = result
-                                            showResultDialog = true
-                                        }
-                                    )
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Full Screen")
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    OutlinedButton(
-                        onClick = {
-                            previewMode = VideoPreviewMode.Inline
-                            showModeDialog = false
-                            isLoadingMockData = true
-                            
-                            // Fetch mock data for inline preview (placeholder for now)
-                            scope.launch {
-                                currentScenario?.let { scenario ->
-                                    mockDataResult = fetchMockVideoData(scenario)
-                                    isLoadingMockData = false
-                                    showResultDialog = true
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Inline Preview (Coming Soon)")
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showModeDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
     
     // Loading dialog
     if (isLoadingMockData) {
@@ -324,7 +264,6 @@ fun VideoAdDemoScreen(
                     modifier = Modifier.verticalScroll(rememberScrollState())
                 ) {
                     Text("Scenario: $currentScenario")
-                    Text("Mode: ${previewMode.name}")
                     Text("Endpoint: https://10.0.2.2:8080/endpoint?scenario=$currentScenario")
                     
                     Spacer(modifier = Modifier.height(16.dp))

@@ -64,6 +64,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -204,28 +205,7 @@ fun VideoPreviewScreen(
             ) {
                 // Creative info
                 creative?.let { crtv ->
-                    Text(
-                        text = "Placement: $placementKey",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Advertiser: ${crtv.advertiser.name}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Delivery info
                     val delivery = crtv.delivery ?: "json"
-                    Text(
-                        text = "Delivery: ${delivery.uppercase()}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
                     
                     // Parse video data and display for testing
                     val videoConfig = remember(crtv) { parseVideoData(crtv) }
@@ -268,6 +248,7 @@ fun VideoPreviewScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                     
+                    // Implementation details card
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
@@ -276,23 +257,39 @@ fun VideoPreviewScreen(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                text = "📊 Parsed Video Configuration",
+                                text = "Implementation Details",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                             
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
                             
-                            VideoInfoRow("Video URL", videoConfig.videoAssetUrl ?: "Not set")
-                            VideoInfoRow("Poster Image", videoConfig.posterImageUrl ?: "Not set")
-                            VideoInfoRow("Skippable", videoConfig.isSkippable.toString())
-                            VideoInfoRow("Skip Offset", "${videoConfig.skipOffsetSeconds}s")
-                            VideoInfoRow("Overlay At", "${(videoConfig.overlayAtPercentage * 100).toInt()}%")
-                            VideoInfoRow("Show Close", videoConfig.showClose.toString())
-                            VideoInfoRow("Headline", videoConfig.companionHeadline ?: "Not set")
-                            VideoInfoRow("CTA", videoConfig.companionCta ?: "Not set")
-                            VideoInfoRow("Destination", videoConfig.companionDestinationUrl ?: "Not set")
+                            // Get end card mode for context
+                            val endCardMode = crtv.contents.find { it.key == "endcard" }?.value?.let {
+                                (it as? JsonPrimitive)?.contentOrNull
+                            } ?: "none"
+                            
+                            val implementationText = when (playerType) {
+                                "exoplayer_ima" -> when (delivery) {
+                                    "vast_tag" -> "Media3 ExoPlayer + IMA SDK: Passing VAST Tag URL directly to IMA SDK enables automatic ad tracking and skip functionality. IMA handles impression/quartile events automatically.${if (endCardMode == "native_endcard") " Custom UI companion rendered manually by app." else ""}${if (endCardMode == "vast_companion") " VAST Companion parsed and rendered manually." else ""} Regardless of using the tag URL, you can still handle tracking, companions, and skip manually whenever needed."
+                                    "vast_xml" -> "Media3 ExoPlayer + IMA SDK: VAST XML passed to IMA via adsResponse. Manual companion handling${if (videoConfig.isSkippable) ", manual skip implementation" else ""}. All overlay trackers (overlayShown, closeBtn, button_cta) fired by app."
+                                    else -> "Media3 ExoPlayer + IMA SDK: JSON delivery uses direct video URL. All tracking is app-driven including impressions, quartiles, and overlay events.${if (endCardMode == "native_endcard") " Custom UI companion fully controlled by app." else ""}"
+                                }
+                                "vast_client" -> when (delivery) {
+                                    "vast_tag" -> "Media3 ExoPlayer: Manual VAST parsing from tag URL. Full control over ad lifecycle. Manual tracking for all events (impressions, quartiles, clicks).${if (videoConfig.isSkippable) " Skip functionality implemented manually." else ""}${if (endCardMode == "native_endcard") " Custom UI companion handled by app." else ""}${if (endCardMode == "vast_companion") " VAST Companion extracted from XML and rendered manually." else ""} This demonstrates complete ad management without SDK dependencies."
+                                    "vast_xml" -> "Media3 ExoPlayer: Direct VAST XML parsing. Complete manual control over ad serving. All tracking events fired by app code.${if (videoConfig.isSkippable) " Skip button logic implemented manually." else ""}${if (endCardMode != "none") " Companion ads handled entirely by app." else ""} Ideal for custom ad experiences."
+                                    else -> "Media3 ExoPlayer: JSON delivery with direct video playback. All aspects controlled manually: video loading, playback management, tracking pixels, user interactions.${if (endCardMode == "native_endcard") " Custom UI companion fully app-controlled." else ""} Complete flexibility for custom implementations."
+                                }
+                                else -> "Player configuration details unavailable."
+                            }
+                            
+                            Text(
+                                text = implementationText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                lineHeight = 20.sp
+                            )
                         }
                     }
                     
@@ -508,66 +505,6 @@ fun VideoPreviewScreen(
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Info card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "Video Ad Configuration",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            VideoInfoRow("Delivery", delivery.uppercase())
-                            VideoInfoRow("Overlay at", "${(overlayAtPercent * 100).toInt()}%")
-                            VideoInfoRow("Skippable", if (isSkippable) "Yes (${skipOffsetSeconds}s)" else "No")
-                            
-                            val endCardMode = crtv.contents.find { it.key == "endcard" }?.value?.let {
-                                (it as? JsonPrimitive)?.contentOrNull
-                            } ?: "none"
-                            val endCardLabel = when (endCardMode) {
-                                "native_endcard" -> "Custom UI"
-                                "vast_companion" -> "VAST Companion"
-                                else -> "None"
-                            }
-                            VideoInfoRow("Companion", endCardLabel)
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            Text(
-                                text = if (delivery in listOf("vast_tag", "vast_xml")) {
-                                    "VAST delivery: Impression/quartile tracking handled by player. " +
-                                    "Overlay trackers (overlayShown, closeBtn, button_cta) fired by app."
-                                } else {
-                                    "JSON delivery: All tracking is app-driven, including impressions and quartiles."
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Reset button
-                    Button(
-                        onClick = {
-                            currentProgress = 0f
-                            isPlaying = false
-                            hasCompleted = false
-                            overlayShown = false
-                            overlayTracked = false
-                            showEndCard = false
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Reset")
-                    }
                     
                 } ?: run {
                     // No video creative found
