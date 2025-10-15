@@ -178,9 +178,7 @@ fun SectionContainer(
     Column(modifier = Modifier.padding(bottom = 16.dp)) {
         // iOS-style section header
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text(
                 text = title.uppercase(),
@@ -200,9 +198,7 @@ fun SectionContainer(
         
         // Section content with a more subtle background
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.5.dp
         ) {

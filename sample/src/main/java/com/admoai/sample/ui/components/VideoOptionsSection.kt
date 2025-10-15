@@ -24,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.admoai.sample.ui.MainViewModel
 
@@ -58,14 +59,6 @@ fun VideoOptionsSection(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            // Info disclaimer
-            Text(
-                text = "ℹ️ These options control how the Video Demo preview renders. They are not sent to the ad server.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            
             // Delivery method
             Text(
                 text = "Delivery Method",
@@ -95,6 +88,20 @@ fun VideoOptionsSection(
                     )
                 }
             }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Delivery method description
+            Text(
+                text = when (videoDelivery) {
+                    "vast_tag" -> "VAST Tag: URL to a VAST XML hosted by an ad server. Standard for OpenRTB, SSP/DSP integrations. Ad server dynamically generates the response."
+                    "vast_xml" -> "VAST XML: The VAST XML response directly embedded. Useful for testing or when you receive the XML from server-side auctions."
+                    "json" -> "JSON: Proprietary format that returns video URL and metadata as JSON. Requires app-side tracking implementation."
+                    else -> ""
+                },
+                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -129,11 +136,11 @@ fun VideoOptionsSection(
             // Clarification about companion ad modes
             Text(
                 text = when (videoEndCard) {
-                    "vast_companion" -> "⚠️ VAST Companion is for illustration purposes only. Commercial video players (like JW Player) or custom VAST XML parsing are required to properly handle companion ads in production Android apps. See IMA_SDK_COMPANION_LIMITATION.md for details."
-                    "native_endcard" -> "💡 Custom UI mode: App-rendered companion using data from the creative template. This gives you full control over the companion appearance and behavior."
-                    else -> "💡 None: No companion ad will be displayed. The video plays without additional UI elements after completion."
+                    "vast_companion" -> "VAST Companion: For illustration purposes only. Commercial video players (like JW Player) or custom VAST XML parsing are required to properly handle companion ads in production Android apps."
+                    "native_endcard" -> "Custom UI: App-rendered companion using data from the creative template. This gives you full control over the companion appearance and behavior."
+                    else -> "None: No companion ad will be displayed. The video plays without additional UI elements after completion."
                 },
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                 color = if (videoEndCard == "vast_companion") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
             )
             
@@ -156,7 +163,7 @@ fun VideoOptionsSection(
                 )
             }
             
-            // Skip offset (shown only when skippable) - fixed at 5 seconds
+            // Skip offset and helper text (shown only when skippable)
             if (isSkippable) {
                 Spacer(modifier = Modifier.height(8.dp))
                 
@@ -177,18 +184,15 @@ fun VideoOptionsSection(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "Skippable and Skip Offset: Mainly for video ads before content (e.g., YouTube). Handled manually or via player/SDK depending on delivery method.",
+                    style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Help text
-            Text(
-                text = "For VAST (tag/xml), impression and quartile tracking are handled by the player. " +
-                      "You'll fire overlay trackers (overlayShown, closeBtn, button_cta) from your app. " +
-                      "For JSON delivery, all tracking is app-driven.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -211,7 +215,7 @@ fun VideoPlayerSection(
         ) {
             // Info disclaimer
             Text(
-                text = "ℹ️ Select which video player implementation to use in the demo. This represents the app owner's choice.",
+                text = "ℹ️ Select which video player implementation to use in the demo. The player is up to the app owner's choice.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 12.dp)

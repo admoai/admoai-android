@@ -12,6 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.unit.dp
 import android.content.Intent
 import android.net.Uri
@@ -140,7 +143,7 @@ fun VideoAdDemoScreen(
                 .padding(16.dp)
         ) {
             Text(
-                text = "🎬 Video Ad Demo Sandbox",
+                text = "Video Ad Demo Sandbox",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
@@ -149,7 +152,12 @@ fun VideoAdDemoScreen(
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "This is an interactive sandbox to experiment with video ad overlay configurations. These settings control how the Video Demo preview renders and are independent of actual ad requests.",
+                text = buildAnnotatedString {
+                    append("This is an interactive sandbox to experiment and understand video ad configurations, with examples of different video players too. These settings control how the Video Demo preview renders and ")
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append("are independent of actual ad requests")
+                    }
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground
             )
@@ -172,60 +180,6 @@ fun VideoAdDemoScreen(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            // Current configuration card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "📋 Current Configuration",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    Text(
-                        text = "• Delivery: ${videoDelivery.uppercase().replace("_", " ")}\n" +
-                               "• End Card: ${when(videoEndCard) {
-                                   "none" -> "None"
-                                   "native_endcard" -> "Native"
-                                   "vast_companion" -> "VAST Companion"
-                                   else -> videoEndCard.replace("_", " ").replaceFirstChar { it.uppercase() }
-                               }}\n" +
-                               "• Skippable: ${if (isSkippable) "Yes (5s)" else "No"}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    if (currentScenario != null) {
-                        Text(
-                            text = "Mock Scenario: $currentScenario",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer,
-                            fontWeight = FontWeight.Bold
-                        )
-                    } else {
-                        Text(
-                            text = "⚠️ This combination is not available yet",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
             // Launch button
             Button(
                 onClick = { showModeDialog = true },
@@ -244,46 +198,6 @@ fun VideoAdDemoScreen(
                 Text("Launch Video Demo")
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Instructions card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "💡 About This Demo",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = "This is an interactive sandbox to experiment with different video ad configurations. " +
-                               "Each combination uses pre-configured mock data from a local development server.\n\n" +
-                               "Simply configure your options above and click 'Launch Video Demo' to see how the SDK renders " +
-                               "different video formats and overlay combinations.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    Text(
-                        text = "Note: Some combinations may not be available yet.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
         }
     }
     
