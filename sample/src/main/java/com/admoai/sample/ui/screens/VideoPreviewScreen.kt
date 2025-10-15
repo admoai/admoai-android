@@ -1338,6 +1338,8 @@ fun ExoPlayerImaVideoPlayer(
     
     // Player state
     var isPlaying by remember { mutableStateOf(false) }
+    var isPlayingAd by remember { mutableStateOf(false) }  // Track if currently playing ad (not content)
+    var hasAdCompleted by remember { mutableStateOf(false) }  // Track if ad has finished
     var hasCompleted by remember { mutableStateOf(false) }
     var currentPosition by remember { mutableFloatStateOf(0f) }
     var duration by remember { mutableFloatStateOf(0f) }
@@ -1492,8 +1494,10 @@ fun ExoPlayerImaVideoPlayer(
                             companionAdAvailable = hasCompanions
                         }
                     }
-                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.STARTED ->
+                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.STARTED -> {
                         android.util.Log.d("IMA_EVENT", "✅ Ad STARTED")
+                        isPlayingAd = true
+                    }
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.FIRST_QUARTILE ->
                         android.util.Log.d("IMA_EVENT", "✅ Ad FIRST_QUARTILE")
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.MIDPOINT ->
@@ -1502,6 +1506,8 @@ fun ExoPlayerImaVideoPlayer(
                         android.util.Log.d("IMA_EVENT", "✅ Ad THIRD_QUARTILE")
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.COMPLETED -> {
                         android.util.Log.d("IMA_EVENT", "✅ Ad COMPLETED")
+                        isPlayingAd = false
+                        hasAdCompleted = true
                         // Show companion end-card when video completes if renderingMode="end-card"
                         // For "concurrent" mode, companion is already visible during playback
                         if (companionAdAvailable && useImaSDK && companionRenderingMode == "end-card") {
@@ -1726,6 +1732,15 @@ fun ExoPlayerImaVideoPlayer(
             delay(100)
             isPlaying = player.isPlaying
             
+            // Track ad vs content playback for VAST Tag
+            if (useImaSDK) {
+                val currentlyPlayingAd = player.isPlayingAd
+                if (currentlyPlayingAd != isPlayingAd) {
+                    isPlayingAd = currentlyPlayingAd
+                    android.util.Log.d("Media3Player", "Playback mode changed: isPlayingAd=$isPlayingAd")
+                }
+            }
+            
             // Track position and duration
             if (player.duration > 0) {
                 duration = player.duration / 1000f
@@ -1774,7 +1789,9 @@ fun ExoPlayerImaVideoPlayer(
                 }
                 
                 // Show overlay at specified percentage (for JSON + native end-card or VAST + native end-card)
-                if (progress >= videoConfig.overlayAtPercentage && !overlayShown) {
+                // For VAST Tag, only show during ad playback, not content video
+                val shouldShowOverlay = if (useImaSDK) isPlayingAd else true
+                if (shouldShowOverlay && progress >= videoConfig.overlayAtPercentage && !overlayShown) {
                     overlayShown = true
                     if (!overlayTracked) {
                         viewModel.fireCustomEvent(creative, "overlayShown")
@@ -1816,10 +1833,15 @@ fun ExoPlayerImaVideoPlayer(
     // PLAYER 1 UI STRATEGY (Per player description):
     // - IMA SDK handles: Auto-tracking (impression, quartiles) for VAST Tag only
     // - Manual handling: Skip button, end-cards, and tracking for VAST XML/JSON
-    // - "VAST Tag: auto-tracking. The rest is manual: tracking, end-cards, and skip"
-    val useCustomOverlays = true  // Always manual skip button and end-cards for Player 1
-    
-    android.util.Log.d("Media3Player", "useCustomOverlays=$useCustomOverlays (always true for Player 1 - manual skip/end-cards)")
+    // 
+    // LIMITATION: Media3's ImaAdsLoader doesn't support programmatic skip for video ads.
+    // See: https://github.com/androidx/media/issues/913
+    // 
+    // SOLUTION: For VAST Tag without Custom UI, let IMA show its native skip button.
+    // For everything else (VAST XML, JSON, Custom UI), use manual skip button.
+    val useCustomOverlays = hasNativeEndCard || !useImaSDK  // IMA native UI for VAST Tag without Custom UI
+
+    android.util.Log.d("Media3Player", "useCustomOverlays=$useCustomOverlays (IMA native skip for VAST Tag w/o Custom UI, manual elsewhere)")
     
     // Use Box layout for all cases to support proper overlay behavior
     Box(modifier = modifier) {
@@ -1890,13 +1912,16 @@ fun ExoPlayerImaVideoPlayer(
             )
         }
         
-        // CUSTOM SKIP BUTTON - Only render when using custom overlays
-        // For VAST deliveries, use parsed skip info from XML; for JSON, use videoConfig
+        // CUSTOM SKIP BUTTON - Only render when NOT using VAST Tag
+        // VAST Tag: IMA SDK shows native skip button (no custom skip needed)
+        // VAST XML/JSON: Manual skip button required
         val isVastDelivery = creative.delivery == "vast_tag" || creative.delivery == "vast_xml"
         val isSkippable = if (isVastDelivery) vastIsSkippable else videoConfig.isSkippable
         val skipOffsetSeconds = if (isVastDelivery) (vastSkipOffset ?: videoConfig.skipOffsetSeconds) else videoConfig.skipOffsetSeconds
+        val shouldShowSkip = if (useImaSDK) isPlayingAd else !hasCompleted
+        val showCustomSkip = creative.delivery != "vast_tag"  // Hide for VAST Tag (IMA native skip)
         
-        if (useCustomOverlays && isSkippable && !hasCompleted) {
+        if (useCustomOverlays && isSkippable && shouldShowSkip && showCustomSkip) {
             val canSkip = currentPosition >= skipOffsetSeconds
             
             // Debug logging to track skip button state
@@ -1924,17 +1949,26 @@ fun ExoPlayerImaVideoPlayer(
                                     isJsonDelivery || creative.delivery == "vast_xml" -> {
                                         viewModel.fireVideoEvent(creative, "skip")
                                         android.util.Log.d("Media3Player", "🔥 Fired skip event (JSON/VAST_XML)")
+                                        // Terminate playback - pause and seek to end
+                                        exoPlayer?.let { player ->
+                                            player.pause()
+                                            player.seekTo(player.duration)
+                                            hasCompleted = true
+                                        }
                                     }
                                     creative.delivery == "vast_tag" -> {
-                                        // For VAST Tag, IMA SDK handles skip tracking automatically
-                                        android.util.Log.d("Media3Player", "🔥 Skip event (VAST Tag - IMA handles tracking)")
+                                        // For VAST Tag with IMA: Skip ad and continue to content video
+                                        android.util.Log.d("Media3Player", "🔥 Skipping ad (VAST Tag - jumping to content)")
+                                        exoPlayer?.let { player ->
+                                            // IMA SDK handles skip tracking automatically
+                                            // Skip to end of current ad window to trigger content playback
+                                            if (player.isPlayingAd) {
+                                                player.seekTo(player.currentTimeline.getWindow(player.currentMediaItemIndex, androidx.media3.common.Timeline.Window()).durationMs)
+                                                isPlayingAd = false
+                                                android.util.Log.d("Media3Player", "⏭️ Skipped to content video")
+                                            }
+                                        }
                                     }
-                                }
-                                // Terminate playback - pause and seek to end
-                                exoPlayer?.let { player ->
-                                    player.pause()
-                                    player.seekTo(player.duration)
-                                    hasCompleted = true
                                 }
                             }
                             .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -1952,7 +1986,9 @@ fun ExoPlayerImaVideoPlayer(
         
         // NATIVE END-CARD OVERLAY - Only render when using custom overlays
         // This triggers the hybrid strategy (useCustomOverlays = true when this exists)
-        if (useCustomOverlays && overlayShown && !hasCompleted && videoConfig.companionHeadline != null) {
+        // For VAST Tag: Only show during ad playback, not content video
+        val shouldShowCompanion = if (useImaSDK) isPlayingAd else !hasCompleted
+        if (useCustomOverlays && overlayShown && shouldShowCompanion && videoConfig.companionHeadline != null) {
             Card(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
