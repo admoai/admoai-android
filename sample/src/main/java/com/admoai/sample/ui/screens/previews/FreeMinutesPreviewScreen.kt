@@ -109,7 +109,7 @@ fun FreeMinutesPreviewScreen(
             ) {
                 // Subtitle above prize boxes
                 Text(
-                    text = "Watch an entire Video and win free minutes!",
+                    text = "Tap any box to watch a video and earn free minutes!",
                     style = MaterialTheme.typography.bodyLarge,
                     color = Color.Black,
                     fontWeight = FontWeight.Medium,
@@ -125,10 +125,10 @@ fun FreeMinutesPreviewScreen(
                 ) {
                     repeat(3) { index ->
                         PrizeBox(
-                            hasNotification = index == 0, // First box has notification badge
+                            hasNotification = true, // All boxes show badge
                             onClick = {
-                                // In real implementation, this would navigate to video player
-                                if (index == 0 && adData != null) {
+                                // Load and show video ad for any box
+                                if (adData != null) {
                                     onAdClick(adData)
                                 }
                             },
@@ -181,8 +181,8 @@ private fun RowScope.PrizeBox(
         modifier = modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.primaryContainer)
-            .clickable(enabled = hasNotification, onClick = onClick)
+            .background(Color(0xFFE8DEF8)) // More vibrant purple/lavender
+            .clickable(onClick = onClick) // Always clickable
             .padding(12.dp)
     ) {
         Column(
@@ -195,7 +195,7 @@ private fun RowScope.PrizeBox(
                 imageVector = Icons.Default.CardGiftcard,
                 contentDescription = "Free minutes prize",
                 modifier = Modifier.size(36.dp),
-                tint = MaterialTheme.colorScheme.primary
+                tint = Color(0xFF6750A4) // Vibrant purple
             )
             
             Spacer(modifier = Modifier.height(8.dp))
@@ -205,7 +205,7 @@ private fun RowScope.PrizeBox(
                 text = "Free\nMinutes",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                color = Color(0xFF1D1B20), // Dark text for contrast
                 textAlign = TextAlign.Center,
                 lineHeight = 16.sp
             )
