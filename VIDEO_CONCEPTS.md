@@ -150,7 +150,252 @@ User‑defined (editable convention):
 
 ---
 
-## 11) See Also
+## 11) Native Ad Template Mapping Rules
+
+**Critical for AI**: This section defines how ad responses map to UI components across all placements.
+
+### 11.1) Template Structure
+
+Every creative has:
+```kotlin
+creative.template.key    // e.g., "carousel3Slides", "imageWithText", "wideImageOnly"
+creative.template.style  // e.g., "default", "imageLeft", "imageRight"
+creative.contents[]      // Array of Content objects with {key, type, value}
+```
+
+**Mapper Location**: `/sample/.../mapper/AdTemplateMapper.kt`
+
+---
+
+### 11.2) Content Key Extraction
+
+**Helper Methods**:
+```kotlin
+AdTemplateMapper.getContentValue(creative, "headline")      // Returns String?
+AdContent.extractTextContent(creative, "headline")         // Returns String?
+AdContent.extractUrlContent(creative, "posterImage")       // Returns String?
+```
+
+**⚠️ CRITICAL - Case Sensitivity**:
+- Content keys are **case-sensitive**
+- API may return `URLSlide1` (uppercase) vs `urlSlide1` (lowercase)
+- Always check actual API response for correct casing
+- Example fix: Changed `urlSlide1` → `URLSlide1` to match API
+
+---
+
+### 11.3) Placement-to-Template Mappings
+
+**Routing Logic** (`AdCard.kt`):
+
+| Placement | Template Key | Style | Component | Click-Through |
+|-----------|-------------|-------|-----------|---------------|
+| **home** | `wideWithCompanion` | `imageLeft`, `wideImageOnly` | `HorizontalAdCard` | ✅ Enabled |
+| **search** | `imageWithText` | `imageLeft`, `imageRight` | `SearchAdCard` | ❌ Disabled |
+| **menu** | `textOnly` | (none) | `MenuAdCard` | ❌ Disabled |
+| **promotions** | `carousel3Slides` | `default` | `PromotionsCarouselCard` | ✅ **CTA URLs** |
+| **waiting** | `carousel3Slides` | `default` | `PromotionsCarouselCard` | ✅ **CTA URLs** |
+| **vehicleSelection** | `imageWithText` | `imageLeft`, `imageRight` | `SearchAdCard` | ✅ Enabled |
+| **vehicleSelection** | `wideImageOnly` | `default` | `HorizontalAdCard` | ✅ Enabled |
+| **rideSummary** | `standard` | (none) | `HorizontalAdCard` | ✅ Enabled |
+| **freeMinutes** | (special) | (custom) | Custom flow | ✅ Enabled |
+
+---
+
+### 11.4) Content Keys by Template
+
+#### **`wideWithCompanion`** (home)
+```json
+{
+  "posterImage": "url",
+  "headline": "text",
+  "description": "text",
+  "ctaText": "text",
+  "clickThroughURL": "url"
+}
+```
+
+#### **`imageWithText`** (search, vehicleSelection)
+```json
+{
+  "squareImage": "url",
+  "headline": "text"
+}
+```
+**Note**: SearchAdCard expects `squareImage`, not `posterImage`
+
+#### **`textOnly`** (menu)
+```json
+{
+  "headline": "text",
+  "description": "text"
+}
+```
+
+#### **`carousel3Slides`** (promotions, waiting)
+```json
+{
+  "imageSlide1": "url",
+  "headlineSlide1": "text",
+  "ctaSlide1": "text",
+  "URLSlide1": "url",   // ⚠️ Note: Capital URL, not lowercase
+  "imageSlide2": "url",
+  "headlineSlide2": "text",
+  "ctaSlide2": "text",
+  "URLSlide2": "url",
+  "imageSlide3": "url",
+  "headlineSlide3": "text",
+  "ctaSlide3": "text",
+  "URLSlide3": "url"
+}
+```
+**Click Behavior**: Clicking slide opens `URLSlideN` in browser
+
+#### **`wideImageOnly`** (vehicleSelection)
+```json
+{
+  "posterImage": "url",
+  "headline": "text",
+  "description": "text"
+}
+```
+**Note**: Uses `posterImage` (not `squareImage`), rendered by `HorizontalAdCard`
+
+#### **`standard`** (rideSummary)
+```json
+{
+  "posterImage": "url",
+  "headline": "text",
+  "description": "text",
+  "ctaText": "text",
+  "clickThroughURL": "url"
+}
+```
+
+---
+
+### 11.5) Click-Through Rules
+
+**Thumb Rule**: Any ad with `cta*` + `URL` or `clickThroughURL` → clicking opens browser
+
+**Implementation**:
+1. Check `AdTemplateMapper.supportsClickthrough(placementKey)`
+2. If true, extract URL from content
+3. Use `Intent(ACTION_VIEW)` to open in browser
+
+**Supported Placements**:
+- home, vehicleSelection, rideSummary: Full ad card clickable
+- promotions, waiting: Individual carousel slides clickable
+- freeMinutes: Custom CTA button
+
+**Disabled Placements**:
+- search, menu: Display only, no click-through
+
+---
+
+### 11.6) Component Selection Logic
+
+**Priority Order** (in `AdCard.kt`):
+```kotlin
+when {
+    templateKey == "wideWithCompanion" || placementKey == "home" → HorizontalAdCard
+    placementKey == "search" → SearchAdCard
+    placementKey == "menu" || isTextOnlyTemplate → MenuAdCard
+    placementKey == "promotions" || placementKey == "waiting" || isCarouselTemplate → PromotionsCarouselCard
+    templateKey == "wideImageOnly" → HorizontalAdCard  // Special case
+    placementKey == "rideSummary" || isStandardTemplate → HorizontalAdCard
+    else → EmptyAdCard (fallback)
+}
+```
+
+---
+
+### 11.7) Critical Implementation Notes
+
+**⚠️ Common Pitfalls**:
+
+1. **Case Sensitivity**
+   - Always verify content key casing in API response
+   - Example: `URLSlide1` not `urlSlide1`
+
+2. **Content Key Mismatches**
+   - `SearchAdCard` uses `squareImage`
+   - `HorizontalAdCard` uses `posterImage`
+   - Don't use wrong card for template
+
+3. **Click Handlers**
+   - Card `onClick` parameter > `.clickable()` modifier
+   - Use `Card(onClick = ...)` for reliable clicks
+
+4. **Template vs Placement**
+   - Check both `template.key` AND `placementKey`
+   - Some placements override template routing
+
+5. **URL Extraction**
+   - Carousel: `URLSlide1/2/3` (uppercase URL)
+   - Standard: `clickThroughURL` (camelCase)
+   - Always use `AdContent.extractUrlContent()`
+
+---
+
+### 11.8) Adding New Mappings
+
+**Steps to add new template**:
+
+1. **Add Template Constants** (`AdTemplateMapper.kt`):
+   ```kotlin
+   object TemplateType {
+       const val NEW_TEMPLATE = "newTemplate"
+   }
+   ```
+
+2. **Add Helper Method**:
+   ```kotlin
+   fun isNewTemplate(adData: AdData): Boolean {
+       return getTemplateKey(adData) == TemplateType.NEW_TEMPLATE
+   }
+   ```
+
+3. **Create Component** (if needed):
+   - `/sample/.../components/NewTemplateCard.kt`
+   - Extract content keys
+   - Handle click-through if needed
+
+4. **Update Routing** (`AdCard.kt`):
+   ```kotlin
+   placementKey == "newPlacement" || isNewTemplate(adData) -> {
+       NewTemplateCard(...)
+   }
+   ```
+
+5. **Update Documentation**:
+   - Add to table in section 11.3
+   - Document content keys in section 11.4
+   - Update click-through rules if applicable
+
+---
+
+## 12) SDK Configuration
+
+**File**: `/sdk/.../config/SDKConfig.kt`
+
+**Timeout Settings**:
+```kotlin
+val networkRequestTimeoutMs: Long = 30000L  // 30 seconds
+val networkConnectTimeoutMs: Long = 30000L  // 30 seconds  
+val networkSocketTimeoutMs: Long = 30000L   // 30 seconds
+```
+
+**Rationale**: Increased from 10s to 30s to handle slow mock server responses.
+
+**When to Adjust**:
+- Production: Can reduce to 15-20s
+- Dev/Mock: Keep at 30s
+- Look for `HttpRequestTimeoutException` in logs
+
+---
+
+## 13) See Also
 - `TESTING_INSTRUCTIONS.md` – How to test and validate.
 - `VIDEO_PLAYER_FLOW_SUMMARY.md` – UI/flow and player responsibilities.
 - `VIDEO_IMPLEMENTATION_ROADMAP.md` – Actionable implementation plan.

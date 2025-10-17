@@ -71,12 +71,33 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 - Quartiles: 0/25/50/75/98%  
 - IMA "Ad" badge for VAST Tag (validates IMA integration)
 
+**Placement Previews**:
+- **All Placements**: Back + Response Details buttons visible and clickable
+- **Standard Placements**: Refresh button visible (home, search, menu, promotions, etc.)
+- **Free Minutes Only**: NO refresh button (use prize boxes instead)
+
+**Template Rendering**:
+- **imageWithText**: Check if `imageLeft` or `imageRight` style applied correctly
+- **wideImageOnly**: Should use `HorizontalAdCard`, not `SearchAdCard`
+- **carousel3Slides**: Auto-advances every 3 seconds, manual swipe works
+
+**Click-Through**:
+- **home, vehicleSelection, rideSummary**: Full card clickable → opens browser
+- **promotions, waiting**: Individual slides clickable → opens browser with `URLSlideN`
+- **search, menu**: No click-through (display only)
+- **freeMinutes**: CTA button opens browser
+
 **Free Minutes Placement**:
 - Prize boxes clickable with badges
 - NO refresh button in navigation bar
 - Video plays immediately with back button + progress bar
 - End-card shows on completion (image, text, X, CTA)
 - Single click on back/X button closes (no multiple clicks needed)
+
+**Vehicle Selection**:
+- Ad cards should not overlap with nav bar (120dp top padding)
+- Both `imageWithText` and `wideImageOnly` templates render correctly
+- No theme toggle circles overlaying buttons
 
 ## Response Validation
 
@@ -87,13 +108,53 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 
 ## Success Criteria
 
-- Mock data fetches from `https://10.0.2.2:8080`  
+**Network**:
+- Mock data fetches from `https://10.0.2.2:8080`
+- No timeout errors (30s timeout configured)
+- Look for `HttpRequestTimeoutException` if requests fail
+
+**Video Ads**:
 - IMA loads VAST without errors  
 - Poster → video plays → tracking fires  
 - No CORS/mixed-content errors
 
+**Native Ads**:
+- Template matches content (no broken/empty cards)
+- Images load successfully
+- Click-through opens browser when enabled
+- No navigation button overlay issues
+
+**Logging**:
+- Check Logcat for carousel URL extraction: `"URLSlide1"` (uppercase)
+- Verify click handlers: `"onSlideClick called with URL: ..."`
+- Track impression events firing correctly
+
+## Common Issues & Debugging
+
+**Issue**: Carousel not opening browser  
+**Check**: Logcat for `"URLSlideN"` extraction (must be uppercase)  
+**Fix**: Verify API response content key casing
+
+**Issue**: Template not rendering  
+**Check**: `AdTemplateMapper` routing in `AdCard.kt`  
+**Fix**: Ensure correct component for template key
+
+**Issue**: Content key not found  
+**Check**: API response in Response Details screen  
+**Fix**: Verify exact key name (case-sensitive)
+
+**Issue**: Timeout errors  
+**Check**: Network timeout in `SDKConfig.kt` (should be 30000ms)  
+**Fix**: Increase timeout or fix mock server
+
+**Issue**: Card clicks not working  
+**Check**: Using `Card(onClick = ...)` not `.clickable()` modifier  
+**Fix**: Replace `.clickable()` with Card's onClick parameter
+
+---
+
 ## Related Docs
 
-- `VIDEO_CONCEPTS.md` - Canonical definitions  
-- `VIDEO_PLAYER_FLOW_SUMMARY.md` - UI/flow details  
+- `VIDEO_CONCEPTS.md` - Canonical definitions (see section 11 for mapping rules)  
+- `VIDEO_PLAYER_FLOW_SUMMARY.md` - UI/flow details (see section 8 for fixes)  
 - `VIDEO_IMPLEMENTATION_ROADMAP.md` - Implementation status

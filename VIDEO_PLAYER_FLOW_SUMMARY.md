@@ -134,7 +134,40 @@ See `VIDEO_CONCEPTS.md` section 6.
 
 ---
 
-## 8. Free Minutes Preview
+## 8. Placement Preview Screens
+
+**All preview screens** follow similar pattern:
+1. Extend from `/sample/.../previews/*PreviewScreen.kt`
+2. Use `PreviewNavigationBar` for consistent top bar
+3. Call `AdCard` with appropriate `placementKey`
+4. Handle `onAdClick` and `onTrackEvent` callbacks
+
+### 8.1) Common Issues & Fixes
+
+**Issue**: Theme toggle circles overlaying navigation buttons  
+**Fix**: Removed circles from Home, VehicleSelection, Waiting screens  
+**Affected Files**: `HomePreviewScreen.kt`, `VehicleSelectionPreviewScreen.kt`, `WaitingPreviewScreen.kt`
+
+**Issue**: Vehicle Selection ads too high, nav bar overlapping content  
+**Fix**: Increased top padding from 82dp → 120dp  
+**File**: `VehicleSelectionPreviewScreen.kt`
+
+**Issue**: `wideImageOnly` template with `default` style not rendering  
+**Root Cause**: Used `SearchAdCard` (expects `squareImage`) instead of `HorizontalAdCard` (expects `posterImage`)  
+**Fix**: Changed to use `HorizontalAdCard` for `wideImageOnly` template  
+**File**: `VehicleSelectionPreviewScreen.kt`
+
+**Issue**: Carousel CTA clicks not opening browser (promotions, waiting)  
+**Root Cause**: Case mismatch - code looked for `urlSlide1`, API returns `URLSlide1`  
+**Fix**: Changed content key from `urlSlide1` → `URLSlide1` (uppercase URL)  
+**File**: `PromotionsCarouselCard.kt`
+
+**Issue**: Card clicks not registering  
+**Root Cause**: Using `.clickable()` modifier instead of Card's `onClick` parameter  
+**Fix**: Use `Card(onClick = ...)` for reliable click handling  
+**File**: `PromotionsCarouselCard.kt`
+
+### 8.2) Free Minutes Preview
 
 **File**: `/sample/.../previews/FreeMinutesPreviewScreen.kt`
 
@@ -175,7 +208,33 @@ See `VIDEO_CONCEPTS.md` section 10 for full details.
 
 ---
 
-## 10. Related Docs
+## 10. Template Mapping Quick Reference
+
+See `VIDEO_CONCEPTS.md` section 11 for complete mapping rules.
+
+**Key Files**:
+- `/sample/.../mapper/AdTemplateMapper.kt` - Template detection & helpers
+- `/sample/.../components/AdCard.kt` - Routing logic
+- `/sample/.../model/AdContent.kt` - Content extraction helpers
+
+**Component Map**:
+```
+HorizontalAdCard    → home, vehicleSelection (wideImageOnly), rideSummary
+SearchAdCard        → search, vehicleSelection (imageWithText)
+MenuAdCard          → menu
+PromotionsCarouselCard → promotions, waiting
+```
+
+**Critical Content Keys**:
+- `posterImage` (HorizontalAdCard) vs `squareImage` (SearchAdCard)
+- `URLSlide1/2/3` (uppercase) for carousel URLs
+- `clickThroughURL` for standard ad URLs
+
+**Click-Through**: Enabled for home, vehicleSelection, rideSummary, promotions (CTA), waiting (CTA), freeMinutes
+
+---
+
+## 11. Related Docs
 
 - `VIDEO_CONCEPTS.md` - Canonical definitions
 - `TESTING_INSTRUCTIONS.md` - Setup & test matrix
