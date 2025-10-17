@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ImageNotSupported
@@ -356,7 +357,9 @@ private fun FullscreenVideoPlayer(
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
-    var showCloseButton by remember { mutableStateOf(false) }
+    var showCloseButton by remember { mutableStateOf(true) }
+    var currentPosition by remember { mutableStateOf(0f) }
+    var duration by remember { mutableStateOf(0f) }
     
     // Create ExoPlayer with stable key to prevent recomposition
     val exoPlayer = remember(context) {
@@ -378,10 +381,17 @@ private fun FullscreenVideoPlayer(
         }
     }
     
-    // Show close button after 5 seconds
-    LaunchedEffect(Unit) {
-        delay(5000)
-        showCloseButton = true
+    // Back button is shown immediately (no delay)
+    
+    // Track video progress
+    LaunchedEffect(exoPlayer) {
+        while (true) {
+            delay(100)
+            if (exoPlayer.duration > 0) {
+                duration = exoPlayer.duration / 1000f
+                currentPosition = exoPlayer.currentPosition / 1000f
+            }
+        }
     }
     
     // Clean up player when composable is disposed
@@ -407,29 +417,54 @@ private fun FullscreenVideoPlayer(
             modifier = Modifier.fillMaxSize()
         )
         
-        // Close button (appears after 5 seconds) - Badge-like design
+        // Back button with message (appears after 5 seconds)
         if (showCloseButton) {
-            Surface(
-                onClick = onClose,
+            Row(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(16.dp),
-                shape = CircleShape,
-                color = Color.Black.copy(alpha = 0.8f),
-                shadowElevation = 4.dp
+                    .align(Alignment.TopStart)
+                    .padding(start = 16.dp, top = 80.dp, end = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Back button with grey background - Using Box + clickable for reliable clicks
                 Box(
-                    modifier = Modifier.size(56.dp),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color.Gray.copy(alpha = 0.7f))
+                        .clickable(onClick = onClose),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close video",
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Go back",
                         tint = Color.White,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
+                
+                // Message text
+                Text(
+                    text = "Advertiser will give you free minutes for watching this video",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                    modifier = Modifier
+                        .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
             }
         }
+        
+        // Progress bar at the bottom
+        LinearProgressIndicator(
+            progress = { if (duration > 0) currentPosition / duration else 0f },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(bottom = 64.dp)
+                .height(4.dp),
+            color = Color(0xFFFF6B35), // Orange color like in the image
+            trackColor = Color.White.copy(alpha = 0.3f)
+        )
     }
 }
