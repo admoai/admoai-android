@@ -106,7 +106,51 @@ User‑defined (editable convention):
 
 ---
 
-## 9) See Also
+## 9) Placement Selection
+
+**File**: `/sample/.../PlacementPickerScreen.kt`
+
+**Flow**:
+1. List of available placements with preview navigation
+2. Each placement has a preview screen showing realistic app context
+3. Standard placements: Show ad response directly
+4. Special placement (freeMinutes): Multi-step interactive flow
+
+**Standard Preview Navigation**:
+- Back button (left)
+- Response Details button (right)
+- Refresh button (right) - fetches new ad
+
+---
+
+## 10) Free Minutes Placement (Special Case)
+
+**File**: `/sample/.../previews/FreeMinutesPreviewScreen.kt`
+
+**UI Differences**:
+- NO refresh button (user clicks prize boxes instead)
+- Response Details saves last played video response
+- Three clickable prize boxes with notification badges
+
+**Two-Step Flow**:
+1. Prize selection screen: User taps any box to request ad
+2. Fullscreen video player: Plays hardcoded video (dev mode)
+
+**Video Player**:
+- Back button + message (top-left, immediate): "Advertiser will give you free minutes for watching this video"
+- Progress bar (bottom): Orange 4dp bar, 64dp from bottom
+- Both elements hide when video completes
+
+**End-Card** (shows on video completion):
+- Background: Full-screen image from S3
+- Helper text + X button (top, full-width): "¡The advertiser just granted **free minutes** for watching this Video!" (bold text)
+- CTA button (bottom-center): "Explore more Advertiser deals" → opens `http://example.partner.com/`
+
+**Future**: Video URL and end-card content will come from ad response (last clicked box).
+
+---
+
+## 11) See Also
 - `TESTING_INSTRUCTIONS.md` – How to test and validate.
 - `VIDEO_PLAYER_FLOW_SUMMARY.md` – UI/flow and player responsibilities.
 - `VIDEO_IMPLEMENTATION_ROADMAP.md` – Actionable implementation plan.

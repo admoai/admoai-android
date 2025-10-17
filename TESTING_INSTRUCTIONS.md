@@ -37,10 +37,18 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 ./gradlew :sample:installDebug
 ```
 
-**Test Flow**:  
+**Test Flows**:
+
+**Video Ad Demo**:  
 1. Open app → "Video Ad Demo"  
 2. Select delivery/endcard/player  
 3. "Launch Video Demo" → plays directly (no preview mode dialog)
+
+**Placement Previews**:
+1. Open app → "Placement Picker"
+2. Select placement → preview screen shows realistic context
+3. Standard: Refresh button fetches new ad
+4. Free Minutes: Click prize box → fullscreen video → end-card
 
 ---
 
@@ -55,11 +63,20 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 - All deliveries: Manual HTTP/SDK tracking, custom overlays
 
 **Validation**:
+
+**Video Ad Demo**:
 - Poster shows before play  
 - Skip button at offset (custom UI overlay)  
 - End-card at `overlayAtPercentage` or completion  
 - Quartiles: 0/25/50/75/98%  
 - IMA "Ad" badge for VAST Tag (validates IMA integration)
+
+**Free Minutes Placement**:
+- Prize boxes clickable with badges
+- NO refresh button in navigation bar
+- Video plays immediately with back button + progress bar
+- End-card shows on completion (image, text, X, CTA)
+- Single click on back/X button closes (no multiple clicks needed)
 
 ## Response Validation
 

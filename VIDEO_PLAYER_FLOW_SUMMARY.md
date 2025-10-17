@@ -106,16 +106,59 @@ See `VIDEO_CONCEPTS.md` section 6.
 ```
 /sample/src/main/java/com/admoai/sample/ui/
 ├── screens/
-│   ├── VideoAdDemoScreen.kt         # Options UI + launch
-│   └── VideoPreviewScreen.kt        # Players + playback
+│   ├── VideoAdDemoScreen.kt         # Video options UI + launch
+│   ├── VideoPreviewScreen.kt        # Video players + playback
+│   ├── PlacementPickerScreen.kt     # Placement list
+│   └── previews/
+│       └── FreeMinutesPreviewScreen.kt  # Free Minutes special case
 ├── components/
-│   └── VideoOptionsSection.kt       # Delivery/companion/player selectors
+│   ├── VideoOptionsSection.kt       # Delivery/companion/player selectors
+│   └── PreviewNavigationBar.kt      # Navigation (conditional refresh)
 └── MainViewModel.kt                 # State + tracking
 ```
 
 ---
 
-## 7. UI/UX Details
+## 7. Placement Selection
+
+**File**: `/sample/.../PlacementPickerScreen.kt`
+
+**UI**: List of placements (promotions, rideSummary, waiting, freeMinutes, etc.) with badges indicating video-friendly placements.
+
+**Preview Navigation** (standard):
+- Back button (left)
+- Response Details button (right)
+- Refresh button (right) - fetches new ad
+
+**Exception**: freeMinutes has NO refresh button (user clicks prize boxes instead).
+
+---
+
+## 8. Free Minutes Preview
+
+**File**: `/sample/.../previews/FreeMinutesPreviewScreen.kt`
+
+See `VIDEO_CONCEPTS.md` section 10 for full details.
+
+**Components**:
+- `/sample/.../components/PreviewNavigationBar.kt` - Supports conditional refresh button via `showRefreshButton` parameter
+- Fullscreen video player with ExoPlayer (Media3)
+- End-card overlay with AsyncImage (Coil)
+
+**Flow**:
+1. Prize boxes screen → tap box → fullscreen video
+2. Video plays with back button + progress bar
+3. On completion → end-card with X button + CTA
+
+**Key Implementation Details**:
+- Video URL: Hardcoded (dev mode) - future: from ad response
+- End-card: Hardcoded image/CTA - future: from ad response
+- Response Details: Will save last played video response
+- No refresh button: Clicking prize boxes replaces refresh functionality
+
+---
+
+## 9. UI/UX Details
 
 **Material Design 3**: 16dp screen padding, consistent sections
 
@@ -132,7 +175,7 @@ See `VIDEO_CONCEPTS.md` section 6.
 
 ---
 
-## 8. Related Docs
+## 10. Related Docs
 
 - `VIDEO_CONCEPTS.md` - Canonical definitions
 - `TESTING_INSTRUCTIONS.md` - Setup & test matrix

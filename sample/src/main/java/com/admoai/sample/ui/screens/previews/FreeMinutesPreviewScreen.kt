@@ -28,9 +28,16 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import android.content.Intent
+import android.net.Uri
+import coil.compose.AsyncImage
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -105,13 +112,14 @@ fun FreeMinutesPreviewScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Navigation bar
+            // Navigation bar (no refresh button - replaced by clicking prize boxes)
             PreviewNavigationBar(
                 placement = placement,
                 onBackClick = onBackClick,
                 onDetailsClick = onDetailsClick,
                 onRefreshClick = { isRefreshing = true },
-                isRefreshing = isRefreshing
+                isRefreshing = isRefreshing,
+                showRefreshButton = false
             )
             
             // Content
@@ -360,6 +368,7 @@ private fun FullscreenVideoPlayer(
     var showCloseButton by remember { mutableStateOf(true) }
     var currentPosition by remember { mutableStateOf(0f) }
     var duration by remember { mutableStateOf(0f) }
+    var hasCompleted by remember { mutableStateOf(false) }
     
     // Create ExoPlayer with stable key to prevent recomposition
     val exoPlayer = remember(context) {
@@ -383,8 +392,16 @@ private fun FullscreenVideoPlayer(
     
     // Back button is shown immediately (no delay)
     
-    // Track video progress
+    // Track video progress and completion
     LaunchedEffect(exoPlayer) {
+        exoPlayer.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) {
+                    hasCompleted = true
+                }
+            }
+        })
+        
         while (true) {
             delay(100)
             if (exoPlayer.duration > 0) {
@@ -417,8 +434,8 @@ private fun FullscreenVideoPlayer(
             modifier = Modifier.fillMaxSize()
         )
         
-        // Back button with message (appears after 5 seconds)
-        if (showCloseButton) {
+        // Back button with message (hide when video completes)
+        if (showCloseButton && !hasCompleted) {
             Row(
                 modifier = Modifier
                     .align(Alignment.TopStart)
@@ -455,16 +472,114 @@ private fun FullscreenVideoPlayer(
             }
         }
         
-        // Progress bar at the bottom
-        LinearProgressIndicator(
-            progress = { if (duration > 0) currentPosition / duration else 0f },
+        // Progress bar at the bottom (hide when video completes)
+        if (!hasCompleted) {
+            LinearProgressIndicator(
+                progress = { if (duration > 0) currentPosition / duration else 0f },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(bottom = 64.dp)
+                    .height(4.dp),
+                color = Color(0xFFFF6B35), // Orange color like in the image
+                trackColor = Color.White.copy(alpha = 0.3f)
+            )
+        }
+        
+        // End-card (shows when video completes)
+        if (hasCompleted) {
+            EndCard(onClose = onClose)
+        }
+    }
+}
+
+/**
+ * End-card displayed after video completion
+ */
+@Composable
+private fun EndCard(
+    onClose: () -> Unit
+) {
+    val context = LocalContext.current
+    
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // Background image
+        AsyncImage(
+            model = "https://admoai.s3.eu-west-1.amazonaws.com/mock/admoai+cover.jpg",
+            contentDescription = "End card",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        
+        // X close button with helper text at top
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 80.dp, end = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Helper text (LEFT side)
+            Text(
+                text = buildAnnotatedString {
+                    append("¡The advertiser just granted ")
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append("free minutes")
+                    }
+                    append(" for watching this Video!")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White,
+                modifier = Modifier
+                    .weight(1f)
+                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            // X close button (RIGHT side)
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Color.Gray.copy(alpha = 0.7f))
+                    .clickable(onClick = onClose),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+        
+        // CTA button at bottom-center
+        Button(
+            onClick = {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("http://example.partner.com/"))
+                context.startActivity(intent)
+            },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
                 .padding(bottom = 64.dp)
-                .height(4.dp),
-            color = Color(0xFFFF6B35), // Orange color like in the image
-            trackColor = Color.White.copy(alpha = 0.3f)
-        )
+                .fillMaxWidth(0.8f)
+                .height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            ),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(
+                text = "Explore more Advertiser deals",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }
