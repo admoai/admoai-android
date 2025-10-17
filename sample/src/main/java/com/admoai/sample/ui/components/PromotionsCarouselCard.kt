@@ -68,6 +68,7 @@ import kotlinx.coroutines.launch
 fun PromotionsCarouselCard(
     adData: AdData,
     onTrackImpression: (String) -> Unit = {},
+    onSlideClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // Extract creative
@@ -91,11 +92,16 @@ fun PromotionsCarouselCard(
     // Prepare carousel data for 3 slides
     val slides = remember(creative) {
         (1..3).map { index ->
+            // Note: API returns "URLSlide1" with capital URL, not "urlSlide1"
+            val url = AdContent.extractUrlContent(creative, "URLSlide$index") ?: ""
+            val cta = AdContent.extractTextContent(creative, "ctaSlide$index") ?: ""
+            println("PromotionsCarousel: Slide $index - CTA: '$cta', URL: '$url'")
             CarouselSlide(
                 index = index,
                 imageUrl = AdContent.extractUrlContent(creative, "imageSlide$index") ?: "",
                 headline = AdContent.extractTextContent(creative, "headlineSlide$index") ?: "",
-                cta = AdContent.extractTextContent(creative, "ctaSlide$index") ?: "",
+                cta = cta,
+                url = url,
                 trackingKey = "slide$index"
             )
         }
@@ -162,7 +168,16 @@ fun PromotionsCarouselCard(
             }
             CarouselSlideContent(
                 slide = slide,
-                // No click handler as per requirements
+                onClick = {
+                    // Handle CTA click with URL from slide
+                    println("PromotionsCarousel: Slide clicked - URL: '${slide.url}'")
+                    if (slide.url.isNotEmpty()) {
+                        println("PromotionsCarousel: Opening URL: ${slide.url}")
+                        onSlideClick(slide.url)
+                    } else {
+                        println("PromotionsCarousel: No URL to open")
+                    }
+                }
             )
         }
         
@@ -185,6 +200,7 @@ private data class CarouselSlide(
     val imageUrl: String,
     val headline: String,
     val cta: String,
+    val url: String,
     val trackingKey: String
 )
 
@@ -194,9 +210,11 @@ private data class CarouselSlide(
 @Composable
 private fun CarouselSlideContent(
     slide: CarouselSlide,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
+        onClick = onClick,
         modifier = modifier
             .fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)

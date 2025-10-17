@@ -37,8 +37,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import com.admoai.sdk.model.response.AdData
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
@@ -68,6 +72,7 @@ fun WaitingPreviewScreen(
     onTrackEvent: (String, String) -> Unit = {_, _ -> },
     onThemeToggle: () -> Unit
 ) {
+    val context = LocalContext.current
     var isRefreshing by remember { mutableStateOf(false) }
     var isCardVisible by remember { mutableStateOf(adData != null) }
     var currentPage by remember { mutableIntStateOf(0) }
@@ -145,33 +150,7 @@ fun WaitingPreviewScreen(
             )
         }
         
-        // Theme toggle circles in top corners
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .padding(top = 56.dp) // Add padding for the TopAppBar
-                .zIndex(5f), // Ensure clickable but below nav
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // White circle (light theme)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .clickable { onThemeToggle() }
-            )
-            
-            // Black circle (dark theme)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black)
-                    .clickable { onThemeToggle() }
-            )
-        }
+        // Theme toggle circles removed to avoid overlaying navigation buttons
 
         // Fixed bottom layout - not a modal sheet
         Surface(
@@ -232,11 +211,24 @@ fun WaitingPreviewScreen(
                     adData?.let {
                         AdCard(
                             adData = it,
+                            placementKey = "waiting",
                             onAdClick = { clickedAdData -> 
                                 onAdClick(clickedAdData)
                             },
                             onTrackImpression = { url ->
                                 onTrackEvent("impression", url)
+                            },
+                            onSlideClick = { url ->
+                                // Open URL in browser when CTA is clicked
+                                Log.d("WaitingPreview", "onSlideClick called with URL: $url")
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    Log.d("WaitingPreview", "Starting browser intent for: $url")
+                                    context.startActivity(intent)
+                                    Log.d("WaitingPreview", "Browser intent started successfully")
+                                } catch (e: Exception) {
+                                    Log.e("WaitingPreview", "Failed to open URL: $url", e)
+                                }
                             },
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )

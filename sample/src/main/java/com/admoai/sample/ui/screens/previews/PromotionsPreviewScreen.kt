@@ -30,8 +30,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import com.admoai.sdk.model.response.AdData
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
@@ -61,6 +65,7 @@ fun PromotionsPreviewScreen(
     onAdClick: (AdData) -> Unit = {},
     onTrackEvent: (String, String) -> Unit = {_, _ -> }
 ) {
+    val context = LocalContext.current
     var isRefreshing by remember { mutableStateOf(false) }
     var isCardVisible by remember { mutableStateOf(adData != null) }
     
@@ -158,6 +163,18 @@ fun PromotionsPreviewScreen(
                         },
                         onTrackImpression = { url ->
                             onTrackEvent("impression", url)
+                        },
+                        onSlideClick = { url ->
+                            // Open URL in browser when carousel CTA is clicked
+                            Log.d("PromotionsPreview", "onSlideClick called with URL: $url")
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                Log.d("PromotionsPreview", "Starting browser intent for: $url")
+                                context.startActivity(intent)
+                                Log.d("PromotionsPreview", "Browser intent started successfully")
+                            } catch (e: Exception) {
+                                Log.e("PromotionsPreview", "Failed to open URL: $url", e)
+                            }
                         }
                     )
                 }

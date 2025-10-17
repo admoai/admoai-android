@@ -138,32 +138,7 @@ fun HomePreviewScreen(
             }
         }
         
-        // Theme toggle circles in top corners
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .padding(top = 56.dp), // Add padding for the TopAppBar
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // White circle (light theme)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .clickable { onThemeToggle() }
-            )
-            
-            // Black circle (dark theme)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black)
-                    .clickable { onThemeToggle() }
-            )
-        }
+        // Theme toggle circles removed to avoid overlaying navigation buttons
         
         // Bottom navigation bar with 4 circles (iOS style)
         Column(

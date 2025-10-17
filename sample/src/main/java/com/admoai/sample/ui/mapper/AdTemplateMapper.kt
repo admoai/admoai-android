@@ -155,9 +155,9 @@ object AdTemplateMapper {
     
     /**
      * Determine if this placement supports clickthrough
-     * (Currently only the "home", "vehicleSelection", and "rideSummary" placements support this)
+     * (Currently supports: home, vehicleSelection, rideSummary, promotions, waiting)
      */
     fun supportsClickthrough(placement: String): Boolean {
-        return placement == "home" || placement == "vehicleSelection" || placement == "rideSummary"
+        return placement == "home" || placement == "vehicleSelection" || placement == "rideSummary" || placement == "promotions" || placement == "waiting"
     }
 }

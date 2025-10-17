@@ -28,6 +28,7 @@ import androidx.compose.ui.zIndex
 import com.admoai.sdk.model.response.AdData
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
+import com.admoai.sample.ui.components.HorizontalAdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.components.SearchAdCard
 import com.admoai.sample.ui.mapper.AdTemplateMapper
@@ -149,7 +150,7 @@ fun VehicleSelectionPreviewScreen(
                 .zIndex(1f)
         ) {
             // Spacer for the nav bar with extra padding for visual separation
-            Spacer(modifier = Modifier.height(82.dp))
+            Spacer(modifier = Modifier.height(120.dp))
             
             // Ad Card with animation - positioned at the top below nav bar
             Box(
@@ -177,30 +178,21 @@ fun VehicleSelectionPreviewScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
-                        // For wideImageOnly template 
+                        // For wideImageOnly template (any style including "default")
                         AdTemplateMapper.isWideImageOnlyTemplate(ad) -> {
-                            // Custom sized card to ensure consistent size with other templates
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(IntrinsicSize.Min)
-                                    .padding(horizontal = 8.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                            ) {
-                                Box(modifier = Modifier.fillMaxWidth()) {
-                                    AdCard(
-                                        adData = ad,
-                                        onAdClick = onAdClick,
-                                        onTrackImpression = { url ->
-                                            onTrackEvent("impression", url)
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(160.dp)  // Fixed height to match other templates
-                                    )
-                                }
-                            }
+                            // Use HorizontalAdCard which properly handles posterImage for wideImageOnly
+                            HorizontalAdCard(
+                                adData = ad,
+                                placementKey = "vehicleSelection",
+                                onAdClick = onAdClick,
+                                onTrackClick = { url ->
+                                    onTrackEvent("click", url)
+                                },
+                                onTrackImpression = { url ->
+                                    onTrackEvent("impression", url)
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                         // Default fallback
                         else -> {
@@ -321,33 +313,7 @@ fun VehicleSelectionPreviewScreen(
             )
         }
         
-        // Theme toggle circles in top corners
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .padding(top = 56.dp) // Add padding for the TopAppBar
-                .zIndex(5f), // Ensure clickable but below nav
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // White circle (light theme)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .clickable { onThemeToggle() }
-            )
-            
-            // Black circle (dark theme)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black)
-                    .clickable { onThemeToggle() }
-            )
-        }
+        // Theme toggle circles removed to avoid overlaying navigation buttons
     }
 }
 
