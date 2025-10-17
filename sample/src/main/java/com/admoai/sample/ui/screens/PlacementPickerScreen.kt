@@ -40,6 +40,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -145,6 +147,8 @@ fun PlacementRow(
         // Video-friendly badge for supported placements
         val isVideoFriendly = placement.id in listOf("promotions", "rideSummary", "waiting", "freeMinutes")
         if (isVideoFriendly) {
+            val badgeText = if (placement.id == "freeMinutes") "Interactive\nVideo" else "Video"
+            
             Surface(
                 shape = RoundedCornerShape(4.dp),
                 color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
@@ -162,10 +166,12 @@ fun PlacementRow(
                         tint = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
-                        text = "Video",
+                        text = badgeText,
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 12.sp
                     )
                 }
             }

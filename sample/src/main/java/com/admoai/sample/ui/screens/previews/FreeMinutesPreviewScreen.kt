@@ -1,7 +1,11 @@
 package com.admoai.sample.ui.screens.previews
 
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ImageNotSupported
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,10 +24,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 import com.admoai.sdk.model.response.AdData
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.PreviewNavigationBar
@@ -52,6 +63,7 @@ fun FreeMinutesPreviewScreen(
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
     var isContentVisible by remember { mutableStateOf(adData != null) }
+    var showVideoPlayer by remember { mutableStateOf(false) }
     
     // Animation for content visibility
     val contentAlpha by animateFloatAsState(
@@ -127,10 +139,8 @@ fun FreeMinutesPreviewScreen(
                         PrizeBox(
                             hasNotification = true, // All boxes show badge
                             onClick = {
-                                // Load and show video ad for any box
-                                if (adData != null) {
-                                    onAdClick(adData)
-                                }
+                                // Show fullscreen video player
+                                showVideoPlayer = true
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -168,6 +178,13 @@ fun FreeMinutesPreviewScreen(
                 }
             }
         }
+        
+        // Fullscreen video player overlay
+        if (showVideoPlayer) {
+            FullscreenVideoPlayer(
+                onClose = { showVideoPlayer = false }
+            )
+        }
     }
 }
 
@@ -177,9 +194,25 @@ private fun RowScope.PrizeBox(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Subtle pulse animation
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1500),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+    
     Box(
         modifier = modifier
             .aspectRatio(1f)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFFE8DEF8)) // More vibrant purple/lavender
             .clickable(onClick = onClick) // Always clickable
@@ -309,6 +342,93 @@ private fun RideHistoryCard(index: Int) {
                         .clip(CircleShape)
                         .background(Color.LightGray.copy(alpha = 0.3f))
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Fullscreen video player with close button after 5 seconds
+ * Hardcoded for development purposes - will be replaced with ad response data
+ */
+@Composable
+private fun FullscreenVideoPlayer(
+    onClose: () -> Unit
+) {
+    val context = LocalContext.current
+    var showCloseButton by remember { mutableStateOf(false) }
+    
+    // Create ExoPlayer with stable key to prevent recomposition
+    val exoPlayer = remember(context) {
+        ExoPlayer.Builder(context).build()
+    }
+    
+    // Setup media source
+    LaunchedEffect(exoPlayer) {
+        val videoUrl = "https://videos.admoai.com/iStbqX1vecupIYYy7B3ml93RJDteSbdwLVCNSPIaTZo.m3u8"
+        val mediaItem = MediaItem.Builder()
+            .setUri(android.net.Uri.parse(videoUrl))
+            .build()
+        
+        exoPlayer.apply {
+            setMediaItem(mediaItem)
+            prepare()
+            playWhenReady = true
+            repeatMode = Player.REPEAT_MODE_OFF
+        }
+    }
+    
+    // Show close button after 5 seconds
+    LaunchedEffect(Unit) {
+        delay(5000)
+        showCloseButton = true
+    }
+    
+    // Clean up player when composable is disposed
+    DisposableEffect(Unit) {
+        onDispose {
+            exoPlayer.release()
+        }
+    }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        // Video player
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    player = exoPlayer
+                    useController = false // Hide default controls
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+        
+        // Close button (appears after 5 seconds) - Badge-like design
+        if (showCloseButton) {
+            Surface(
+                onClick = onClose,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp),
+                shape = CircleShape,
+                color = Color.Black.copy(alpha = 0.8f),
+                shadowElevation = 4.dp
+            ) {
+                Box(
+                    modifier = Modifier.size(56.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close video",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         }
     }
