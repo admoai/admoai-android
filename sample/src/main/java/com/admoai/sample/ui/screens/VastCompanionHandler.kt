@@ -263,7 +263,7 @@ fun ExoPlayerImaWithCompanionEndCard(
                     }
                     
                     if (progress >= 0.25f && !firstQuartileTracked) {
-                        viewModel.fireVideoEvent(creative, "firstQuartile")
+                        viewModel.fireVideoEvent(creative, "first_quartile")
                         firstQuartileTracked = true
                     }
                     
@@ -273,7 +273,7 @@ fun ExoPlayerImaWithCompanionEndCard(
                     }
                     
                     if (progress >= 0.75f && !thirdQuartileTracked) {
-                        viewModel.fireVideoEvent(creative, "thirdQuartile")
+                        viewModel.fireVideoEvent(creative, "third_quartile")
                         thirdQuartileTracked = true
                     }
                     

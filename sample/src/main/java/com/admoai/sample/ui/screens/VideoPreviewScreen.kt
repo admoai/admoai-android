@@ -349,14 +349,14 @@ fun VideoPreviewScreen(
                         ) {
                             if (!isPlaying && !hasCompleted) {
                                 Text(
-                                    text = "🎬\nSimulated Video Player",
+                                    text = "Simulated Video Player",
                                     color = Color.White,
                                     textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             } else if (hasCompleted && !showEndCard) {
                                 Text(
-                                    text = "✓ Video Completed",
+                                    text = "Video Completed",
                                     color = Color.White,
                                     style = MaterialTheme.typography.titleMedium
                                 )
@@ -389,6 +389,7 @@ fun VideoPreviewScreen(
                         
                         // Skip button (shown when skippable and past offset)
                         if (isSkippable && !hasCompleted) {
+                            val canSkip = currentProgress >= (skipOffsetSeconds / videoDuration)
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
@@ -396,11 +397,7 @@ fun VideoPreviewScreen(
                             ) {
                                 if (canSkip) {
                                     Button(
-                                        onClick = {
-                                            currentProgress = 1f
-                                            isPlaying = false
-                                            hasCompleted = true
-                                        },
+                                        onClick = { hasCompleted = true; showEndCard = true },
                                         modifier = Modifier.height(36.dp)
                                     ) {
                                         Text("Skip Ad")
@@ -833,21 +830,21 @@ private class SimpleVideoAdPlayer(
                 val adInfo = currentAdMediaInfo ?: return
                 when (playbackState) {
                     androidx.media3.common.Player.STATE_BUFFERING -> {
-                        android.util.Log.d("VideoAdPlayer", "↻ Player STATE_BUFFERING")
+                        android.util.Log.d("VideoAdPlayer", "Player STATE_BUFFERING")
                         if (hasNotifiedLoaded) {
                             callbacks.forEach { it.onBuffering(adInfo) }
                         }
                     }
                     androidx.media3.common.Player.STATE_READY -> {
-                        android.util.Log.d("VideoAdPlayer", "✓ Player STATE_READY")
+                        android.util.Log.d("VideoAdPlayer", "Player STATE_READY")
                         if (!hasNotifiedLoaded) {
-                            android.util.Log.d("VideoAdPlayer", "   → notifying IMA: onLoaded() [Player is ready]")
+                            android.util.Log.d("VideoAdPlayer", "Notifying IMA: onLoaded()")
                             callbacks.forEach { it.onLoaded(adInfo) }
                             hasNotifiedLoaded = true
                         }
                     }
                     androidx.media3.common.Player.STATE_ENDED -> {
-                        android.util.Log.d("VideoAdPlayer", "✓ Player STATE_ENDED")
+                        android.util.Log.d("VideoAdPlayer", "Player STATE_ENDED")
                         callbacks.forEach { it.onEnded(adInfo) }
                         hasNotifiedPlay = false
                         hasNotifiedLoaded = false
@@ -856,7 +853,7 @@ private class SimpleVideoAdPlayer(
             }
             
             override fun onRenderedFirstFrame() {
-                android.util.Log.d("VideoAdPlayer", "⭐ FIRST FRAME RENDERED")
+                android.util.Log.d("VideoAdPlayer", "First frame rendered")
                 // We now use onIsPlayingChanged for more reliable play/pause signals.
             }
             
@@ -878,7 +875,7 @@ private class SimpleVideoAdPlayer(
             }
             
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                android.util.Log.e("VideoAdPlayer", "❌ Player error - notifying IMA: onError() - ${error.message}")
+                android.util.Log.e("VideoAdPlayer", "Player error - notifying IMA: onError() - ${error.message}")
                 currentAdMediaInfo?.let { adInfo ->
                     callbacks.forEach { it.onError(adInfo) }
                 }
@@ -891,7 +888,7 @@ private class SimpleVideoAdPlayer(
         // Start playback, then notify IMA.
         exoPlayer.play()
         if (!hasNotifiedPlay) {
-            android.util.Log.d("VideoAdPlayer", "   → notifying IMA: onPlay()")
+            android.util.Log.d("VideoAdPlayer", "Notifying IMA: onPlay()")
             callbacks.forEach { it.onPlay(adMediaInfo) }
             hasNotifiedPlay = true
         }
@@ -1173,21 +1170,21 @@ fun parseVideoData(creative: Creative): VideoPlayerConfig {
     val videoAssetUrl = when (creative.delivery) {
         "vast_tag" -> creative.vast?.tagUrl // VAST tag URL (IMA will fetch and parse)
         "vast_xml" -> "vast_xml_placeholder" // Placeholder - actual XML is in vast.xmlBase64
-        else -> contents["videoAsset"]?.let { // JSON delivery - video asset URL
+        else -> contents["video_asset"]?.let { // JSON delivery - video asset URL
             (it as? JsonPrimitive)?.contentOrNull
         }
     } ?: creative.vast?.tagUrl // Fallback: try VAST tagUrl even if delivery says JSON
     
     // Extract poster image
-    val posterImageUrl = contents["posterImage"]?.let {
+    val posterImageUrl = contents["poster_image"]?.let {
         (it as? JsonPrimitive)?.contentOrNull
     }
     
     // Extract skippable settings
     // First try from contents (JSON delivery), then fallback to SDK utility functions (VAST deliveries)
-    val isSkippable = contents["isSkippable"]?.let {
+    val isSkippable = contents["is_skippable"]?.let {
         val value = (it as? JsonPrimitive)?.contentOrNull
-        android.util.Log.d("VideoParser", "isSkippable from contents: '$value'")
+        android.util.Log.d("AdResponse", "[Content Mapping] is_skippable: $value")
         // Support both integer (1/0) and text ("true"/"false") formats
         when (value) {
             "1" -> true
@@ -1197,13 +1194,13 @@ fun parseVideoData(creative: Creative): VideoPlayerConfig {
     } ?: run {
         // Fallback: use SDK utility function (parses from VAST XML for VAST Tag/XML deliveries)
         val fromSdk = creative.isSkippable()
-        android.util.Log.d("VideoParser", "isSkippable from SDK: $fromSdk")
+        android.util.Log.d("AdResponse", "[Content Mapping] is_skippable (from VAST): $fromSdk")
         fromSdk
     }
     
-    val skipOffsetSeconds = contents["skipOffset"]?.let {
+    val skipOffsetSeconds = contents["skip_offset"]?.let {
         (it as? JsonPrimitive)?.contentOrNull?.let { offset ->
-            android.util.Log.d("VideoParser", "skipOffset from contents: '$offset'")
+            android.util.Log.d("AdResponse", "[Content Mapping] skip_offset: $offset")
             // Parse "00:00:05" format or plain number
             if (offset.contains(":")) {
                 val parts = offset.split(":")
@@ -1215,32 +1212,39 @@ fun parseVideoData(creative: Creative): VideoPlayerConfig {
     } ?: run {
         // Fallback: use SDK utility function (parses from VAST XML)
         val fromSdk = creative.getSkipOffset()?.toIntOrNull() ?: 5
-        android.util.Log.d("VideoParser", "skipOffset from SDK: $fromSdk")
+        android.util.Log.d("AdResponse", "[Content Mapping] skip_offset (from VAST): ${fromSdk}s")
         fromSdk
     }
     
-    android.util.Log.d("VideoParser", "✅ Parsed skippable settings: isSkippable=$isSkippable, skipOffset=$skipOffsetSeconds")
+    android.util.Log.d("AdResponse", "[Skip Configuration] Skippable: $isSkippable, Skip Offset: ${skipOffsetSeconds}s")
     
     // Extract overlay settings
-    val overlayAtPercentage = contents["overlayAtPercentage"]?.let {
+    val overlayAtPercentage = contents["overlay_at_percentage"]?.let {
         (it as? JsonPrimitive)?.contentOrNull?.toFloatOrNull()
     } ?: 0.5f
+    android.util.Log.d("AdResponse", "[Companion Configuration] overlay_at_percentage: ${(overlayAtPercentage * 100).toInt()}%")
     
     val showClose = contents["showClose"]?.let {
         (it as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
     } == 1
     
     // Extract companion/overlay data
-    val companionHeadline = contents["companionHeadline"]?.let {
+    val companionHeadline = contents["companion_headline"]?.let {
         (it as? JsonPrimitive)?.contentOrNull
     }
     
-    val companionCta = contents["companionCta"]?.let {
+    val companionCta = contents["companion_cta"]?.let {
         (it as? JsonPrimitive)?.contentOrNull
     }
     
-    val companionDestinationUrl = contents["companionDestinationUrl"]?.let {
+    val companionDestinationUrl = contents["companion_destination_url"]?.let {
         (it as? JsonPrimitive)?.contentOrNull
+    }
+    
+    if (companionHeadline != null) {
+        android.util.Log.d("AdResponse", "[Companion Configuration] Headline: $companionHeadline")
+        android.util.Log.d("AdResponse", "[Companion Configuration] CTA: ${companionCta ?: "(none)"}")
+        android.util.Log.d("AdResponse", "[Companion Configuration] Destination URL: ${companionDestinationUrl ?: "(none)"}")
     }
     
     return VideoPlayerConfig(
@@ -1303,15 +1307,9 @@ fun ExoPlayerImaVideoPlayer(
     val useImaSDK = creative.delivery == "vast_tag"  // Only VAST Tag uses IMA automatically
     val isJsonDelivery = creative.delivery == null || creative.delivery == "json"
     
-    android.util.Log.d("Media3Player", "═══════════════════════════════════════")
-    android.util.Log.d("Media3Player", "Player: Media3 ExoPlayer + IMA")
-    android.util.Log.d("Media3Player", "Delivery: ${creative.delivery ?: "json"}")
-    android.util.Log.d("Media3Player", "Companion: ${if (hasNativeEndCard) "Custom UI" else "None"}")
-    android.util.Log.d("Media3Player", "Media3 ExoPlayer: Video playback, buffering, rendering")
-    android.util.Log.d("Media3Player", "IMA Extension: Ad logic, VAST parsing, tracking")
-    android.util.Log.d("Media3Player", "Will use IMA SDK: $useImaSDK")
-    android.util.Log.d("Media3Player", "UI Strategy: ${if (hasNativeEndCard || !useImaSDK) "Custom overlays + skip button" else "IMA native UI"}")
-    android.util.Log.d("Media3Player", "═══════════════════════════════════════")
+    android.util.Log.d("Player", "[Setup] Media3 ExoPlayer + IMA")
+    android.util.Log.d("Player", "[Delivery] ${creative.delivery ?: "json"}")
+    android.util.Log.d("Player", "[Configuration] IMA SDK enabled: $useImaSDK, Custom UI: ${hasNativeEndCard || !useImaSDK}")
     
     // For VAST XML, decode the Base64 XML
     var decodedVastXml by remember { mutableStateOf<String?>(null) }
@@ -1327,15 +1325,15 @@ fun ExoPlayerImaVideoPlayer(
                     try {
                         val decoded = String(android.util.Base64.decode(base64Xml, android.util.Base64.DEFAULT))
                         decodedVastXml = decoded
-                        android.util.Log.d("ExoPlayerIMA", "✓ Decoded VAST XML (${decoded.length} chars)")
+                        android.util.Log.d("AdResponse", "[VAST XML] Decoded successfully (${decoded.length} characters)")
                         
                         // Parse skip info from VAST XML (don't rely on SDK utilities)
                         val parsedData = parseVastXml(decoded)
                         vastSkipOffset = parsedData.skipOffset
                         vastIsSkippable = parsedData.isSkippable
-                        android.util.Log.d("ExoPlayerIMA", "✓ Parsed VAST skip: isSkippable=${parsedData.isSkippable}, offset=${parsedData.skipOffset}")
+                        android.util.Log.d("AdResponse", "[VAST XML] Skip configuration: isSkippable=${parsedData.isSkippable}, offset=${parsedData.skipOffset}s")
                     } catch (e: Exception) {
-                        android.util.Log.e("ExoPlayerIMA", "✗ Error decoding VAST XML: ${e.message}")
+                        android.util.Log.e("AdResponse", "[VAST XML] Decoding error: ${e.message}")
                         playbackError = "Failed to decode VAST XML: ${e.message}"
                     }
                 }
@@ -1344,7 +1342,7 @@ fun ExoPlayerImaVideoPlayer(
                 // For VAST Tag, fetch and parse the XML to extract skip info
                 val tagUrl = videoConfig.videoAssetUrl
                 if (tagUrl != null) {
-                    android.util.Log.d("ExoPlayerIMA", "→ Fetching VAST Tag to parse skip info: $tagUrl")
+                    android.util.Log.d("AdResponse", "[VAST Tag] Fetching XML to parse skip configuration: $tagUrl")
                     withContext(Dispatchers.IO) {
                         try {
                             val url = java.net.URL(tagUrl)
@@ -1356,17 +1354,17 @@ fun ExoPlayerImaVideoPlayer(
                             val responseCode = connection.responseCode
                             if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
                                 val xmlContent = connection.inputStream.bufferedReader().use { it.readText() }
-                                android.util.Log.d("ExoPlayerIMA", "✓ Fetched VAST Tag XML (${xmlContent.length} chars)")
+                                android.util.Log.d("AdResponse", "[VAST Tag] Fetched XML successfully (${xmlContent.length} characters)")
                                 
                                 val parsedData = parseVastXml(xmlContent)
                                 vastSkipOffset = parsedData.skipOffset
                                 vastIsSkippable = parsedData.isSkippable
-                                android.util.Log.d("ExoPlayerIMA", "✓ Parsed VAST skip: isSkippable=${parsedData.isSkippable}, offset=${parsedData.skipOffset}")
+                                android.util.Log.d("AdResponse", "[VAST Tag] Skip configuration: isSkippable=${parsedData.isSkippable}, offset=${parsedData.skipOffset}s")
                             } else {
-                                android.util.Log.e("ExoPlayerIMA", "✗ HTTP error fetching VAST Tag: $responseCode")
+                                android.util.Log.e("AdResponse", "[VAST Tag] HTTP error: $responseCode")
                             }
                         } catch (e: Exception) {
-                            android.util.Log.e("ExoPlayerIMA", "✗ Error fetching VAST Tag: ${e.message}")
+                            android.util.Log.e("AdResponse", "[VAST Tag] Fetch error: ${e.message}")
                         }
                     }
                 }
@@ -1414,51 +1412,49 @@ fun ExoPlayerImaVideoPlayer(
     val adsLoader = remember(companionContainerView) {
         val builder = ImaAdsLoader.Builder(context)
             .setAdEventListener { adEvent ->
-                android.util.Log.d("IMA_EVENT", "Ad Event: ${adEvent.type}")
                 when (adEvent.type) {
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.LOADED -> {
-                        android.util.Log.d("IMA_EVENT", "✅ Ad LOADED")
+                        android.util.Log.d("IMA", "[Event] Ad LOADED by IMA SDK")
                         // Check if ad has companions
                         adEvent.ad?.let { ad ->
                             val hasCompanions = ad.companionAds != null && !ad.companionAds.isEmpty()
-                            android.util.Log.d("IMA_EVENT", "Ad has companions: $hasCompanions")
                             if (hasCompanions) {
-                                // Log companion details
+                                android.util.Log.d("IMA", "[Companion] Detected ${ad.companionAds.size} companion ad(s)")
                                 ad.companionAds.forEach { companion ->
-                                    android.util.Log.d("IMA_EVENT", "  Companion: ${companion.width}x${companion.height} (${companion.resourceValue})")
+                                    android.util.Log.d("IMA", "[Companion] Size: ${companion.width}x${companion.height}px")
                                 }
                             }
                             companionAdAvailable = hasCompanions
                         }
                     }
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.STARTED -> {
-                        android.util.Log.d("IMA_EVENT", "✅ Ad STARTED")
+                        android.util.Log.d("Tracking", "[AUTOMATIC] IMA SDK fired 'start' tracking beacon")
                         isPlayingAd = true
                     }
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.FIRST_QUARTILE ->
-                        android.util.Log.d("IMA_EVENT", "✅ Ad FIRST_QUARTILE")
+                        android.util.Log.d("Tracking", "[AUTOMATIC] IMA SDK fired 'first_quartile' tracking beacon at 25% progress")
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.MIDPOINT ->
-                        android.util.Log.d("IMA_EVENT", "✅ Ad MIDPOINT")
+                        android.util.Log.d("Tracking", "[AUTOMATIC] IMA SDK fired 'midpoint' tracking beacon at 50% progress")
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.THIRD_QUARTILE ->
-                        android.util.Log.d("IMA_EVENT", "✅ Ad THIRD_QUARTILE")
+                        android.util.Log.d("Tracking", "[AUTOMATIC] IMA SDK fired 'third_quartile' tracking beacon at 75% progress")
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.COMPLETED -> {
-                        android.util.Log.d("IMA_EVENT", "✅ Ad COMPLETED")
+                        android.util.Log.d("Tracking", "[AUTOMATIC] IMA SDK fired 'complete' tracking beacon at 100% progress")
                         isPlayingAd = false
                         hasAdCompleted = true
                         // Show companion end-card when video completes if renderingMode="end-card"
                         // For "concurrent" mode, companion is already visible during playback
                         if (companionAdAvailable && useImaSDK && companionRenderingMode == "end-card") {
                             showCompanionEndCard = true
-                            android.util.Log.d("IMA_EVENT", "🎬 Showing companion end-card overlay")
+                            android.util.Log.d("IMA", "[Companion] Displaying end-card overlay after video completion")
                         }
                     }
                     else -> Unit
                 }
             }
             .setAdErrorListener { adErrorEvent ->
-                android.util.Log.e("IMA_ERROR", "❌ Ad Error: ${adErrorEvent.error.message}")
-                android.util.Log.e("IMA_ERROR", "Error Code: ${adErrorEvent.error.errorCode}")
-                android.util.Log.e("IMA_ERROR", "Error Type: ${adErrorEvent.error.errorCodeNumber}")
+                android.util.Log.e("IMA", "[Error] Ad Error: ${adErrorEvent.error.message}")
+                android.util.Log.e("IMA", "[Error] Error Code: ${adErrorEvent.error.errorCode}")
+                android.util.Log.e("IMA", "[Error] Error Type: ${adErrorEvent.error.errorCodeNumber}")
                 playbackError = "IMA Ad Error: ${adErrorEvent.error.message}"
             }
         
@@ -1472,7 +1468,7 @@ fun ExoPlayerImaVideoPlayer(
                 companionSlot.setSize(companionWidthPx, companionHeightPx)
                 companionSlot.container = container
                 
-                android.util.Log.d("IMA_COMPANION", "✅ Pre-registering companion slot: ${companionWidthPx}x${companionHeightPx}px")
+                android.util.Log.d("IMA", "[Companion] Pre-registering companion slot: ${companionWidthPx}x${companionHeightPx}px")
                 builder.setCompanionAdSlots(listOf(companionSlot))
                 
                 // Assume end-card mode for now (will support concurrent in next iteration)
@@ -1481,7 +1477,7 @@ fun ExoPlayerImaVideoPlayer(
                 android.util.Log.e("IMA_COMPANION", "Error pre-registering companion slot: ${e.message}", e)
             }
         } else if (useImaSDK) {
-            android.util.Log.w("IMA_COMPANION", "⚠️ Companion container not ready yet - will recreate ads loader when ready")
+            android.util.Log.w("IMA", "[Companion] Container not ready - will recreate ads loader when ready")
         }
         
         builder.build()
@@ -1494,7 +1490,7 @@ fun ExoPlayerImaVideoPlayer(
     val exoPlayer = remember(adsLoader, playerViewRef) {
         // If using IMA, wait for playerView to be ready
         if (useImaSDK && playerViewRef == null) {
-            android.util.Log.d("ExoPlayerIMA", "⏳ Waiting for playerView...")
+            android.util.Log.d("Player", "[Setup] Waiting for PlayerView initialization...")
             return@remember null
         }
         
@@ -1503,13 +1499,12 @@ fun ExoPlayerImaVideoPlayer(
         
         // Use IMA for VAST Tag and VAST XML (always, regardless of end-card)
         if (useImaSDK) {
-            android.util.Log.d("ExoPlayerIMA", "→ Configuring MediaSourceFactory with IMA ads loader")
-            android.util.Log.d("ExoPlayerIMA", "→ PlayerView ready: ${playerViewRef != null}")
+            android.util.Log.d("Player", "[Setup] Configuring MediaSourceFactory with IMA ads loader")
             mediaSourceFactory
                 .setAdsLoaderProvider { adsLoader }
                 .setAdViewProvider { playerViewRef!! }
         } else {
-            android.util.Log.d("ExoPlayerIMA", "→ MediaSourceFactory without ads (JSON delivery)")
+            android.util.Log.d("Player", "[Setup] MediaSourceFactory without ads (JSON delivery)")
         }
         
         ExoPlayer.Builder(context)
@@ -1521,18 +1516,18 @@ fun ExoPlayerImaVideoPlayer(
     LaunchedEffect(exoPlayer, videoConfig.videoAssetUrl, decodedVastXml, creative.delivery) {
         val player = exoPlayer
         if (player == null) {
-            android.util.Log.d("ExoPlayerIMA", "⏳ Player not ready yet, waiting...")
+            android.util.Log.d("Player", "[Setup] Player not ready yet, waiting...")
             return@LaunchedEffect
         }
         
         // For VAST XML, wait until decoded
         if (creative.delivery == "vast_xml" && decodedVastXml == null) {
-            android.util.Log.d("ExoPlayerIMA", "⏳ Waiting for VAST XML to be decoded...")
+            android.util.Log.d("Player", "[Setup] Waiting for VAST XML decoding...")
             return@LaunchedEffect
         }
         
         videoConfig.videoAssetUrl?.let { url ->
-            android.util.Log.d("ExoPlayerIMA", "🎬 Setting up media source...")
+            android.util.Log.d("Player", "[Setup] Configuring media source...")
             
             val contentVideoUri = "https://videos.admoai.com/02jJM5N02pffMDDei8s5EncgbBUJYMbNweR7Zwikeqtq00.m3u8"
             val mediaItemBuilder = MediaItem.Builder()
@@ -1540,10 +1535,9 @@ fun ExoPlayerImaVideoPlayer(
             when (creative.delivery) {
                 "vast_tag" -> {
                     // VAST Tag: Pass tag URL to IMA SDK (IMA will fetch XML and handle everything)
-                    android.util.Log.d("ExoPlayerIMA", "📡 VAST Tag mode: Passing tag URL to IMA SDK")
-                    android.util.Log.d("ExoPlayerIMA", "   Tag URL: $url")
-                    android.util.Log.d("ExoPlayerIMA", "   Content video: $contentVideoUri")
-                    android.util.Log.d("ExoPlayerIMA", "   IMA will: fetch XML, parse, select media, track quartiles")
+                    android.util.Log.d("Player", "[Delivery Method] VAST Tag - URL will be passed to IMA SDK")
+                    android.util.Log.d("Player", "[Configuration] Tag URL: $url")
+                    android.util.Log.d("Player", "[Configuration] IMA SDK will handle: XML fetch, parsing, media selection, automatic tracking")
                     
                     mediaItemBuilder
                         .setUri(Uri.parse(contentVideoUri))
@@ -1553,9 +1547,9 @@ fun ExoPlayerImaVideoPlayer(
                 }
                 "vast_xml" -> {
                     // VAST XML: Media3's IMA doesn't expose adsResponse, so handle manually
-                    android.util.Log.d("ExoPlayerIMA", "📄 VAST XML mode: Manual handling (IMA doesn't support adsResponse)")
-                    android.util.Log.d("ExoPlayerIMA", "   Parsing XML to extract video URL")
-                    android.util.Log.d("ExoPlayerIMA", "   Manual tracking: YES (via SDK)")
+                    android.util.Log.d("Player", "[Delivery Method] VAST XML - Manual parsing required")
+                    android.util.Log.d("Player", "[Configuration] Extracting video URL from embedded VAST XML")
+                    android.util.Log.d("Player", "[Configuration] Tracking: Manual (via Admoai SDK)")
                     
                     val xmlContent = decodedVastXml
                     if (xmlContent != null) {
@@ -1565,24 +1559,24 @@ fun ExoPlayerImaVideoPlayer(
                         
                         if (match != null) {
                             val vastVideoUrl = match.groupValues[1].trim()
-                            android.util.Log.d("ExoPlayerIMA", "   Extracted video: $vastVideoUrl")
+                            android.util.Log.d("Player", "[Configuration] Extracted video URL: $vastVideoUrl")
                             mediaItemBuilder.setUri(Uri.parse(vastVideoUrl))
                         } else {
-                            android.util.Log.e("ExoPlayerIMA", "   ✗ No MediaFile found in VAST XML")
+                            android.util.Log.e("Player", "[Error] No MediaFile found in VAST XML")
                             playbackError = "Could not extract video URL from VAST XML"
                             return@LaunchedEffect
                         }
                     } else {
-                        android.util.Log.e("ExoPlayerIMA", "   ✗ VAST XML not decoded")
+                        android.util.Log.e("Player", "[Error] VAST XML not decoded")
                         playbackError = "VAST XML not available"
                         return@LaunchedEffect
                     }
                 }
                 else -> {
                     // JSON delivery: Play video directly
-                    android.util.Log.d("ExoPlayerIMA", "📹 JSON mode: Playing video directly (no IMA)")
-                    android.util.Log.d("ExoPlayerIMA", "   Video URL: $url")
-                    android.util.Log.d("ExoPlayerIMA", "   Manual tracking: YES (via SDK trackingEvents)")
+                    android.util.Log.d("Player", "[Delivery Method] JSON - Direct video playback (no IMA SDK)")
+                    android.util.Log.d("Player", "[Configuration] Video URL: $url")
+                    android.util.Log.d("Player", "[Configuration] Tracking: Manual (via Admoai SDK trackingEvents)")
                     
                     mediaItemBuilder.setUri(Uri.parse(url))
                 }
@@ -1643,10 +1637,10 @@ fun ExoPlayerImaVideoPlayer(
             "end-card" -> {
                 // For end-card mode: show companion only after video completes
                 container.alpha = if (showCompanionEndCard) {
-                    android.util.Log.d("IMA_COMPANION", "🎬 Showing end-card companion container (alpha=1)")
+                    android.util.Log.d("IMA", "[Companion] Showing end-card companion (alpha=1)")
                     1f
                 } else {
-                    android.util.Log.d("IMA_COMPANION", "⏸️ Hiding end-card companion container (alpha=0)")
+                    android.util.Log.d("IMA", "[Companion] Hiding end-card companion (alpha=0)")
                     0f
                 }
             }
@@ -1694,34 +1688,48 @@ fun ExoPlayerImaVideoPlayer(
                         }
                         
                         if (hasStarted && !startTracked) {
+                            val event = creative.tracking?.videoEvents?.find { it.key == "start" }
+                            android.util.Log.d("Tracking", "[MANUAL] Firing 'start' event")
+                            event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
                             viewModel.fireVideoEvent(creative, "start")
                             startTracked = true
                         }
                         
                         if (progress >= 0.25f && !firstQuartileTracked) {
-                            viewModel.fireVideoEvent(creative, "firstQuartile")
+                            val event = creative.tracking?.videoEvents?.find { it.key == "first_quartile" }
+                            android.util.Log.d("Tracking", "[MANUAL] Firing 'first_quartile' event at 25% progress")
+                            event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
+                            viewModel.fireVideoEvent(creative, "first_quartile")
                             firstQuartileTracked = true
                         }
                         
                         if (progress >= 0.5f && !midpointTracked) {
+                            val event = creative.tracking?.videoEvents?.find { it.key == "midpoint" }
+                            android.util.Log.d("Tracking", "[MANUAL] Firing 'midpoint' event at 50% progress")
+                            event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
                             viewModel.fireVideoEvent(creative, "midpoint")
                             midpointTracked = true
                         }
                         
                         if (progress >= 0.75f && !thirdQuartileTracked) {
-                            viewModel.fireVideoEvent(creative, "thirdQuartile")
+                            val event = creative.tracking?.videoEvents?.find { it.key == "third_quartile" }
+                            android.util.Log.d("Tracking", "[MANUAL] Firing 'third_quartile' event at 75% progress")
+                            event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
+                            viewModel.fireVideoEvent(creative, "third_quartile")
                             thirdQuartileTracked = true
                         }
                         
                         if (progress >= 0.98f && !completeTracked) {
+                            val event = creative.tracking?.videoEvents?.find { it.key == "complete" }
+                            android.util.Log.d("Tracking", "[MANUAL] Firing 'complete' event at 98% progress")
+                            event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
                             viewModel.fireVideoEvent(creative, "complete")
                             completeTracked = true
                         }
                     }
                     useImaSDK -> {
                         // VAST Tag: IMA SDK handles all tracking automatically
-                        // We don't need to do anything here - IMA fires quartile beacons
-                        // No manual tracking needed - IMA does it all
+                        // No manual tracking needed - IMA SDK fires tracking beacons automatically
                     }
                 }
                 
@@ -1730,7 +1738,9 @@ fun ExoPlayerImaVideoPlayer(
                 val shouldShowOverlay = if (useImaSDK) isPlayingAd else true
                 if (shouldShowOverlay && progress >= videoConfig.overlayAtPercentage && !overlayShown) {
                     overlayShown = true
+                    android.util.Log.d("CustomUI", "[Companion Overlay] Displaying at ${(videoConfig.overlayAtPercentage * 100).toInt()}% progress")
                     if (!overlayTracked) {
+                        android.util.Log.d("Tracking", "[MANUAL] Firing 'overlayShown' custom event")
                         viewModel.fireCustomEvent(creative, "overlayShown")
                         overlayTracked = true
                     }
@@ -1753,7 +1763,7 @@ fun ExoPlayerImaVideoPlayer(
         val player = exoPlayer ?: return@LaunchedEffect
         player.addListener(object : androidx.media3.common.Player.Listener {
             override fun onRenderedFirstFrame() {
-                android.util.Log.d("ExoPlayerIMA", "✅ First frame rendered - hiding poster")
+                android.util.Log.d("Player", "[Rendering] First frame rendered - hiding poster")
                 firstFrameRendered = true
             }
         })
@@ -1801,7 +1811,7 @@ fun ExoPlayerImaVideoPlayer(
                         
                         // Store reference for IMA SDK pre-registration
                         companionContainerView = this
-                        android.util.Log.d("IMA_COMPANION", "✅ Companion container created (transparent, visible): ${companionWidthPx}x${companionHeightPx}px")
+                        android.util.Log.d("IMA", "[Companion] Container created: ${companionWidthPx}x${companionHeightPx}px")
                     }
                 },
                 modifier = Modifier.fillMaxSize()
@@ -1816,8 +1826,7 @@ fun ExoPlayerImaVideoPlayer(
                     useArtwork = !useCustomOverlays && videoConfig.posterImageUrl != null
                     
                     playerViewRef = this
-                    android.util.Log.d("Media3Player", "✅ PlayerView created and stored")
-                    android.util.Log.d("Media3Player", "PlayerView.useArtwork=$useArtwork (posterUrl=${videoConfig.posterImageUrl})")
+                    android.util.Log.d("Player", "[Setup] PlayerView created and configured")
                     }
                 },
                 update = { view ->
@@ -1861,14 +1870,7 @@ fun ExoPlayerImaVideoPlayer(
         if (useCustomOverlays && isSkippable && shouldShowSkip && showCustomSkip) {
             val canSkip = currentPosition >= skipOffsetSeconds
             
-            // Debug logging to track skip button state
-            val source = if (isVastDelivery) "VAST XML (parsed)" else "JSON (videoConfig)"
-            LaunchedEffect(currentPosition, skipOffsetSeconds, useCustomOverlays) {
-                android.util.Log.d("Media3Player", "Skip Check ($source): useCustomOverlays=$useCustomOverlays, isSkippable=$isSkippable, pos=$currentPosition, offset=$skipOffsetSeconds, canSkip=$canSkip, completed=$hasCompleted, delivery=${creative.delivery}")
-            }
-            
             if (canSkip) {
-                android.util.Log.d("Media3Player", "⭐ RENDERING SKIP BUTTON")
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -1881,11 +1883,20 @@ fun ExoPlayerImaVideoPlayer(
                         modifier = Modifier
                             .clickable {
                                 // Fire skip tracking event
-                                android.util.Log.d("Media3Player", "Skip button clicked")
+                                android.util.Log.d("UserInteraction", "[Skip Button] User clicked skip button")
+                                
+                                // CRITICAL: Set all tracking flags to true FIRST to prevent any future tracking
+                                // This stops midpoint/thirdQuartile/complete from firing after skip
+                                startTracked = true
+                                firstQuartileTracked = true
+                                midpointTracked = true
+                                thirdQuartileTracked = true
+                                completeTracked = true
+                                
                                 when {
                                     isJsonDelivery || creative.delivery == "vast_xml" -> {
+                                        android.util.Log.d("Tracking", "[MANUAL] Firing 'skip' event")
                                         viewModel.fireVideoEvent(creative, "skip")
-                                        android.util.Log.d("Media3Player", "🔥 Fired skip event (JSON/VAST_XML)")
                                         // Terminate playback - pause and seek to end
                                         exoPlayer?.let { player ->
                                             player.pause()
@@ -1895,14 +1906,14 @@ fun ExoPlayerImaVideoPlayer(
                                     }
                                     creative.delivery == "vast_tag" -> {
                                         // For VAST Tag with IMA: Skip ad and continue to content video
-                                        android.util.Log.d("Media3Player", "🔥 Skipping ad (VAST Tag - jumping to content)")
+                                        android.util.Log.d("Tracking", "[MANUAL] Skipping ad (VAST Tag)")
                                         exoPlayer?.let { player ->
                                             // IMA SDK handles skip tracking automatically
                                             // Skip to end of current ad window to trigger content playback
                                             if (player.isPlayingAd) {
                                                 player.seekTo(player.currentTimeline.getWindow(player.currentMediaItemIndex, androidx.media3.common.Timeline.Window()).durationMs)
                                                 isPlayingAd = false
-                                                android.util.Log.d("Media3Player", "⏭️ Skipped to content video")
+                                                android.util.Log.d("Player", "[Playback] Skipped to content video")
                                             }
                                         }
                                     }
@@ -2138,7 +2149,7 @@ fun BasicVideoPlayer(
                 // Listen for first frame rendered
                 addListener(object : androidx.media3.common.Player.Listener {
                     override fun onRenderedFirstFrame() {
-                        android.util.Log.d("BasicPlayer", "✅ First frame rendered - hiding poster")
+                        android.util.Log.d("Player", "[Rendering] First frame rendered - hiding poster")
                         firstFrameRendered = true
                     }
                 })
@@ -2163,30 +2174,44 @@ fun BasicVideoPlayer(
                 }
                 
                 if (hasStarted && !startTracked) {
+                    val event = creative.tracking?.videoEvents?.find { it.key == "start" }
+                    android.util.Log.d("Tracking", "[MANUAL] Firing 'start' event")
+                    event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
                     viewModel.fireVideoEvent(creative, "start")
                     startTracked = true
                 }
                 
                 // Fire quartile events
                 if (progress >= 0.25f && !firstQuartileTracked) {
-                    viewModel.fireVideoEvent(creative, "firstQuartile")
+                    val event = creative.tracking?.videoEvents?.find { it.key == "first_quartile" }
+                    android.util.Log.d("Tracking", "[MANUAL] Firing 'first_quartile' event at 25% progress")
+                    event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
+                    viewModel.fireVideoEvent(creative, "first_quartile")
                     firstQuartileTracked = true
                 }
                 
                 if (progress >= 0.5f && !midpointTracked) {
+                    val event = creative.tracking?.videoEvents?.find { it.key == "midpoint" }
+                    android.util.Log.d("Tracking", "[MANUAL] Firing 'midpoint' event at 50% progress")
+                    event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
                     viewModel.fireVideoEvent(creative, "midpoint")
                     midpointTracked = true
                 }
                 
                 if (progress >= 0.75f && !thirdQuartileTracked) {
-                    viewModel.fireVideoEvent(creative, "thirdQuartile")
+                    val event = creative.tracking?.videoEvents?.find { it.key == "third_quartile" }
+                    android.util.Log.d("Tracking", "[MANUAL] Firing 'third_quartile' event at 75% progress")
+                    event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
+                    viewModel.fireVideoEvent(creative, "third_quartile")
                     thirdQuartileTracked = true
                 }
                 
                 // Show overlay at specified percentage
                 if (progress >= videoConfig.overlayAtPercentage && !overlayShown) {
                     overlayShown = true
+                    android.util.Log.d("CustomUI", "[Companion Overlay] Displaying at ${(videoConfig.overlayAtPercentage * 100).toInt()}% progress")
                     if (!overlayTracked) {
+                        android.util.Log.d("Tracking", "[MANUAL] Firing 'overlayShown' custom event")
                         viewModel.fireCustomEvent(creative, "overlayShown")
                         overlayTracked = true
                     }
@@ -2196,6 +2221,9 @@ fun BasicVideoPlayer(
                 if (progress >= 0.98f && !hasCompleted) {
                     hasCompleted = true
                     if (!completeTracked) {
+                        val event = creative.tracking?.videoEvents?.find { it.key == "complete" }
+                        android.util.Log.d("Tracking", "[MANUAL] Firing 'complete' event at 98% progress")
+                        event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
                         viewModel.fireVideoEvent(creative, "complete")
                         completeTracked = true
                         onComplete()
@@ -2283,6 +2311,9 @@ fun BasicVideoPlayer(
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = {
+                                android.util.Log.d("UserInteraction", "[Companion CTA] User clicked CTA button: $cta")
+                                android.util.Log.d("Tracking", "[MANUAL] Firing 'companion_cta' custom event")
+                                android.util.Log.d("UserInteraction", "[Navigation] Opening URL: ${videoConfig.companionDestinationUrl}")
                                 viewModel.fireClick(creative, "cta")
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(videoConfig.companionDestinationUrl!!))
                                 context.startActivity(intent)
@@ -2318,6 +2349,19 @@ fun BasicVideoPlayer(
                 if (canSkip) {
                     Button(
                         onClick = {
+                            android.util.Log.d("UserInteraction", "[Skip Button] User clicked skip button")
+                            
+                            // CRITICAL: Set all tracking flags to true FIRST to prevent any future tracking
+                            // This stops midpoint/thirdQuartile/complete from firing after skip
+                            startTracked = true
+                            firstQuartileTracked = true
+                            midpointTracked = true
+                            thirdQuartileTracked = true
+                            completeTracked = true
+                            
+                            android.util.Log.d("Tracking", "[MANUAL] Firing 'skip' event")
+                            val skipEvent = creative.tracking?.videoEvents?.find { it.key == "skip" }
+                            skipEvent?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
                             viewModel.fireVideoEvent(creative, "skip")
                             exoPlayer.seekTo(exoPlayer.duration)
                         },
@@ -2451,31 +2495,9 @@ fun VastClientVideoPlayer(
     // Coroutine scope for firing tracking URLs
     val scope = rememberCoroutineScope()
     
-    android.util.Log.d("VastClient", "═══════════════════════════════════════")
-    android.util.Log.d("VastClient", "Player: Media3 ExoPlayer")
-    android.util.Log.d("VastClient", "✅ Manual VAST parsing with full control")
-    android.util.Log.d("VastClient", "Delivery: ${creative.delivery ?: "json"}")
-    android.util.Log.d("VastClient", "Companion: ${if (hasNativeEndCard) "Custom UI" else "None"}")
-    android.util.Log.d("VastClient", "UI Strategy: Always custom overlays (no IMA SDK)")
-    android.util.Log.d("VastClient", "")
-    when (creative.delivery) {
-        "vast_tag" -> {
-            android.util.Log.d("VastClient", "  VAST Tag: Fetch & parse remote XML")
-            android.util.Log.d("VastClient", "  → Extract MediaFile URLs manually")
-            android.util.Log.d("VastClient", "  → Extract tracking URLs manually")
-            android.util.Log.d("VastClient", "  → Fire tracking via SDK")
-        }
-        "vast_xml" -> {
-            android.util.Log.d("VastClient", "  VAST XML: Parse embedded XML")
-            android.util.Log.d("VastClient", "  → Extract MediaFile URLs manually")
-            android.util.Log.d("VastClient", "  → Extract tracking URLs manually")
-            android.util.Log.d("VastClient", "  → Fire tracking via SDK")
-        }
-        else -> {
-            android.util.Log.d("VastClient", "  JSON: Direct playback, manual tracking")
-        }
-    }
-    android.util.Log.d("VastClient", "═══════════════════════════════════════")
+    android.util.Log.d("Player", "[Setup] Media3 ExoPlayer (Manual VAST parsing mode)")
+    android.util.Log.d("Player", "[Delivery] ${creative.delivery ?: "json"}")
+    android.util.Log.d("Player", "[Configuration] Manual tracking, custom UI overlays")
     
     // For VAST XML, decode the Base64 XML
     var decodedVastXml by remember { mutableStateOf<String?>(null) }
@@ -2494,9 +2516,9 @@ fun VastClientVideoPlayer(
                 try {
                     val decoded = String(android.util.Base64.decode(base64Xml, android.util.Base64.DEFAULT))
                     decodedVastXml = decoded
-                    android.util.Log.d("VastClient", "✓ Decoded VAST XML (${decoded.length} chars)")
+                    android.util.Log.d("AdResponse", "[VAST XML] Decoded successfully (${decoded.length} characters)")
                 } catch (e: Exception) {
-                    android.util.Log.e("VastClient", "✗ Error decoding VAST XML: ${e.message}")
+                    android.util.Log.e("AdResponse", "[VAST XML] Decoding error: ${e.message}")
                     vastParseError = "Failed to decode VAST XML: ${e.message}"
                 }
             }
@@ -2507,13 +2529,13 @@ fun VastClientVideoPlayer(
     LaunchedEffect(creative.delivery, videoConfig.videoAssetUrl, decodedVastXml) {
         if (isVastDelivery) {
             try {
-                android.util.Log.d("VastClient", "→ Starting VAST parsing...")
+                android.util.Log.d("AdResponse", "[VAST] Starting VAST parsing")
                 
                 when (creative.delivery) {
                     "vast_tag" -> {
                         // For VAST Tag: Fetch XML from the tag URL, then parse it
                         val tagUrl = videoConfig.videoAssetUrl
-                        android.util.Log.d("VastClient", "→ Fetching VAST XML from: $tagUrl")
+                        android.util.Log.d("AdResponse", "[VAST Tag] Fetching XML from: $tagUrl")
                         
                         withContext(Dispatchers.IO) {
                             try {
@@ -2526,7 +2548,7 @@ fun VastClientVideoPlayer(
                                 val responseCode = connection.responseCode
                                 if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
                                     val xmlContent = connection.inputStream.bufferedReader().use { it.readText() }
-                                    android.util.Log.d("VastClient", "✓ Fetched VAST XML (${xmlContent.length} chars)")
+                                    android.util.Log.d("AdResponse", "[VAST Tag] Fetched XML successfully (${xmlContent.length} characters)")
                                     
                                     // Use XmlPullParser to parse VAST XML (proper Android XML parsing)
                                     val parsedData = parseVastXml(xmlContent)
@@ -2536,18 +2558,18 @@ fun VastClientVideoPlayer(
                                     vastSkipOffset = parsedData.skipOffset
                                     vastIsSkippable = parsedData.isSkippable
                                     
-                                    android.util.Log.d("VastClient", "✓ Parsed VAST: video=${parsedData.mediaFileUrl}, skip=${parsedData.isSkippable}, offset=${parsedData.skipOffset}")
+                                    android.util.Log.d("AdResponse", "[VAST Tag] Parsed: video=${parsedData.mediaFileUrl}, skip=${parsedData.isSkippable}, offset=${parsedData.skipOffset}s")
                                     
                                     if (parsedData.mediaFileUrl == null) {
-                                        android.util.Log.e("VastClient", "✗ Could not find MediaFile in VAST XML")
+                                        android.util.Log.e("AdResponse", "[VAST Tag] No MediaFile found in VAST XML")
                                         vastParseError = "No MediaFile found in VAST XML"
                                     }
                                 } else {
-                                    android.util.Log.e("VastClient", "✗ HTTP error fetching VAST: $responseCode")
+                                    android.util.Log.e("AdResponse", "[VAST Tag] HTTP error: $responseCode")
                                     vastParseError = "HTTP error $responseCode fetching VAST XML"
                                 }
                             } catch (e: Exception) {
-                                android.util.Log.e("VastClient", "✗ Error fetching VAST: ${e.message}", e)
+                                android.util.Log.e("AdResponse", "[VAST Tag] Fetch error: ${e.message}", e)
                                 vastParseError = "Error fetching VAST XML: ${e.message}"
                             }
                         }
@@ -2555,7 +2577,7 @@ fun VastClientVideoPlayer(
                     "vast_xml" -> {
                         val xmlContent = decodedVastXml
                         if (xmlContent != null) {
-                            android.util.Log.d("VastClient", "→ Parsing embedded VAST XML")
+                            android.util.Log.d("AdResponse", "[VAST XML] Parsing embedded XML")
                             
                             // Use XmlPullParser to parse VAST XML (proper Android XML parsing)
                             val parsedData = parseVastXml(xmlContent)
@@ -2565,10 +2587,10 @@ fun VastClientVideoPlayer(
                             vastSkipOffset = parsedData.skipOffset
                             vastIsSkippable = parsedData.isSkippable
                             
-                            android.util.Log.d("VastClient", "✓ Parsed VAST: video=${parsedData.mediaFileUrl}, skip=${parsedData.isSkippable}, offset=${parsedData.skipOffset}")
+                            android.util.Log.d("AdResponse", "[VAST XML] Parsed: video=${parsedData.mediaFileUrl}, skip=${parsedData.isSkippable}, offset=${parsedData.skipOffset}s")
                             
                             if (parsedData.mediaFileUrl == null) {
-                                android.util.Log.e("VastClient", "✗ Could not find MediaFile in VAST XML")
+                                android.util.Log.e("AdResponse", "[VAST XML] No MediaFile found in VAST XML")
                                 vastParseError = "No MediaFile found in VAST XML"
                             }
                         }
@@ -2576,7 +2598,7 @@ fun VastClientVideoPlayer(
                 }
                 
             } catch (e: Exception) {
-                android.util.Log.e("VastClient", "✗ VAST parsing error: ${e.message}", e)
+                android.util.Log.e("AdResponse", "[VAST] Parsing error: ${e.message}", e)
                 vastParseError = "VAST parsing failed: ${e.message}"
             }
         }
@@ -2616,7 +2638,7 @@ fun VastClientVideoPlayer(
                 playWhenReady = true
             }
             
-            android.util.Log.d("VastClient", "✓ Video loaded and playing")
+            android.util.Log.d("Player", "[Setup] Video loaded and playing")
         }
     }
     
@@ -2652,7 +2674,8 @@ fun VastClientVideoPlayer(
                         isVastDelivery -> {
                             // Fire VAST tracking URLs manually via HTTP GET
                             vastTrackingUrls["start"]?.forEach { trackingUrl ->
-                                android.util.Log.d("VastClient", "🔥 Firing VAST tracking: start -> $trackingUrl")
+                                android.util.Log.d("Tracking", "[MANUAL] Firing VAST 'start' tracking")
+                                android.util.Log.d("Tracking", "[URL] $trackingUrl")
                                 scope.launch(Dispatchers.IO) {
                                     try {
                                         val url = java.net.URL(trackingUrl)
@@ -2661,16 +2684,16 @@ fun VastClientVideoPlayer(
                                         connection.connectTimeout = 3000
                                         connection.readTimeout = 3000
                                         val responseCode = connection.responseCode
-                                        android.util.Log.d("VastClient", "✓ Tracking fired: $responseCode")
+                                        android.util.Log.d("Tracking", "[Response] HTTP $responseCode")
                                     } catch (e: Exception) {
-                                        android.util.Log.e("VastClient", "✗ Tracking failed: ${e.message}")
+                                        android.util.Log.e("Tracking", "[Error] Failed to fire tracking: ${e.message}")
                                     }
                                 }
                             }
                         }
                         isJsonDelivery -> {
                             viewModel.fireVideoEvent(creative, "start")
-                            android.util.Log.d("VastClient", "🔥 Fired JSON tracking: start")
+                            android.util.Log.d("Tracking", "[MANUAL] Firing JSON 'start' tracking")
                         }
                     }
                     startTracked = true
@@ -2680,7 +2703,8 @@ fun VastClientVideoPlayer(
                     when {
                         isVastDelivery -> {
                             vastTrackingUrls["firstQuartile"]?.forEach { trackingUrl ->
-                                android.util.Log.d("VastClient", "🔥 Firing VAST tracking: firstQuartile -> $trackingUrl")
+                                android.util.Log.d("Tracking", "[MANUAL] Firing VAST 'firstQuartile' tracking beacon at 25% progress")
+                                android.util.Log.d("Tracking", "[URL] $trackingUrl")
                                 scope.launch(Dispatchers.IO) {
                                     try {
                                         val url = java.net.URL(trackingUrl)
@@ -2688,17 +2712,19 @@ fun VastClientVideoPlayer(
                                             requestMethod = "GET"
                                             connectTimeout = 3000
                                             readTimeout = 3000
-                                            android.util.Log.d("VastClient", "✓ Tracking fired: $responseCode")
+                                            android.util.Log.d("Tracking", "[Response] HTTP $responseCode")
                                         }
                                     } catch (e: Exception) {
-                                        android.util.Log.e("VastClient", "✗ Tracking failed: ${e.message}")
+                                        android.util.Log.e("Tracking", "[Error] Failed to fire tracking: ${e.message}")
                                     }
                                 }
                             }
                         }
                         isJsonDelivery -> {
-                            viewModel.fireVideoEvent(creative, "firstQuartile")
-                            android.util.Log.d("VastClient", "🔥 Fired JSON tracking: firstQuartile")
+                            val event = creative.tracking?.videoEvents?.find { it.key == "first_quartile" }
+                            android.util.Log.d("Tracking", "[MANUAL] Firing JSON 'first_quartile' tracking at 25% progress")
+                            event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
+                            viewModel.fireVideoEvent(creative, "first_quartile")
                         }
                     }
                     firstQuartileTracked = true
@@ -2708,7 +2734,8 @@ fun VastClientVideoPlayer(
                     when {
                         isVastDelivery -> {
                             vastTrackingUrls["midpoint"]?.forEach { trackingUrl ->
-                                android.util.Log.d("VastClient", "🔥 Firing VAST tracking: midpoint -> $trackingUrl")
+                                android.util.Log.d("Tracking", "[MANUAL] Firing VAST 'midpoint' tracking beacon at 50% progress")
+                                android.util.Log.d("Tracking", "[URL] $trackingUrl")
                                 scope.launch(Dispatchers.IO) {
                                     try {
                                         val url = java.net.URL(trackingUrl)
@@ -2716,17 +2743,17 @@ fun VastClientVideoPlayer(
                                             requestMethod = "GET"
                                             connectTimeout = 3000
                                             readTimeout = 3000
-                                            android.util.Log.d("VastClient", "✓ Tracking fired: $responseCode")
+                                            android.util.Log.d("Tracking", "[Response] HTTP $responseCode")
                                         }
                                     } catch (e: Exception) {
-                                        android.util.Log.e("VastClient", "✗ Tracking failed: ${e.message}")
+                                        android.util.Log.e("Tracking", "[Error] Failed to fire tracking: ${e.message}")
                                     }
                                 }
                             }
                         }
                         isJsonDelivery -> {
                             viewModel.fireVideoEvent(creative, "midpoint")
-                            android.util.Log.d("VastClient", "🔥 Fired JSON tracking: midpoint")
+                            android.util.Log.d("Tracking", "[MANUAL] Firing JSON 'midpoint' tracking")
                         }
                     }
                     midpointTracked = true
@@ -2736,7 +2763,8 @@ fun VastClientVideoPlayer(
                     when {
                         isVastDelivery -> {
                             vastTrackingUrls["thirdQuartile"]?.forEach { trackingUrl ->
-                                android.util.Log.d("VastClient", "🔥 Firing VAST tracking: thirdQuartile -> $trackingUrl")
+                                android.util.Log.d("Tracking", "[MANUAL] Firing VAST 'thirdQuartile' tracking beacon at 75% progress")
+                                android.util.Log.d("Tracking", "[URL] $trackingUrl")
                                 scope.launch(Dispatchers.IO) {
                                     try {
                                         val url = java.net.URL(trackingUrl)
@@ -2744,17 +2772,19 @@ fun VastClientVideoPlayer(
                                             requestMethod = "GET"
                                             connectTimeout = 3000
                                             readTimeout = 3000
-                                            android.util.Log.d("VastClient", "✓ Tracking fired: $responseCode")
+                                            android.util.Log.d("Tracking", "[Response] HTTP $responseCode")
                                         }
                                     } catch (e: Exception) {
-                                        android.util.Log.e("VastClient", "✗ Tracking failed: ${e.message}")
+                                        android.util.Log.e("Tracking", "[Error] Failed to fire tracking: ${e.message}")
                                     }
                                 }
                             }
                         }
                         isJsonDelivery -> {
-                            viewModel.fireVideoEvent(creative, "thirdQuartile")
-                            android.util.Log.d("VastClient", "🔥 Fired JSON tracking: thirdQuartile")
+                            val event = creative.tracking?.videoEvents?.find { it.key == "third_quartile" }
+                            android.util.Log.d("Tracking", "[MANUAL] Firing JSON 'third_quartile' tracking at 75% progress")
+                            event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
+                            viewModel.fireVideoEvent(creative, "third_quartile")
                         }
                     }
                     thirdQuartileTracked = true
@@ -2764,7 +2794,8 @@ fun VastClientVideoPlayer(
                     when {
                         isVastDelivery -> {
                             vastTrackingUrls["complete"]?.forEach { trackingUrl ->
-                                android.util.Log.d("VastClient", "🔥 Firing VAST tracking: complete -> $trackingUrl")
+                                android.util.Log.d("Tracking", "[MANUAL] Firing VAST 'complete' tracking beacon at 100% progress")
+                                android.util.Log.d("Tracking", "[URL] $trackingUrl")
                                 scope.launch(Dispatchers.IO) {
                                     try {
                                         val url = java.net.URL(trackingUrl)
@@ -2772,17 +2803,17 @@ fun VastClientVideoPlayer(
                                             requestMethod = "GET"
                                             connectTimeout = 3000
                                             readTimeout = 3000
-                                            android.util.Log.d("VastClient", "✓ Tracking fired: $responseCode")
+                                            android.util.Log.d("Tracking", "[Response] HTTP $responseCode")
                                         }
                                     } catch (e: Exception) {
-                                        android.util.Log.e("VastClient", "✗ Tracking failed: ${e.message}")
+                                        android.util.Log.e("Tracking", "[Error] Failed to fire tracking: ${e.message}")
                                     }
                                 }
                             }
                         }
                         isJsonDelivery -> {
                             viewModel.fireVideoEvent(creative, "complete")
-                            android.util.Log.d("VastClient", "🔥 Fired JSON tracking: complete")
+                            android.util.Log.d("Tracking", "[MANUAL] Firing JSON 'complete' tracking")
                         }
                     }
                     completeTracked = true
@@ -2813,7 +2844,7 @@ fun VastClientVideoPlayer(
     LaunchedEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onRenderedFirstFrame() {
-                android.util.Log.d("VastClient", "✅ First frame rendered - hiding poster")
+                android.util.Log.d("Player", "[Rendering] First frame rendered - hiding poster")
                 firstFrameRendered = true
             }
         }
@@ -2868,14 +2899,15 @@ fun VastClientVideoPlayer(
         if (isSkippable && !hasCompleted) {
             val canSkip = currentPosition >= skipOffsetSeconds
             
-            // Debug logging every time position or offset changes
-            LaunchedEffect(currentPosition, skipOffsetSeconds) {
-                val source = if (isVastDelivery) "VAST XML" else "JSON"
-                android.util.Log.d("VastClient", "Skip ($source): isSkippable=$isSkippable, pos=$currentPosition, offset=$skipOffsetSeconds, canSkip=$canSkip")
+            // Log only when skip becomes available (state change)
+            LaunchedEffect(canSkip) {
+                if (canSkip) {
+                    val source = if (isVastDelivery) "VAST XML" else "JSON"
+                    android.util.Log.d("CustomUI", "[Skip Button] Skip button now available ($source delivery)")
+                }
             }
             
             if (canSkip) {
-                android.util.Log.d("VastClient", "⭐ RENDERING SKIP BUTTON")
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -2888,16 +2920,26 @@ fun VastClientVideoPlayer(
                         modifier = Modifier
                             .clickable {
                                 // Fire skip tracking event
-                                android.util.Log.d("VastClient", "Skip button clicked")
+                                android.util.Log.d("UserInteraction", "[Skip Button] User clicked skip button")
+                                
+                                // CRITICAL: Set all tracking flags to true FIRST to prevent any future tracking
+                                // This stops midpoint/thirdQuartile/complete from firing after skip
+                                startTracked = true
+                                firstQuartileTracked = true
+                                midpointTracked = true
+                                thirdQuartileTracked = true
+                                completeTracked = true
+                                
                                 when {
                                     isJsonDelivery -> {
+                                        android.util.Log.d("Tracking", "[MANUAL] Firing JSON 'skip' event")
                                         viewModel.fireVideoEvent(creative, "skip")
-                                        android.util.Log.d("VastClient", "🔥 Fired skip event (JSON)")
                                     }
                                     isVastDelivery -> {
                                         // For VAST XML, fire skip tracking URL via HTTP GET
                                         vastTrackingUrls["skip"]?.forEach { trackingUrl ->
-                                            android.util.Log.d("VastClient", "🔥 Firing VAST skip tracking: $trackingUrl")
+                                            android.util.Log.d("Tracking", "[MANUAL] Firing VAST 'skip' tracking")
+                                            android.util.Log.d("Tracking", "[URL] $trackingUrl")
                                             scope.launch(Dispatchers.IO) {
                                                 try {
                                                     val url = java.net.URL(trackingUrl)
@@ -2905,10 +2947,10 @@ fun VastClientVideoPlayer(
                                                         requestMethod = "GET"
                                                         connectTimeout = 3000
                                                         readTimeout = 3000
-                                                        android.util.Log.d("VastClient", "✓ Skip tracking fired: $responseCode")
+                                                        android.util.Log.d("Tracking", "[Response] HTTP $responseCode")
                                                     }
                                                 } catch (e: Exception) {
-                                                    android.util.Log.e("VastClient", "✗ Skip tracking failed: ${e.message}")
+                                                    android.util.Log.e("Tracking", "[Error] Failed to fire skip tracking: ${e.message}")
                                                 }
                                             }
                                         }

@@ -66,8 +66,8 @@ private suspend fun fetchMockVideoData(scenario: String): Result<String> = withC
         val url = URL("https://10.0.2.2:8080/endpoint?scenario=$scenario")
         val connection = url.openConnection() as HttpURLConnection
         connection.requestMethod = "GET"
-        connection.connectTimeout = 5000
-        connection.readTimeout = 10000
+        connection.connectTimeout = 15000  // Increased from 5s to 15s
+        connection.readTimeout = 30000     // Increased from 10s to 30s
         
         val responseCode = connection.responseCode
         if (responseCode == HttpURLConnection.HTTP_OK) {
@@ -255,8 +255,8 @@ fun VideoAdDemoScreen(
             },
             title = { 
                 Text(
-                    if (mockDataResult?.isSuccess == true) "✅ Mock Data Fetched" 
-                    else "❌ Error Fetching Data"
+                    if (mockDataResult?.isSuccess == true) "Mock Data Fetched" 
+                    else "Error Fetching Data"
                 ) 
             },
             text = {
