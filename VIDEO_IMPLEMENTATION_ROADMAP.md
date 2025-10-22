@@ -37,6 +37,11 @@ Video Demo ready. See `VIDEO_CONCEPTS.md` for canonical reference.
 - Hardcoded for dev (🔄 future: from ad response)
 
 **Recent Fixes** (Oct 2025):
+- ✅ **Content Key Naming**: Changed from camelCase to snake_case (`video_asset`, `poster_image`, `is_skippable`, `skip_offset`, `companion_headline`, `companion_cta`, `companion_destination_url`, `overlay_at_percentage`)
+- ✅ **Tracking Event Naming**: Changed to snake_case (`start`,`first_quartile`, `midpoint`,`third_quartile`,`complete`)
+- ✅ **Skip Button Tracking Bug**: Fixed phantom quartile events after skip by setting all tracking flags before seeking (all 3 players)
+- ✅ **Logging Standards**: Removed all emojis, made logs professional with structured tags `[MANUAL]`, `[AUTOMATIC]`, `[URL]`, `[Response]`
+- ✅ **Repetitive Logs**: Fixed skip button logging every frame, now logs only on state change
 - ✅ Removed theme toggle circles overlaying nav buttons (home, vehicleSelection, waiting)
 - ✅ Fixed Vehicle Selection padding (82dp → 120dp)
 - ✅ Fixed `wideImageOnly` template rendering (now uses `HorizontalAdCard`)

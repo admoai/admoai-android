@@ -67,7 +67,7 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 **Video Ad Demo**:
 - Poster shows before play  
 - Skip button at offset (custom UI overlay)  
-- End-card at `overlayAtPercentage` or completion  
+- End-card at `overlay_at_percentage` or completion  
 - Quartiles: 0/25/50/75/98%  
 - IMA "Ad" badge for VAST Tag (validates IMA integration)
 
@@ -77,7 +77,7 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 - **Free Minutes Only**: NO refresh button (use prize boxes instead)
 
 **Template Rendering**:
-- **imageWithText**: Check if `imageLeft` or `imageRight` style applied correctly
+- **imageWithText**: Check if `image_left` or `image_right` style applied correctly
 - **wideImageOnly**: Should use `HorizontalAdCard`, not `SearchAdCard`
 - **carousel3Slides**: Auto-advances every 3 seconds, manual swipe works
 
@@ -96,15 +96,19 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 
 **Vehicle Selection**:
 - Ad cards should not overlap with nav bar (120dp top padding)
-- Both `imageWithText` and `wideImageOnly` templates render correctly
+- Both `image_with_text` and `wide_image_only` templates render correctly
 - No theme toggle circles overlaying buttons
 
 ## Response Validation
 
-**JSON**: `vast: null`, `videoAsset` present, tracking populated  
-**VAST Tag**: `vast.tagUrl` present, NO videoAsset, tracking empty  
-**VAST XML**: `vast.xmlBase64` present, NO videoAsset, tracking empty  
-**All**: `posterImage` always present
+**⚠️ Content Keys**: All use **snake_case** (Oct 2025): `video_asset`, `poster_image`, `is_skippable`, `skip_offset`, `companion_headline`, `companion_cta`, `companion_destination_url`, `overlay_at_percentage`.
+
+**JSON**: `vast: null`, `video_asset` present, tracking populated  
+**VAST Tag**: `vast.tagUrl` present, NO video_asset, tracking empty  
+**VAST XML**: `vast.xmlBase64` present, NO video_asset, tracking empty  
+**All**: `poster_image` always present
+
+**Tracking Events**: Use snake_case: `start`, `first_quartile`, `midpoint`, `third_quartile`, `complete` (not camelCase).
 
 ## Success Criteria
 
@@ -125,9 +129,12 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 - No navigation button overlay issues
 
 **Logging**:
+- **Standards** (Oct 2025): Professional, emoji-free, structured tags: `[MANUAL]`, `[AUTOMATIC]`, `[URL]`, `[Response]`
 - Check Logcat for carousel URL extraction: `"URLSlide1"` (uppercase)
 - Verify click handlers: `"onSlideClick called with URL: ..."`
 - Track impression events firing correctly
+- **Skip Button**: Only one log when skip becomes available, no frame-by-frame repetition
+- **Skip Tracking**: After skip click, NO phantom midpoint/thirdQuartile/complete events should fire
 
 ## Common Issues & Debugging
 
@@ -146,6 +153,10 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 **Issue**: Timeout errors  
 **Check**: Network timeout in `SDKConfig.kt` (should be 30000ms)  
 **Fix**: Increase timeout or fix mock server
+
+**Issue**: Phantom tracking after skip  
+**Check**: After skip button click, verify only skip event fires (no midpoint/thirdQuartile/complete)  
+**Fix**: Set all tracking flags to `true` before seeking to end (see `VIDEO_CONCEPTS.md` section 6)
 
 **Issue**: Card clicks not working  
 **Check**: Using `Card(onClick = ...)` not `.clickable()` modifier  

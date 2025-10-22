@@ -41,20 +41,24 @@ Hybrid: VAST video + native end‑card overlay is allowed.
 
 ## 4) Content Keys
 
+**⚠️ Naming Convention**: All content keys use **snake_case** (Oct 2025 update).
+
 Canonical (non‑editable):
-- `posterImage` – Always present.
-- `videoAsset` – Direct video URL (JSON only).
-- `isSkippable` / `skipOffset` – Skip button configuration.
+- `poster_image` – Always present.
+- `video_asset` – Direct video URL (JSON only).
+- `is_skippable` / `skip_offset` – Skip button configuration.
 
 Skippable rules:
-- If `isSkippable: true` then skip tracking must exist.
+- If `is_skippable: true` then skip tracking must exist.
   - JSON: include `{ key: "skip", url: "..." }` in `tracking.videoEvents[]`.
   - VAST: include `<Tracking event="skip">` and `skipoffset` on `<Linear>`.
 
 User‑defined (editable convention):
-- `companionHeadline`, `companionCta`, `companionDestinationUrl` – Native end‑card content.
-- `overlayAtPercentage` – When to show overlay (0.0–1.0).
-- `showClose` – Close button visibility.
+- `companion_headline`, `companion_cta`, `companion_destination_url` – Native end‑card content.
+- `overlay_at_percentage` – When to show overlay (0.0–1.0).
+- `show_close` – Close button visibility.
+
+**Legacy**: Previous versions used camelCase (`posterImage`, `videoAsset`, etc.). Mock server changed to snake_case for consistency.
 
 ---
 
@@ -86,7 +90,10 @@ User‑defined (editable convention):
 | **Media3** | SDK | HTTP | HTTP | SDK |
 
 **Quartiles**: 0%, 25%, 50%, 75%, 98% (not 100% to avoid race conditions).
+**Event Names**: Use snake_case: `first_quartile`, `third_quartile` (not camelCase).
 **Custom events** (overlay/CTA/close): Always manual.
+
+**⚠️ Skip Tracking Bug Fix** (Oct 2025): When skip button is clicked, all tracking flags must be set to `true` BEFORE seeking to end, preventing phantom midpoint/thirdQuartile/complete events. Applied to all 3 players.
 
 ---
 
@@ -99,10 +106,12 @@ User‑defined (editable convention):
 
 ## 8) Practical Rules of Thumb
 - Always check `delivery` first; it dictates parsing and tracking strategy.
-- `posterImage` is universal.
+- `poster_image` is universal (snake_case).
 - Do not mix manual tracking into an IMA‑handled VAST flow (except custom UI events).
-- JSON + any player: play `videoAsset`, do manual tracking, optionally draw a native end‑card.
+- JSON + any player: play `video_asset`, do manual tracking, optionally draw a native end‑card.
 - VAST + IMA players: pass `adTagUrl` or `adsResponse` (pure IMA), let IMA handle tracking.
+
+**Logging Standards** (Oct 2025): All logs are professional, emoji-free, structured with tags like `[MANUAL]`, `[AUTOMATIC]`, `[URL]`, `[Response]`. No repetitive logs in tracking loops.
 
 ---
 

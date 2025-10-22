@@ -35,7 +35,7 @@ Video Ad Demo in Admoai Android Sample App. The video IS the ad (not pre-roll).
 **File**: `/sample/src/main/java/com/admoai/sample/ui/screens/VideoPreviewScreen.kt`
 
 **Flow**:
-1. Parse creative data (`parseVideoData`)
+1. Parse creative data (`parseVideoData`) - **Uses snake_case keys** (Oct 2025): `video_asset`, `poster_image`, `is_skippable`, `skip_offset`, `companion_headline`, `companion_cta`, `companion_destination_url`, `overlay_at_percentage`
 2. Show "Implementation Details" card (context-aware per player/delivery/options)
 3. Render player based on selection
 4. Custom overlays for skip/companions (all scenarios)
@@ -98,6 +98,9 @@ See `VIDEO_CONCEPTS.md` section 6.
 **All**: Custom events (overlay/CTA/close) always manual
 
 **Quartiles**: 0%, 25%, 50%, 75%, 98%
+**Event Names**: snake_case (`start`,`first_quartile`, `midpoint`,`third_quartile`,`complete`)
+
+**⚠️ Skip Button Fix** (Oct 2025): All 3 players (`ExoPlayerImaVideoPlayer`, `BasicVideoPlayer`, `VastClientVideoPlayer`) set tracking flags to `true` before seeking on skip click, preventing phantom quartile events.
 
 ---
 
@@ -226,7 +229,8 @@ PromotionsCarouselCard → promotions, waiting
 ```
 
 **Critical Content Keys**:
-- `posterImage` (HorizontalAdCard) vs `squareImage` (SearchAdCard)
+- **snake_case** (Oct 2025): `poster_image`, `video_asset`, `is_skippable`, `skip_offset`, `companion_headline`, `companion_cta`, `companion_destination_url`, `overlay_at_percentage`
+- `poster_image` (HorizontalAdCard) vs `squareImage` (SearchAdCard)
 - `URLSlide1/2/3` (uppercase) for carousel URLs
 - `clickThroughURL` for standard ad URLs
 

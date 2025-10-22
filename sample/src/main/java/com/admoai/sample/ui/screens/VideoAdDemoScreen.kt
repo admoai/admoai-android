@@ -58,16 +58,39 @@ private fun getLocalMockScenario(delivery: String, endCard: String, skippable: B
 }
 
 /**
- * Fetches mock video data from localhost server
+ * Fetches mock video data from localhost decision-engine
  * Note: Using 10.0.2.2 for Android emulator (maps to host machine's localhost)
  */
 private suspend fun fetchMockVideoData(scenario: String): Result<String> = withContext(Dispatchers.IO) {
     try {
-        val url = URL("https://10.0.2.2:8080/endpoint?scenario=$scenario")
+        val url = URL("https://10.0.2.2:8080/v1/decision")
         val connection = url.openConnection() as HttpURLConnection
-        connection.requestMethod = "GET"
+        connection.requestMethod = "POST"
         connection.connectTimeout = 15000  // Increased from 5s to 15s
         connection.readTimeout = 30000     // Increased from 10s to 30s
+        
+        // Set required headers
+        connection.setRequestProperty("Accept-Language", "en")
+        connection.setRequestProperty("Content-Type", "application/json")
+        connection.setRequestProperty("X-Decision-Version", "v2025-11-01")
+        connection.doOutput = true
+        
+        // Build request body with scenario as placement key
+        val requestBody = """
+            {
+                "placements": [
+                    {
+                        "key": "$scenario",
+                        "format": "video"
+                    }
+                ]
+            }
+        """.trimIndent()
+        
+        // Write request body
+        connection.outputStream.use { outputStream ->
+            outputStream.write(requestBody.toByteArray(Charsets.UTF_8))
+        }
         
         val responseCode = connection.responseCode
         if (responseCode == HttpURLConnection.HTTP_OK) {
@@ -239,7 +262,7 @@ fun VideoAdDemoScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                    Text("Fetching from localhost:8080...")
+                    Text("Fetching from decision-engine...")
                 }
             },
             confirmButton = {}
@@ -264,7 +287,8 @@ fun VideoAdDemoScreen(
                     modifier = Modifier.verticalScroll(rememberScrollState())
                 ) {
                     Text("Scenario: $currentScenario")
-                    Text("Endpoint: https://10.0.2.2:8080/endpoint?scenario=$currentScenario")
+                    Text("Endpoint: POST https://10.0.2.2:8080/v1/decision")
+                    Text("Placement Key: $currentScenario")
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
@@ -299,7 +323,7 @@ fun VideoAdDemoScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "💡 Make sure the mock server is running on localhost:8080",
+                                text = "Make sure the decision-engine is running on localhost:8080",
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
