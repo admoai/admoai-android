@@ -1161,19 +1161,34 @@ suspend fun fireVastTrackingBeacons(urls: List<String>) = kotlinx.coroutines.wit
 }
 
 /**
+ * Rewrite localhost URLs to 10.0.2.2 for Android emulator
+ * Android emulator uses 10.0.2.2 to access host machine's localhost
+ */
+fun rewriteLocalhostUrl(url: String?): String? {
+    if (url == null) return null
+    
+    return url
+        .replace("http://localhost:", "http://10.0.2.2:")
+        .replace("https://localhost:", "https://10.0.2.2:")
+        .replace("http://127.0.0.1:", "http://10.0.2.2:")
+        .replace("https://127.0.0.1:", "https://10.0.2.2:")
+}
+
+/**
  * Parse video data from creative contents
  */
 fun parseVideoData(creative: Creative): VideoPlayerConfig {
     val contents = creative.contents.associate { it.key to it.value }
     
     // Extract video URL - handle different delivery methods
+    // Rewrite localhost URLs to 10.0.2.2 for Android emulator compatibility
     val videoAssetUrl = when (creative.delivery) {
-        "vast_tag" -> creative.vast?.tagUrl // VAST tag URL (IMA will fetch and parse)
+        "vast_tag" -> rewriteLocalhostUrl(creative.vast?.tagUrl) // VAST tag URL (IMA will fetch and parse)
         "vast_xml" -> "vast_xml_placeholder" // Placeholder - actual XML is in vast.xmlBase64
         else -> contents["video_asset"]?.let { // JSON delivery - video asset URL
             (it as? JsonPrimitive)?.contentOrNull
         }
-    } ?: creative.vast?.tagUrl // Fallback: try VAST tagUrl even if delivery says JSON
+    } ?: rewriteLocalhostUrl(creative.vast?.tagUrl) // Fallback: try VAST tagUrl even if delivery says JSON
     
     // Extract poster image
     val posterImageUrl = contents["poster_image"]?.let {
@@ -1219,25 +1234,25 @@ fun parseVideoData(creative: Creative): VideoPlayerConfig {
     android.util.Log.d("AdResponse", "[Skip Configuration] Skippable: $isSkippable, Skip Offset: ${skipOffsetSeconds}s")
     
     // Extract overlay settings
-    val overlayAtPercentage = contents["overlay_at_percentage"]?.let {
+    val overlayAtPercentage = contents["overlayAtPercentage"]?.let {
         (it as? JsonPrimitive)?.contentOrNull?.toFloatOrNull()
     } ?: 0.5f
-    android.util.Log.d("AdResponse", "[Companion Configuration] overlay_at_percentage: ${(overlayAtPercentage * 100).toInt()}%")
+    android.util.Log.d("AdResponse", "[Companion Configuration] overlayAtPercentage: ${(overlayAtPercentage * 100).toInt()}%")
     
     val showClose = contents["showClose"]?.let {
         (it as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
     } == 1
     
     // Extract companion/overlay data
-    val companionHeadline = contents["companion_headline"]?.let {
+    val companionHeadline = contents["companionHeadline"]?.let {
         (it as? JsonPrimitive)?.contentOrNull
     }
     
-    val companionCta = contents["companion_cta"]?.let {
+    val companionCta = contents["companionCta"]?.let {
         (it as? JsonPrimitive)?.contentOrNull
     }
     
-    val companionDestinationUrl = contents["companion_destination_url"]?.let {
+    val companionDestinationUrl = contents["companionDestinationUrl"]?.let {
         (it as? JsonPrimitive)?.contentOrNull
     }
     
@@ -1340,7 +1355,7 @@ fun ExoPlayerImaVideoPlayer(
             }
             "vast_tag" -> {
                 // For VAST Tag, fetch and parse the XML to extract skip info
-                val tagUrl = videoConfig.videoAssetUrl
+                val tagUrl = rewriteLocalhostUrl(videoConfig.videoAssetUrl)
                 if (tagUrl != null) {
                     android.util.Log.d("AdResponse", "[VAST Tag] Fetching XML to parse skip configuration: $tagUrl")
                     withContext(Dispatchers.IO) {
@@ -1535,14 +1550,19 @@ fun ExoPlayerImaVideoPlayer(
             when (creative.delivery) {
                 "vast_tag" -> {
                     // VAST Tag: Pass tag URL to IMA SDK (IMA will fetch XML and handle everything)
+                    // Rewrite localhost to 10.0.2.2 for Android emulator
+                    val rewrittenUrl = rewriteLocalhostUrl(url) ?: url
                     android.util.Log.d("Player", "[Delivery Method] VAST Tag - URL will be passed to IMA SDK")
-                    android.util.Log.d("Player", "[Configuration] Tag URL: $url")
+                    android.util.Log.d("Player", "[Configuration] Original Tag URL: $url")
+                    if (rewrittenUrl != url) {
+                        android.util.Log.d("Player", "[Configuration] Rewritten Tag URL: $rewrittenUrl (localhost → 10.0.2.2)")
+                    }
                     android.util.Log.d("Player", "[Configuration] IMA SDK will handle: XML fetch, parsing, media selection, automatic tracking")
                     
                     mediaItemBuilder
                         .setUri(Uri.parse(contentVideoUri))
                         .setAdsConfiguration(
-                            MediaItem.AdsConfiguration.Builder(Uri.parse(url)).build()
+                            MediaItem.AdsConfiguration.Builder(Uri.parse(rewrittenUrl)).build()
                         )
                 }
                 "vast_xml" -> {

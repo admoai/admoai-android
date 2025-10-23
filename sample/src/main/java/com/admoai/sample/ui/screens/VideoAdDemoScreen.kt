@@ -39,20 +39,26 @@ import com.admoai.sdk.model.response.DecisionResponse
  */
 private fun getLocalMockScenario(delivery: String, endCard: String, skippable: Boolean): String? {
     return when {
+        // JSON delivery combinations (4 total)
         delivery == "json" && endCard == "none" && !skippable -> "json_none"
         delivery == "json" && endCard == "none" && skippable -> "json_none_skippable"
-        delivery == "json" && endCard == "native_endcard" && !skippable -> "json_native-end-card"
-        delivery == "json" && endCard == "native_endcard" && skippable -> "json_native-end-card_skippable"
+        delivery == "json" && endCard == "native_endcard" && !skippable -> "json_native_endcard"
+        delivery == "json" && endCard == "native_endcard" && skippable -> "json_native_endcard_skippable"
+        
+        // VAST Tag delivery combinations (4 total - VAST Companion not supported for VAST Tag)
         delivery == "vast_tag" && endCard == "none" && !skippable -> "vasttag_none"
         delivery == "vast_tag" && endCard == "none" && skippable -> "vasttag_none_skippable"
-        delivery == "vast_tag" && endCard == "native_endcard" && !skippable -> "vasttag_native-end-card"
-        delivery == "vast_tag" && endCard == "native_endcard" && skippable -> "vasttag_native-end-card_skippable"
-        delivery == "vast_tag" && endCard == "vast_companion" && !skippable -> "vasttag_vast-companion"
+        delivery == "vast_tag" && endCard == "native_endcard" && !skippable -> "vasttag_native_endcard"
+        delivery == "vast_tag" && endCard == "native_endcard" && skippable -> "vasttag_native_endcard_skippable"
+        
+        // VAST XML delivery combinations (5 total)
         delivery == "vast_xml" && endCard == "none" && !skippable -> "vastxml_none"
         delivery == "vast_xml" && endCard == "none" && skippable -> "vastxml_none_skippable"
-        delivery == "vast_xml" && endCard == "native_endcard" && !skippable -> "vastxml_native-end-card"
-        delivery == "vast_xml" && endCard == "native_endcard" && skippable -> "vastxml_native-end-card_skippable"
-        delivery == "vast_xml" && endCard == "vast_companion" && !skippable -> "vastxml_vast-companion"
+        delivery == "vast_xml" && endCard == "native_endcard" && !skippable -> "vastxml_native_endcard"
+        delivery == "vast_xml" && endCard == "native_endcard" && skippable -> "vastxml_native_endcard_skippable"
+        delivery == "vast_xml" && endCard == "vast_companion" && !skippable -> "vastxml_vast_companion"
+        // Missing: vastxml_vast_companion_skippable (not yet available in decision-engine)
+        
         else -> null // Combination not available yet
     }
 }
@@ -63,7 +69,7 @@ private fun getLocalMockScenario(delivery: String, endCard: String, skippable: B
  */
 private suspend fun fetchMockVideoData(scenario: String): Result<String> = withContext(Dispatchers.IO) {
     try {
-        val url = URL("https://10.0.2.2:8080/v1/decision")
+        val url = URL("http://10.0.2.2:8080/v1/decision")
         val connection = url.openConnection() as HttpURLConnection
         connection.requestMethod = "POST"
         connection.connectTimeout = 15000  // Increased from 5s to 15s
@@ -72,7 +78,7 @@ private suspend fun fetchMockVideoData(scenario: String): Result<String> = withC
         // Set required headers
         connection.setRequestProperty("Accept-Language", "en")
         connection.setRequestProperty("Content-Type", "application/json")
-        connection.setRequestProperty("X-Decision-Version", "v2025-11-01")
+        connection.setRequestProperty("X-Decision-Version", "2025-11-01")
         connection.doOutput = true
         
         // Build request body with scenario as placement key
