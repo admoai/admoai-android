@@ -1463,7 +1463,15 @@ fun ExoPlayerImaVideoPlayer(
                             android.util.Log.d("IMA", "[Companion] Displaying end-card overlay after video completion")
                         }
                     }
-                    else -> Unit
+                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.SKIPPED -> {
+                        android.util.Log.d("Tracking", "[AUTOMATIC] IMA SDK fired 'skip' tracking beacon")
+                        isPlayingAd = false
+                        hasAdCompleted = true
+                    }
+                    else -> {
+                        // Log unhandled events for debugging
+                        android.util.Log.d("IMA", "[Event] Unhandled IMA event: ${adEvent.type}")
+                    }
                 }
             }
             .setAdErrorListener { adErrorEvent ->
@@ -1842,11 +1850,13 @@ fun ExoPlayerImaVideoPlayer(
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
-                    useController = true
+                    // For pure IMA (VAST Tag without custom overlays), disable controller
+                    // to let IMA render its native UI (watermarks, skip button)
+                    useController = useCustomOverlays
                     useArtwork = !useCustomOverlays && videoConfig.posterImageUrl != null
                     
                     playerViewRef = this
-                    android.util.Log.d("Player", "[Setup] PlayerView created and configured")
+                    android.util.Log.d("Player", "[Setup] PlayerView created - useController=$useCustomOverlays, useArtwork=${!useCustomOverlays}")
                     }
                 },
                 update = { view ->
@@ -2041,38 +2051,6 @@ fun ExoPlayerImaVideoPlayer(
                         contentDescription = "Close companion",
                         modifier = Modifier.padding(8.dp),
                         tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        }
-        
-        // IMA SDK Skip Warning - Show for VAST Tag + skippable + no native end-card
-        if (useImaSDK && videoConfig.isSkippable && !hasNativeEndCard && !hasCompleted) {
-            Card(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 60.dp, start = 12.dp, end = 12.dp)
-                    .fillMaxWidth(0.95f),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start
-                ) {
-                    Text(
-                        text = "ℹ️",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(end = 8.dp)
-                    )
-                    Text(
-                        text = "IMA SDK's native skip button is unreliable in this configuration. This is for demonstration purposes only.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                 }
             }
