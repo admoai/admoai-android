@@ -44,6 +44,20 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 2. Select delivery/endcard/player  
 3. "Launch Video Demo" → plays directly (no preview mode dialog)
 
+**Decision Request Builder - Video Integration** (✅ NEW - Oct 24, 2025):
+1. Open app → "Decision Request" 
+2. **Enable** "Use Format Filter" toggle
+3. **Select** "Video" format
+4. **Select** a video-eligible placement:
+   - Promotions
+   - Waiting  
+   - Vehicle Selection
+   - Ride Summary
+5. **Tap** "Request and Preview"
+6. ⚠️ **Requires**: Local mock server running on `http://localhost:8080`
+7. **Result**: Video ad plays in placement context with VAST Tag delivery
+8. **Note**: Currently hardcoded to request `"vasttag_none"` placement key (development only)
+
 **Placement Previews**:
 1. Open app → "Placement Picker"
 2. Select placement → preview screen shows realistic context
@@ -55,12 +69,14 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 ## Test Matrix
 
 **Media3 + IMA**:
-- JSON: Direct play, manual SDK tracking, custom overlays  
-- VAST Tag: IMA auto-track, custom overlays  
-- VAST XML: Manual parse, manual SDK tracking, custom overlays
+- JSON: Direct play, SDK tracking, custom overlays  
+- VAST Tag: IMA auto-tracking, custom overlays  
+- VAST XML: Parse XML, HTTP GET tracking, custom overlays
 
 **Media3**:
 - All deliveries: Manual HTTP/SDK tracking, custom overlays
+
+**UI Controls**: Both players start with controls hidden (tap video to show)
 
 **Validation**:
 
@@ -108,7 +124,9 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 **VAST XML**: `vast.xmlBase64` present, NO video_asset, tracking empty  
 **All**: `poster_image` always present
 
-**Tracking Events**: Use snake_case: `start`, `first_quartile`, `midpoint`, `third_quartile`, `complete` (not camelCase).
+**Tracking Event Naming by Delivery**:
+- **VAST (Tag/XML)**: camelCase → `start`, `firstQuartile`, `midpoint`, `thirdQuartile`, `complete`, `skip`
+- **JSON**: snake_case → `start`, `first_quartile`, `midpoint`, `third_quartile`, `complete`, `skip`
 
 ## Success Criteria
 
@@ -129,12 +147,12 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 - No navigation button overlay issues
 
 **Logging**:
-- **Standards** (Oct 2025): Professional, emoji-free, structured tags: `[MANUAL]`, `[AUTOMATIC]`, `[URL]`, `[Response]`
-- Check Logcat for carousel URL extraction: `"URLSlide1"` (uppercase)
-- Verify click handlers: `"onSlideClick called with URL: ..."`
-- Track impression events firing correctly
-- **Skip Button**: Only one log when skip becomes available, no frame-by-frame repetition
-- **Skip Tracking**: After skip click, NO phantom midpoint/thirdQuartile/complete events should fire
+- **Standards** (Oct 2025): Professional, structured tags: `[MANUAL]`, `[AUTOMATIC]`, `[URL]`, `[HTTP]`
+- **VAST XML Tracking**: Look for `[MANUAL] Firing VAST 'firstQuartile' tracking` with HTTP GET
+- **JSON Tracking**: Look for `[MANUAL] Firing 'first_quartile' event` with SDK method
+- **Carousel**: Check `"URLSlide1"` extraction (uppercase)
+- **Click handlers**: Verify `"onSlideClick called with URL: ..."`
+- **UI Controls**: Controls should be hidden at video start, appear on tap
 
 ## Common Issues & Debugging
 
@@ -154,9 +172,13 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 **Check**: Network timeout in `SDKConfig.kt` (should be 30000ms)  
 **Fix**: Increase timeout or fix mock server
 
-**Issue**: Phantom tracking after skip  
-**Check**: After skip button click, verify only skip event fires (no midpoint/thirdQuartile/complete)  
-**Fix**: Set all tracking flags to `true` before seeking to end (see `VIDEO_CONCEPTS.md` section 6)
+**Issue**: VAST XML tracking not firing  
+**Check**: Verify tracking URLs stored in `vastTrackingUrls` map, look for HTTP GET logs  
+**Fix**: Ensure Player 1 fires via HTTP GET, not SDK method (see `VIDEO_CONCEPTS.md` section 6)
+
+**Issue**: Video controls showing at start  
+**Check**: Controls should be hidden when video starts  
+**Fix**: Verify `controllerAutoShow = false` set on PlayerView
 
 **Issue**: Card clicks not working  
 **Check**: Using `Card(onClick = ...)` not `.clickable()` modifier  

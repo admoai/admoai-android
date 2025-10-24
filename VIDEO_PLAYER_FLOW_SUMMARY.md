@@ -63,11 +63,13 @@ Video Ad Demo in Admoai Android Sample App. The video IS the ad (not pre-roll).
 - Uses `ImaAdsLoader` via `MediaSourceFactory`
 
 **Delivery**:
-- VAST Tag: `MediaItem.AdsConfiguration(adTagUrl)` → IMA auto
-- VAST XML: Regex parse → manual SDK tracking
-- JSON: Direct play → manual SDK tracking
+- VAST Tag: `MediaItem.AdsConfiguration(adTagUrl)` → IMA auto-tracking
+- VAST XML: Parse XML → store in `vastTrackingUrls` → HTTP GET tracking
+- JSON: Direct play → SDK tracking
 
-**Overlays**: Custom Compose UI (skip, companions) - all modes
+**Overlays**: Custom Compose UI (skip, companions)
+
+**UI**: `controllerAutoShow = false` (controls hidden at start, tap to show)
 
 ---
 
@@ -81,6 +83,8 @@ Video Ad Demo in Admoai Android Sample App. The video IS the ad (not pre-roll).
 
 **Overlays**: Custom Compose UI
 
+**UI**: `controllerAutoShow = false` (controls hidden at start, tap to show)
+
 ---
 
 ## 5. Tracking
@@ -88,8 +92,9 @@ Video Ad Demo in Admoai Android Sample App. The video IS the ad (not pre-roll).
 See `VIDEO_CONCEPTS.md` section 6.
 
 **Media3+IMA**:
-- VAST Tag: IMA auto (impression, quartiles)
-- Other: Manual SDK
+- VAST Tag: IMA auto
+- VAST XML: Direct HTTP GET
+- JSON: Manual SDK
 
 **Media3**:
 - VAST: Manual HTTP GET
@@ -98,9 +103,10 @@ See `VIDEO_CONCEPTS.md` section 6.
 **All**: Custom events (overlay/CTA/close) always manual
 
 **Quartiles**: 0%, 25%, 50%, 75%, 98%
-**Event Names**: snake_case (`start`,`first_quartile`, `midpoint`,`third_quartile`,`complete`)
 
-**⚠️ Skip Button Fix** (Oct 2025): All 3 players (`ExoPlayerImaVideoPlayer`, `BasicVideoPlayer`, `VastClientVideoPlayer`) set tracking flags to `true` before seeking on skip click, preventing phantom quartile events.
+**Event Names by Delivery**:
+- **VAST**: camelCase (`firstQuartile`, `thirdQuartile`)
+- **JSON**: snake_case (`first_quartile`, `third_quartile`)
 
 ---
 
@@ -238,7 +244,165 @@ PromotionsCarouselCard → promotions, waiting
 
 ---
 
-## 11. Related Docs
+## 11. Decision Request Builder Video Integration
+
+**Added**: October 24, 2025
+
+### Overview
+
+Video functionality integrated into Decision Request Builder. Users can now select "Video" format and see video ads playing in placement preview screens.
+
+**File**: `/sample/src/main/java/com/admoai/sample/ui/MainViewModel.kt`
+**Component**: `/sample/src/main/java/com/admoai/sample/ui/components/VideoPlayerForPlacement.kt`
+
+### Flow
+
+1. **Decision Request Screen**:
+   - User enables "Use Format Filter" toggle
+   - Selects "Video" from format dropdown
+   - Selects video-eligible placement (Promotions, Waiting, Vehicle Selection, Ride Summary)
+   - Taps "Request and Preview"
+
+2. **Request Routing** (⚠️ DEVELOPMENT ONLY):
+   ```kotlin
+   // MainViewModel.loadAds() - Line 623
+   if (_selectedFormat.value == "video") {
+       loadVideoAdsFromLocalhost()  // Routes to localhost:8080
+   } else {
+       // Normal SDK flow to mock.api.admoai.com
+   }
+   ```
+
+3. **Video Request Details**:
+   - **Endpoint**: `http://10.0.2.2:8080/v1/decision` (⚠️ Dev only, HTTP not HTTPS)
+   - **Header**: `X-Decision-Version: 2025-11-01`
+   - **⚠️ Hardcoded**: Placement key overridden to `"vasttag_none"` (line 670-677)
+   - **⚠️ Modified**: `getAdDataForPlacement()` returns first placement for video format (line 951-954)
+
+4. **Response Handling**:
+   - Parses decision-engine response
+   - Handles `"creatives": null` case (replaces with empty array)
+   - Logs full response for debugging
+   - Stores in `_decisionResponse` state
+
+5. **Placement Preview Rendering**:
+   ```kotlin
+   // Each placement screen checks:
+   val isVideoAd = adData?.creatives?.firstOrNull()?.let { creative ->
+       viewModel.isVideoCreative(creative)  // Checks delivery != null or contentType == VIDEO
+   } ?: false
+   
+   if (isVideoAd && adData != null) {
+       VideoPlayerForPlacement(creative, viewModel)  // VAST playback
+   } else {
+       AdCard(adData, ...)  // Native ad rendering
+   }
+   ```
+
+6. **Video Playback**:
+   - **VAST Tag**: Fetches XML from `tagUrl`, parses, extracts video URL and tracking
+   - **VAST XML**: Decodes Base64 `xmlBase64`, parses same as VAST Tag
+   - **JSON**: Direct playback with `video_asset` URL
+   - **Player**: Media3 ExoPlayer with manual tracking (Player 2 approach)
+
+### VideoPlayerForPlacement Component
+
+**Capabilities**:
+- ✅ VAST Tag fetching and parsing
+- ✅ VAST XML Base64 decoding and parsing  
+- ✅ JSON direct playback
+- ✅ Manual tracking (HTTP GET for VAST, SDK for JSON)
+- ✅ Skip button with countdown (uses VAST skipoffset if available)
+- ✅ Native end-card overlays (`companionHeadline`, `companionCta`, `companionDestinationUrl`)
+- ✅ Loading/error states
+- ✅ Proper cleanup on dispose
+
+**Tracking Events**:
+- **VAST** (camelCase): `start`, `firstQuartile`, `midpoint`, `thirdQuartile`, `complete`, `skip`
+- **JSON** (snake_case): `start`, `first_quartile`, `midpoint`, `third_quartile`, `complete`, `skip`
+
+**Content Keys** (from creative.contents):
+- `video_asset` - Video URL (JSON delivery only)
+- `poster_image` - Poster/thumbnail (all deliveries)
+- `is_skippable` - Skip configuration
+- `skip_offset` - Skip offset in seconds
+- `companionHeadline` - End-card headline (camelCase)
+- `companionCta` - End-card CTA text (camelCase)
+- `companionDestinationUrl` - End-card destination (camelCase)
+- `overlayAtPercentage` - When to show overlay 0.0-1.0 (camelCase)
+
+### Modified Placement Screens
+
+All video-eligible placement screens updated:
+- `/sample/.../previews/PromotionsPreviewScreen.kt`
+- `/sample/.../previews/WaitingPreviewScreen.kt`
+- `/sample/.../previews/VehicleSelectionPreviewScreen.kt`
+- `/sample/.../previews/RideSummaryPreviewScreen.kt`
+
+Each screen:
+1. Checks if creative is video using `viewModel.isVideoCreative()`
+2. Renders `VideoPlayerForPlacement` if video
+3. Falls back to native ad card if not video
+4. Maintains existing animations and layout
+
+### Production Cleanup Required
+
+⚠️ **Before production deployment**, remove development workarounds:
+
+1. **Remove hardcoded placement key** (`MainViewModel.kt` lines 668-677):
+   ```kotlin
+   // REMOVE THIS:
+   val modifiedRequest = sdk.prepareFinalDecisionRequest(request).copy(
+       placements = listOf(Placement(key = "vasttag_none", format = PlacementFormat.VIDEO))
+   )
+   
+   // USE THIS:
+   val finalRequest = sdk.prepareFinalDecisionRequest(request)
+   ```
+
+2. **Restore normal placement matching** (`MainViewModel.kt` lines 951-954):
+   ```kotlin
+   // REMOVE special case for video format
+   if (_selectedFormat.value == "video" && data != null && data.isNotEmpty()) {
+       return data.first()  // ← REMOVE THIS
+   }
+   
+   // Keep only:
+   return data?.find { it.placement == placementKey }
+   ```
+
+3. **Update endpoint** or **remove conditional routing**:
+   - Option A: Use standard SDK flow for all requests (remove `loadVideoAdsFromLocalhost()`)
+   - Option B: Update endpoint from `http://10.0.2.2:8080` to production URL
+
+4. **Update `getHttpRequest()` preview**:
+   - Ensure correct production host/endpoint shown in Request Preview tab
+
+### Testing
+
+See `TESTING_INSTRUCTIONS.md` for complete test flow.
+
+**Quick Test**:
+```bash
+# 1. Start local mock server
+cd /path/to/mock-endpoints
+PORT=8080 go run main.go
+
+# 2. Run app
+./gradlew :sample:installDebug
+
+# 3. In app:
+# - Open "Decision Request"
+# - Enable "Use Format Filter"
+# - Select "Video" format
+# - Select "Promotions" placement
+# - Tap "Request and Preview"
+# - Result: Video plays with VAST Tag delivery
+```
+
+---
+
+## 12. Related Docs
 
 - `VIDEO_CONCEPTS.md` - Canonical definitions
 - `TESTING_INSTRUCTIONS.md` - Setup & test matrix

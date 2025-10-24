@@ -164,46 +164,68 @@ fun VehicleSelectionPreviewScreen(
                 contentAlignment = Alignment.TopCenter
             ) {
                 adData?.let { ad ->
-                    when {
-                        // For imageWithText template with either imageLeft or imageRight style
-                        AdTemplateMapper.isImageWithTextTemplate(ad) -> {
-                            SearchAdCard(
-                                adData = ad,
-                                onImpressionTracked = {
-                                    // Track the first impression URL
-                                    ad.creatives.firstOrNull()?.tracking?.impressions?.firstOrNull()?.let { impression ->
-                                        onTrackEvent("impression", impression.url)
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
+                    // Check if this is a video ad first
+                    val isVideoAd = ad.creatives.firstOrNull()?.let { creative ->
+                        viewModel.isVideoCreative(creative)
+                    } ?: false
+                    
+                    if (isVideoAd) {
+                        // Render video player for video ads
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16f / 9f)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                        ) {
+                            com.admoai.sample.ui.components.VideoPlayerForPlacement(
+                                creative = ad.creatives.first(),
+                                viewModel = viewModel,
+                                modifier = Modifier.fillMaxSize()
                             )
                         }
-                        // For wideImageOnly template (any style including "default")
-                        AdTemplateMapper.isWideImageOnlyTemplate(ad) -> {
-                            // Use HorizontalAdCard which properly handles posterImage for wideImageOnly
-                            HorizontalAdCard(
-                                adData = ad,
-                                placementKey = "vehicleSelection",
-                                onAdClick = onAdClick,
-                                onTrackClick = { url ->
-                                    onTrackEvent("click", url)
-                                },
-                                onTrackImpression = { url ->
-                                    onTrackEvent("impression", url)
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                        // Default fallback
-                        else -> {
-                            AdCard(
-                                adData = ad,
-                                onAdClick = onAdClick,
-                                onTrackImpression = { url ->
-                                    onTrackEvent("impression", url)
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                    } else {
+                        // Render native ad based on template
+                        when {
+                            // For imageWithText template with either imageLeft or imageRight style
+                            AdTemplateMapper.isImageWithTextTemplate(ad) -> {
+                                SearchAdCard(
+                                    adData = ad,
+                                    onImpressionTracked = {
+                                        // Track the first impression URL
+                                        ad.creatives.firstOrNull()?.tracking?.impressions?.firstOrNull()?.let { impression ->
+                                            onTrackEvent("impression", impression.url)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            // For wideImageOnly template (any style including "default")
+                            AdTemplateMapper.isWideImageOnlyTemplate(ad) -> {
+                                // Use HorizontalAdCard which properly handles posterImage for wideImageOnly
+                                HorizontalAdCard(
+                                    adData = ad,
+                                    placementKey = "vehicleSelection",
+                                    onAdClick = onAdClick,
+                                    onTrackClick = { url ->
+                                        onTrackEvent("click", url)
+                                    },
+                                    onTrackImpression = { url ->
+                                        onTrackEvent("impression", url)
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            // Default fallback
+                            else -> {
+                                AdCard(
+                                    adData = ad,
+                                    onAdClick = onAdClick,
+                                    onTrackImpression = { url ->
+                                        onTrackEvent("impression", url)
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
                     }
                 }

@@ -27,6 +27,7 @@ import com.admoai.sample.ui.model.CustomTargetItem
 import com.admoai.sample.ui.model.GeoTargetItem
 import com.admoai.sample.ui.model.LocationItem
 import com.admoai.sample.ui.model.PlacementItem
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -611,6 +613,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Load ads from the server.
+     * For video format, makes a direct request to localhost:8080 with custom header.
      */
     fun loadAds() {
         _isLoading.value = true
@@ -621,16 +624,137 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
-                val request = buildRequest()
-                sdk.requestAds(request).collect { response ->
-                    _response.value = response
-                    _decisionResponse.value = response
-                    _formattedResponse.value = formatResponseToJson(response)
-                    _isLoading.value = false
+                // Check if video format is selected
+                if (_selectedFormat.value == "video") {
+                    // Make direct HTTP request to localhost for video ads
+                    loadVideoAdsFromLocalhost()
+                } else {
+                    // Regular SDK call for native ads
+                    val request = buildRequest()
+                    sdk.requestAds(request).collect { response ->
+                        _response.value = response
+                        _decisionResponse.value = response
+                        _formattedResponse.value = formatResponseToJson(response)
+                        _isLoading.value = false
+                    }
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Unknown error occurred"
                 _isLoading.value = false
+            }
+        }
+    }
+    
+    /**
+     * Load video ads from localhost:8080 with custom header X-Decision-Version: 2025-11-01
+     */
+    private suspend fun loadVideoAdsFromLocalhost() {
+        withContext(Dispatchers.IO) {
+            try {
+                val url = java.net.URL("http://10.0.2.2:8080/v1/decision")
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.connectTimeout = 15000
+                connection.readTimeout = 30000
+                
+                // Set required headers including the custom video header
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.setRequestProperty("X-Decision-Version", "2025-11-01")
+                connection.doOutput = true
+                
+                // Build request body using current configuration
+                val request = buildRequest()
+                
+                // TEMPORARY: Hardcode placement key to "vasttag_none" for development
+                // This will be changed later to use the actual selected placement
+                val modifiedRequest = sdk.prepareFinalDecisionRequest(request).copy(
+                    placements = listOf(
+                        Placement(
+                            key = "vasttag_none",
+                            format = PlacementFormat.VIDEO
+                        )
+                    )
+                )
+                
+                val prettyJson = Json { 
+                    prettyPrint = true 
+                    encodeDefaults = false
+                    explicitNulls = false
+                }
+                val requestBody = prettyJson.encodeToString(
+                    DecisionRequest.serializer(),
+                    modifiedRequest
+                )
+                
+                android.util.Log.d(TAG, "Making video request to localhost:8080")
+                android.util.Log.d(TAG, "Request body: $requestBody")
+                
+                // Write request body
+                connection.outputStream.use { outputStream ->
+                    outputStream.write(requestBody.toByteArray(Charsets.UTF_8))
+                }
+                
+                // Read response
+                val responseCode = connection.responseCode
+                if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
+                    var responseBody = connection.inputStream.bufferedReader().use { it.readText() }
+                    android.util.Log.d(TAG, "Video response received: ${responseBody.length} characters")
+                    android.util.Log.d(TAG, "Full video response: $responseBody")
+                    
+                    // Fix: Replace "creatives":null with "creatives":[] to avoid parsing errors
+                    // The server may return null when no video ads are available for the placement
+                    responseBody = responseBody.replace("\"creatives\":null", "\"creatives\":[]")
+                    
+                    // Parse JSON response
+                    val json = Json { 
+                        ignoreUnknownKeys = true
+                        isLenient = true
+                        coerceInputValues = true
+                    }
+                    
+                    try {
+                        val response = json.decodeFromString<DecisionResponse>(responseBody)
+                        
+                        // Check if we have valid data with creatives
+                        val hasValidData = response.data?.any { it.creatives.isNotEmpty() } == true
+                        
+                        if (hasValidData) {
+                            withContext(Dispatchers.Main) {
+                                _response.value = response
+                                _decisionResponse.value = response
+                                _formattedResponse.value = formatResponseToJson(response)
+                                _isLoading.value = false
+                            }
+                        } else {
+                            android.util.Log.w(TAG, "Server returned no video creatives")
+                            withContext(Dispatchers.Main) {
+                                _errorMessage.value = "No video ads available for this placement.\n\nThe server returned a valid response but no video creatives were included.\n\nThis likely means:\n1. No video ads are configured for the 'promotions' placement\n2. Or the mock server scenario doesn't have video creatives\n\nTry a different placement or configure video ads on the server."
+                                _isLoading.value = false
+                            }
+                        }
+                    } catch (parseError: Exception) {
+                        android.util.Log.e(TAG, "Failed to parse video response", parseError)
+                        android.util.Log.e(TAG, "Response body was: $responseBody")
+                        withContext(Dispatchers.Main) {
+                            _errorMessage.value = "Failed to parse video ad response: ${parseError.message}"
+                            _isLoading.value = false
+                        }
+                    }
+                } else {
+                    val errorBody = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "No error details"
+                    android.util.Log.e(TAG, "Video request failed: HTTP $responseCode - $errorBody")
+                    
+                    withContext(Dispatchers.Main) {
+                        _errorMessage.value = "Failed to load video ad: HTTP $responseCode"
+                        _isLoading.value = false
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Error loading video ads from localhost", e)
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Error loading video ad: ${e.message}\nMake sure localhost:8080 is running."
+                    _isLoading.value = false
+                }
             }
         }
     }
@@ -703,12 +827,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             val requestBody = prettyJson.encodeToString(finalRequest)
             
+            // Determine if video format is selected
+            val isVideoRequest = _selectedFormat.value == "video"
+            val targetHost = if (isVideoRequest) "10.0.2.2:8080" else MOCK_BASE_URL.removePrefix("https://")
+            val endpoint = if (isVideoRequest) "/v1/decision" else "/decisions"
+            
             // Format as an HTTP request with headers
             val sb = StringBuilder()
-            sb.append("POST /decisions HTTP/1.1\n")
-            sb.append("Host: ${MOCK_BASE_URL.removePrefix("https://")}\n")
+            sb.append("POST $endpoint HTTP/1.1\n")
+            sb.append("Host: $targetHost\n")
             sb.append("Content-Type: application/json\n")
             sb.append("User-Agent: AdmoaiExample/Android\n")
+            
+            // Add X-Decision-Version header for video requests
+            if (isVideoRequest) {
+                sb.append("X-Decision-Version: 2025-11-01\n")
+            }
+            
             sb.append("\n")
             sb.append(requestBody)
             
@@ -806,10 +941,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     /**
      * Get ad data for a specific placement from the current response.
+     * For video format requests, we hardcode the placement to "vasttag_none",
+     * so we return the first available placement regardless of the requested key.
      */
     fun getAdDataForPlacement(placementKey: String): AdData? {
         val response = _decisionResponse.value ?: return null
-        return response.data?.find { adData ->
+        val data = response.data
+        
+        // For video format requests, return the first placement (we hardcoded to "vasttag_none")
+        if (_selectedFormat.value == "video" && data != null && data.isNotEmpty()) {
+            android.util.Log.d(TAG, "Video format: returning first placement data (${data.first().placement}) for requested key ($placementKey)")
+            return data.first()
+        }
+        
+        // For non-video requests, match by placement key
+        return data?.find { adData ->
             adData.placement == placementKey
         }
     }

@@ -13,6 +13,18 @@ Video Demo ready. See `VIDEO_CONCEPTS.md` for canonical reference.
 - **Skip**: Custom overlay UI (all modes)  
 - **Tracking**: Quartiles 0/25/50/75/98%, custom events (overlay/CTA/close)
 
+**Decision Request Builder - Video Integration** (✅ NEW - Oct 24, 2025):
+- **Video Format Support**: Decision Request Builder now supports video format requests
+- **Local Testing**: Video requests route to `http://10.0.2.2:8080/v1/decision` (⚠️ DEVELOPMENT ONLY)
+- **Custom Header**: Includes `X-Decision-Version: 2025-11-01` for video requests
+- **Video Player**: Full VAST Tag playback in placement previews using Media3 ExoPlayer (Player 2 approach)
+- **Manual Tracking**: HTTP GET beacons for VAST deliveries, SDK methods for JSON
+- **Supported Placements**: Promotions, Waiting, Vehicle Selection, Ride Summary
+- **⚠️ Development Workarounds** (to be removed later):
+  - Hardcoded placement key to `"vasttag_none"` for localhost testing
+  - Modified `getAdDataForPlacement()` to return first placement for video format
+  - Conditional routing in `loadAds()` checks for format="video"
+
 **Placement Previews** (✅ All Implemented):
 - **home**: `wideWithCompanion` template, click-through enabled
 - **search**: `imageWithText` template (imageLeft/imageRight), no click-through
@@ -37,17 +49,17 @@ Video Demo ready. See `VIDEO_CONCEPTS.md` for canonical reference.
 - Hardcoded for dev (🔄 future: from ad response)
 
 **Recent Fixes** (Oct 2025):
-- ✅ **Content Key Naming**: Changed from camelCase to snake_case (`video_asset`, `poster_image`, `is_skippable`, `skip_offset`, `companion_headline`, `companion_cta`, `companion_destination_url`, `overlay_at_percentage`)
-- ✅ **Tracking Event Naming**: Changed to snake_case (`start`,`first_quartile`, `midpoint`,`third_quartile`,`complete`)
-- ✅ **Skip Button Tracking Bug**: Fixed phantom quartile events after skip by setting all tracking flags before seeking (all 3 players)
-- ✅ **Logging Standards**: Removed all emojis, made logs professional with structured tags `[MANUAL]`, `[AUTOMATIC]`, `[URL]`, `[Response]`
-- ✅ **Repetitive Logs**: Fixed skip button logging every frame, now logs only on state change
-- ✅ Removed theme toggle circles overlaying nav buttons (home, vehicleSelection, waiting)
+- ✅ **Content Key Naming**: Changed to snake_case (`video_asset`, `poster_image`, `is_skippable`, `skip_offset`, `companion_*`, `overlay_at_percentage`)
+- ✅ **Tracking Event Naming**: VAST uses camelCase (`firstQuartile`, `thirdQuartile`), JSON uses snake_case (`first_quartile`, `third_quartile`)
+- ✅ **Player 1 VAST XML Tracking**: Fixed to fire tracking URLs via HTTP GET (stored in `vastTrackingUrls` map) instead of SDK method
+- ✅ **Player UI Controls**: Added `controllerAutoShow = false` to Player 1 & 3 (controls hidden at start, tap to show)
+- ✅ **Logging Standards**: Professional logs with structured tags `[MANUAL]`, `[AUTOMATIC]`, `[URL]`, `[HTTP]`
+- ✅ Removed theme toggle circles overlaying nav buttons
 - ✅ Fixed Vehicle Selection padding (82dp → 120dp)
 - ✅ Fixed `wideImageOnly` template rendering (now uses `HorizontalAdCard`)
 - ✅ Fixed carousel CTA clicks (case fix: `urlSlide1` → `URLSlide1`)
-- ✅ Fixed Card click handling (use `onClick` parameter, not `.clickable()` modifier)
-- ✅ Increased API timeout (10s → 30s for slow mock server)
+- ✅ Fixed Card click handling (use `onClick` parameter)
+- ✅ Increased API timeout (10s → 30s)
 
 **UI**: Material Design 3, direct navigation (no preview dialog), context-aware implementation details, italic helper texts
 
@@ -84,6 +96,7 @@ See `VIDEO_CONCEPTS.md` for:
 - `/sample/.../components/SearchAdCard.kt` - Image+text cards (search, vehicleSelection)
 - `/sample/.../components/MenuAdCard.kt` - Text-only cards (menu)
 - `/sample/.../components/PromotionsCarouselCard.kt` - Carousel (promotions, waiting)
+- `/sample/.../components/VideoPlayerForPlacement.kt` - ✅ **NEW**: Video player for Decision Request Builder placements
 
 **Mapping & Helpers**:
 - `/sample/.../mapper/AdTemplateMapper.kt` - Template detection & helpers
@@ -95,7 +108,96 @@ See `VIDEO_CONCEPTS.md` for:
 **Shared**:
 - `/sample/.../MainViewModel.kt` - State + tracking
 
-**Mock Server**: `https://10.0.2.2:8080` (HTTPS with self-signed cert)
+**Mock Server**: 
+- **Video Demo**: `https://10.0.2.2:8080` (HTTPS with self-signed cert)
+- **Decision Request Builder**: `http://10.0.2.2:8080` (HTTP, ⚠️ development only)
+
+## Decision Request Builder Video Integration - Technical Details
+
+**Added in October 24, 2025**
+
+### Files Modified
+
+1. **`MainViewModel.kt`**:
+   - Added `loadVideoAdsFromLocalhost()` function for direct HTTP calls
+   - Modified `loadAds()` to conditionally route video format requests
+   - ⚠️ **TEMPORARY**: Hardcoded placement key to `"vasttag_none"` in request body (line 670-677)
+   - ⚠️ **TEMPORARY**: Modified `getAdDataForPlacement()` to return first placement for video format (line 951-954)
+   - Updated `getHttpRequest()` to show `X-Decision-Version: 2025-11-01` header in preview
+   - **Production Cleanup Required**: Remove hardcoded placement override, restore normal placement matching
+
+2. **`VideoPlayerForPlacement.kt`** (NEW FILE):
+   - Full VAST Tag/XML playback with Media3 ExoPlayer
+   - Manual tracking via HTTP GET for VAST deliveries (camelCase events: `start`, `firstQuartile`, `midpoint`, `thirdQuartile`, `complete`, `skip`)
+   - SDK tracking methods for JSON deliveries (snake_case events: `start`, `first_quartile`, etc.)
+   - VAST XML parsing with `parseVastXml()` helper function
+   - Skip button support with countdown
+   - Native end-card overlay support
+   - Loading/error states
+
+3. **Placement Preview Screens** (Updated):
+   - `PromotionsPreviewScreen.kt` - Added video detection and rendering
+   - `WaitingPreviewScreen.kt` - Added video detection and rendering  
+   - `VehicleSelectionPreviewScreen.kt` - Added video detection and rendering
+   - `RideSummaryPreviewScreen.kt` - Added video detection and rendering
+   - Each uses `viewModel.isVideoCreative()` to detect video ads
+   - Renders `VideoPlayerForPlacement` for videos, falls back to native cards
+
+### How It Works
+
+```kotlin
+// 1. User selects format="video" in Decision Request Builder
+// 2. MainViewModel.loadAds() detects video format
+if (_selectedFormat.value == "video") {
+    loadVideoAdsFromLocalhost()  // ⚠️ Dev only: Routes to localhost:8080
+} else {
+    // Normal SDK flow to mock.api.admoai.com
+}
+
+// 3. Video request includes custom header
+connection.setRequestProperty("X-Decision-Version", "2025-11-01")
+
+// 4. Placement key temporarily overridden (⚠️ TO BE REMOVED)
+val modifiedRequest = sdk.prepareFinalDecisionRequest(request).copy(
+    placements = listOf(
+        Placement(key = "vasttag_none", format = PlacementFormat.VIDEO)
+    )
+)
+
+// 5. Response parsed and stored
+_decisionResponse.value = response
+
+// 6. Placement screen gets ad data
+val adData = viewModel.getAdDataForPlacement(placementKey)
+// ⚠️ For video, returns first placement regardless of key mismatch
+
+// 7. Placement screen renders video if detected
+if (viewModel.isVideoCreative(creative)) {
+    VideoPlayerForPlacement(creative, viewModel)  // VAST Tag playback
+}
+```
+
+### Production Cleanup Checklist
+
+When moving to production with `mock.api.admoai.com`:
+
+- [ ] **Remove hardcoded placement override** in `MainViewModel.kt` (lines 668-677)
+  - Use actual selected placement key instead of `"vasttag_none"`
+  
+- [ ] **Restore normal placement matching** in `getAdDataForPlacement()` (lines 951-954)
+  - Remove the special case that returns first placement for video
+  - Use standard key matching for all requests
+  
+- [ ] **Update endpoint** in `loadVideoAdsFromLocalhost()` (line 652)
+  - Change from `http://10.0.2.2:8080/v1/decision` 
+  - To `https://mock.api.admoai.com/decisions` or production endpoint
+  
+- [ ] **Consider conditional routing**:
+  - Option A: Always use standard SDK flow (remove `loadVideoAdsFromLocalhost()`)
+  - Option B: Keep separate flow if production video endpoint differs
+  
+- [ ] **Update `getHttpRequest()` preview**:
+  - Ensure correct host/endpoint shown in Request Preview tab
 
 ## Next Steps (Future)
 

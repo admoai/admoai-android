@@ -48,11 +48,6 @@ Canonical (non‑editable):
 - `video_asset` – Direct video URL (JSON only).
 - `is_skippable` / `skip_offset` – Skip button configuration.
 
-Skippable rules:
-- If `is_skippable: true` then skip tracking must exist.
-  - JSON: include `{ key: "skip", url: "..." }` in `tracking.videoEvents[]`.
-  - VAST: include `<Tracking event="skip">` and `skipoffset` on `<Linear>`.
-
 User‑defined (editable convention):
 - `companion_headline`, `companion_cta`, `companion_destination_url` – Native end‑card content.
 - `overlay_at_percentage` – When to show overlay (0.0–1.0).
@@ -86,21 +81,37 @@ User‑defined (editable convention):
 
 | Player | JSON | VAST Tag | VAST XML | Custom |
 |--------|------|----------|----------|--------|
-| **Media3 + IMA** | SDK | IMA Auto | SDK | SDK |
+| **Media3 + IMA** | SDK | IMA Auto | HTTP | SDK |
 | **Media3** | SDK | HTTP | HTTP | SDK |
 
 **Quartiles**: 0%, 25%, 50%, 75%, 98% (not 100% to avoid race conditions).
-**Event Names**: Use snake_case: `first_quartile`, `third_quartile` (not camelCase).
-**Custom events** (overlay/CTA/close): Always manual.
 
-**⚠️ Skip Tracking Bug Fix** (Oct 2025): When skip button is clicked, all tracking flags must be set to `true` BEFORE seeking to end, preventing phantom midpoint/thirdQuartile/complete events. Applied to all 3 players.
+**Event Names by Delivery**:
+- **VAST (Tag/XML)**: camelCase per VAST standard → `start`, `firstQuartile`, `midpoint`, `thirdQuartile`, `complete`, `skip`
+- **JSON**: snake_case per Admoai system → `start`, `first_quartile`, `midpoint`, `third_quartile`, `complete`, `skip`
+
+**Tracking Methods**:
+- **VAST XML**: Direct HTTP GET to URLs parsed from XML (Player 1 stores in `vastTrackingUrls` map)
+- **VAST Tag**: IMA SDK fires automatically
+- **JSON**: SDK's `fireVideoEvent()` method
+- **Custom events** (overlay/CTA/close): Always manual via SDK
 
 ---
 
 ## 7) Compliance & Validation
-- For VAST delivered through IMA players, the default IMA UI shows "Ad" and "Learn more" badges. These are part of IMA’s compliance and generally cannot be disabled.
-  - Validation check: If those badges do not appear on VAST playback via IMA, the integration is likely incorrect.
-- HTTPS is required for VAST requests inside IMA (runs in WebView). HTTP is blocked by mixed‑content policy.
+
+**IMA Watermarks**:
+- VAST Tag playback via IMA shows "Ad" and "Learn more" badges (compliance requirement).
+- Validation: If badges don't appear, integration is incorrect.
+
+**IMA Skip Button**:
+- Requires minimum 8-second ad duration to display.
+- VAST Tag: IMA native skip works correctly, fires `SKIPPED` event automatically.
+- Custom overlays (companions) can coexist with IMA native skip.
+
+**HTTPS Requirement**:
+- VAST requests via IMA require HTTPS (runs in WebView).
+- HTTP blocked by mixed-content policy.
 
 ---
 
@@ -404,7 +415,72 @@ val networkSocketTimeoutMs: Long = 30000L   // 30 seconds
 
 ---
 
-## 13) See Also
+## 13) Decision Request Builder Video Integration
+
+**Added**: October 24, 2025
+
+### Overview
+
+The Decision Request Builder now supports video format requests. When format is set to "video", the app routes requests to a local development server and renders video ads in placement preview screens.
+
+### Key Points
+
+1. **Video Format Selection**:
+   - User enables "Use Format Filter" toggle
+   - Selects "Video" from format dropdown
+   - Supported placements: Promotions, Waiting, Vehicle Selection, Ride Summary
+
+2. **Development-Only Routing** (⚠️ TEMPORARY):
+   - Video requests route to `http://10.0.2.2:8080/v1/decision`
+   - Includes custom header: `X-Decision-Version: 2025-11-01`
+   - ⚠️ Hardcoded placement key to `"vasttag_none"` for testing
+   - ⚠️ Modified placement matching to return first placement for video format
+   - **Must be cleaned up before production** (see `VIDEO_IMPLEMENTATION_ROADMAP.md` section for checklist)
+
+3. **Video Player Component**:
+   - New component: `VideoPlayerForPlacement.kt`
+   - Uses Media3 ExoPlayer with manual tracking (Player 2 approach)
+   - Supports all delivery methods: JSON, VAST Tag, VAST XML
+   - Full feature parity: skip buttons, end-cards, quartile tracking
+
+4. **Content Key Naming**:
+   - System-generated: `video_asset`, `poster_image`, `is_skippable`, `skip_offset` (snake_case)
+   - User-generated: `companionHeadline`, `companionCta`, `companionDestinationUrl`, `overlayAtPercentage` (camelCase)
+   - Consistent with Video Demo section naming conventions
+
+5. **Tracking**:
+   - VAST deliveries: HTTP GET beacons with camelCase event names (`start`, `firstQuartile`, `midpoint`, `thirdQuartile`, `complete`, `skip`)
+   - JSON delivery: SDK methods with snake_case event names (`start`, `first_quartile`, `midpoint`, `third_quartile`, `complete`, `skip`)
+
+### Modified Files
+
+- `MainViewModel.kt` - Added `loadVideoAdsFromLocalhost()`, modified `loadAds()` and `getAdDataForPlacement()`
+- `VideoPlayerForPlacement.kt` - **NEW** component for video playback in placements
+- `PromotionsPreviewScreen.kt` - Added video detection and rendering
+- `WaitingPreviewScreen.kt` - Added video detection and rendering
+- `VehicleSelectionPreviewScreen.kt` - Added video detection and rendering
+- `RideSummaryPreviewScreen.kt` - Added video detection and rendering
+
+### Production Cleanup Checklist
+
+Before deploying to production:
+- [ ] Remove hardcoded `"vasttag_none"` placement override
+- [ ] Restore normal placement key matching in `getAdDataForPlacement()`
+- [ ] Update endpoint or remove conditional routing
+- [ ] Verify `X-Decision-Version` header handling in production
+
+See `VIDEO_IMPLEMENTATION_ROADMAP.md` section "Production Cleanup Checklist" for detailed instructions.
+
+### Documentation
+
+For detailed implementation, flow diagrams, and testing:
+- Technical details: `VIDEO_IMPLEMENTATION_ROADMAP.md` section "Decision Request Builder Video Integration"
+- Flow and component specs: `VIDEO_PLAYER_FLOW_SUMMARY.md` section 11
+- Testing instructions: `TESTING_INSTRUCTIONS.md` - Decision Request Builder test flow
+
+---
+
+## 14) See Also
 - `TESTING_INSTRUCTIONS.md` – How to test and validate.
 - `VIDEO_PLAYER_FLOW_SUMMARY.md` – UI/flow and player responsibilities.
 - `VIDEO_IMPLEMENTATION_ROADMAP.md` – Actionable implementation plan.

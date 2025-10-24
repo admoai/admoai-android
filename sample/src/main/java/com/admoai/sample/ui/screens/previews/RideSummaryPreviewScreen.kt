@@ -257,20 +257,42 @@ fun RideSummaryPreviewScreen(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                AdCard(
-                    adData = adData,
-                    placementKey = placement.key,
-                    onAdClick = { clickedAdData -> 
-                        onAdClick(clickedAdData)
-                    },
-                    onTrackImpression = { url ->
-                        onTrackEvent("impression", url)
-                    },
-                    onTrackClick = { url ->
-                        onTrackEvent("click", url)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // Check if this is a video ad
+                val isVideoAd = adData?.creatives?.firstOrNull()?.let { creative ->
+                    viewModel.isVideoCreative(creative)
+                } ?: false
+                
+                if (isVideoAd && adData != null) {
+                    // Render video player for video ads
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 9f)
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                    ) {
+                        com.admoai.sample.ui.components.VideoPlayerForPlacement(
+                            creative = adData.creatives.first(),
+                            viewModel = viewModel,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                } else {
+                    // Render native ad card for native ads
+                    AdCard(
+                        adData = adData,
+                        placementKey = placement.key,
+                        onAdClick = { clickedAdData -> 
+                            onAdClick(clickedAdData)
+                        },
+                        onTrackImpression = { url ->
+                            onTrackEvent("impression", url)
+                        },
+                        onTrackClick = { url ->
+                            onTrackEvent("click", url)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
             
             // Spacer at bottom for padding

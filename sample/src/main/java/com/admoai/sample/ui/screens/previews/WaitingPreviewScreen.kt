@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -208,30 +209,52 @@ fun WaitingPreviewScreen(
                         .graphicsLayer { alpha = cardAlpha },
                     contentAlignment = Alignment.Center
                 ) {
-                    adData?.let {
-                        AdCard(
-                            adData = it,
-                            placementKey = "waiting",
-                            onAdClick = { clickedAdData -> 
-                                onAdClick(clickedAdData)
-                            },
-                            onTrackImpression = { url ->
-                                onTrackEvent("impression", url)
-                            },
-                            onSlideClick = { url ->
-                                // Open URL in browser when CTA is clicked
-                                Log.d("WaitingPreview", "onSlideClick called with URL: $url")
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                    Log.d("WaitingPreview", "Starting browser intent for: $url")
-                                    context.startActivity(intent)
-                                    Log.d("WaitingPreview", "Browser intent started successfully")
-                                } catch (e: Exception) {
-                                    Log.e("WaitingPreview", "Failed to open URL: $url", e)
-                                }
-                            },
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
+                    adData?.let { data ->
+                        // Check if this is a video ad
+                        val isVideoAd = data.creatives.firstOrNull()?.let { creative ->
+                            viewModel.isVideoCreative(creative)
+                        } ?: false
+                        
+                        if (isVideoAd) {
+                            // Render video player for video ads
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(16f / 9f)
+                                    .clip(RoundedCornerShape(12.dp))
+                            ) {
+                                com.admoai.sample.ui.components.VideoPlayerForPlacement(
+                                    creative = data.creatives.first(),
+                                    viewModel = viewModel,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        } else {
+                            // Render native ad card for native ads
+                            AdCard(
+                                adData = data,
+                                placementKey = "waiting",
+                                onAdClick = { clickedAdData -> 
+                                    onAdClick(clickedAdData)
+                                },
+                                onTrackImpression = { url ->
+                                    onTrackEvent("impression", url)
+                                },
+                                onSlideClick = { url ->
+                                    // Open URL in browser when CTA is clicked
+                                    Log.d("WaitingPreview", "onSlideClick called with URL: $url")
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                        Log.d("WaitingPreview", "Starting browser intent for: $url")
+                                        context.startActivity(intent)
+                                        Log.d("WaitingPreview", "Browser intent started successfully")
+                                    } catch (e: Exception) {
+                                        Log.e("WaitingPreview", "Failed to open URL: $url", e)
+                                    }
+                                },
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        }
                     }
                 }
                 

@@ -155,28 +155,54 @@ fun PromotionsPreviewScreen(
                         .graphicsLayer(alpha = cardAlpha),
                     contentAlignment = Alignment.Center
                 ) {
-                    AdCard(
-                        adData = adData,
-                        placementKey = "promotions",
-                        onAdClick = { clickedAdData -> 
-                            onAdClick(clickedAdData)
-                        },
-                        onTrackImpression = { url ->
-                            onTrackEvent("impression", url)
-                        },
-                        onSlideClick = { url ->
-                            // Open URL in browser when carousel CTA is clicked
-                            Log.d("PromotionsPreview", "onSlideClick called with URL: $url")
-                            try {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                Log.d("PromotionsPreview", "Starting browser intent for: $url")
-                                context.startActivity(intent)
-                                Log.d("PromotionsPreview", "Browser intent started successfully")
-                            } catch (e: Exception) {
-                                Log.e("PromotionsPreview", "Failed to open URL: $url", e)
-                            }
+                    // Check if this is a video ad
+                    val isVideoAd = adData?.creatives?.firstOrNull()?.let { creative ->
+                        val result = viewModel.isVideoCreative(creative)
+                        Log.d("PromotionsPreview", "isVideoCreative check: $result, delivery: ${creative.delivery}, vast: ${creative.vast != null}")
+                        result
+                    } ?: false
+                    
+                    Log.d("PromotionsPreview", "Rendering decision - isVideoAd: $isVideoAd, adData: ${adData != null}")
+                    
+                    if (isVideoAd && adData != null) {
+                        // Render video player for video ads
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(12.dp))
+                        ) {
+                            com.admoai.sample.ui.components.VideoPlayerForPlacement(
+                                creative = adData.creatives.first(),
+                                viewModel = viewModel,
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
-                    )
+                    } else {
+                        // Render native ad card for native ads
+                        AdCard(
+                            adData = adData,
+                            placementKey = "promotions",
+                            onAdClick = { clickedAdData -> 
+                                onAdClick(clickedAdData)
+                            },
+                            onTrackImpression = { url ->
+                                onTrackEvent("impression", url)
+                            },
+                            onSlideClick = { url ->
+                                // Open URL in browser when carousel CTA is clicked
+                                Log.d("PromotionsPreview", "onSlideClick called with URL: $url")
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    Log.d("PromotionsPreview", "Starting browser intent for: $url")
+                                    context.startActivity(intent)
+                                    Log.d("PromotionsPreview", "Browser intent started successfully")
+                                } catch (e: Exception) {
+                                    Log.e("PromotionsPreview", "Failed to open URL: $url", e)
+                                }
+                            }
+                        )
+                    }
                 }
                 
                 // Grey separator
