@@ -1329,9 +1329,13 @@ fun ExoPlayerImaVideoPlayer(
     // For VAST XML, decode the Base64 XML
     var decodedVastXml by remember { mutableStateOf<String?>(null) }
     
-    // VAST-parsed skip info (overrides videoConfig for VAST deliveries)
+    // VAST-parsed data (overrides videoConfig for VAST deliveries)
+    var vastTrackingUrls by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
     var vastSkipOffset by remember { mutableStateOf<Int?>(null) }
     var vastIsSkippable by remember { mutableStateOf(false) }
+    
+    // Coroutine scope for firing tracking URLs
+    val scope = rememberCoroutineScope()
     
     LaunchedEffect(creative.delivery, videoConfig.videoAssetUrl) {
         when (creative.delivery) {
@@ -1342,8 +1346,9 @@ fun ExoPlayerImaVideoPlayer(
                         decodedVastXml = decoded
                         android.util.Log.d("AdResponse", "[VAST XML] Decoded successfully (${decoded.length} characters)")
                         
-                        // Parse skip info from VAST XML (don't rely on SDK utilities)
+                        // Parse VAST XML to extract tracking URLs and skip info
                         val parsedData = parseVastXml(decoded)
+                        vastTrackingUrls = parsedData.trackingEvents
                         vastSkipOffset = parsedData.skipOffset
                         vastIsSkippable = parsedData.isSkippable
                         android.util.Log.d("AdResponse", "[VAST XML] Skip configuration: isSkippable=${parsedData.isSkippable}, offset=${parsedData.skipOffset}s")
@@ -1447,11 +1452,11 @@ fun ExoPlayerImaVideoPlayer(
                         isPlayingAd = true
                     }
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.FIRST_QUARTILE ->
-                        android.util.Log.d("Tracking", "[AUTOMATIC] IMA SDK fired 'first_quartile' tracking beacon at 25% progress")
+                        android.util.Log.d("Tracking", "[AUTOMATIC] IMA SDK fired 'firstQuartile' tracking beacon at 25% progress")
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.MIDPOINT ->
                         android.util.Log.d("Tracking", "[AUTOMATIC] IMA SDK fired 'midpoint' tracking beacon at 50% progress")
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.THIRD_QUARTILE ->
-                        android.util.Log.d("Tracking", "[AUTOMATIC] IMA SDK fired 'third_quartile' tracking beacon at 75% progress")
+                        android.util.Log.d("Tracking", "[AUTOMATIC] IMA SDK fired 'thirdQuartile' tracking beacon at 75% progress")
                     com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.COMPLETED -> {
                         android.util.Log.d("Tracking", "[AUTOMATIC] IMA SDK fired 'complete' tracking beacon at 100% progress")
                         isPlayingAd = false
@@ -1716,42 +1721,157 @@ fun ExoPlayerImaVideoPlayer(
                         }
                         
                         if (hasStarted && !startTracked) {
-                            val event = creative.tracking?.videoEvents?.find { it.key == "start" }
-                            android.util.Log.d("Tracking", "[MANUAL] Firing 'start' event")
-                            event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
-                            viewModel.fireVideoEvent(creative, "start")
+                            when {
+                                creative.delivery == "vast_xml" -> {
+                                    vastTrackingUrls["start"]?.forEach { trackingUrl ->
+                                        android.util.Log.d("Tracking", "[MANUAL] Firing VAST 'start' tracking")
+                                        android.util.Log.d("Tracking", "[URL] $trackingUrl")
+                                        scope.launch(Dispatchers.IO) {
+                                            try {
+                                                val connection = java.net.URL(trackingUrl).openConnection() as java.net.HttpURLConnection
+                                                connection.requestMethod = "GET"
+                                                connection.connectTimeout = 3000
+                                                connection.readTimeout = 3000
+                                                val responseCode = connection.responseCode
+                                                android.util.Log.d("Tracking", "[HTTP] Fired tracking beacon (HTTP $responseCode)")
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("Tracking", "[HTTP] Error firing beacon: ${e.message}")
+                                            }
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    // JSON delivery: Use SDK tracking
+                                    val event = creative.tracking?.videoEvents?.find { it.key == "start" }
+                                    android.util.Log.d("Tracking", "[MANUAL] Firing 'start' event")
+                                    event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
+                                    viewModel.fireVideoEvent(creative, "start")
+                                }
+                            }
                             startTracked = true
                         }
                         
                         if (progress >= 0.25f && !firstQuartileTracked) {
-                            val event = creative.tracking?.videoEvents?.find { it.key == "first_quartile" }
-                            android.util.Log.d("Tracking", "[MANUAL] Firing 'first_quartile' event at 25% progress")
-                            event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
-                            viewModel.fireVideoEvent(creative, "first_quartile")
+                            when {
+                                creative.delivery == "vast_xml" -> {
+                                    vastTrackingUrls["firstQuartile"]?.forEach { trackingUrl ->
+                                        android.util.Log.d("Tracking", "[MANUAL] Firing VAST 'firstQuartile' tracking beacon at 25% progress")
+                                        android.util.Log.d("Tracking", "[URL] $trackingUrl")
+                                        scope.launch(Dispatchers.IO) {
+                                            try {
+                                                val connection = java.net.URL(trackingUrl).openConnection() as java.net.HttpURLConnection
+                                                connection.requestMethod = "GET"
+                                                connection.connectTimeout = 3000
+                                                connection.readTimeout = 3000
+                                                val responseCode = connection.responseCode
+                                                android.util.Log.d("Tracking", "[HTTP] Fired tracking beacon (HTTP $responseCode)")
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("Tracking", "[HTTP] Error firing beacon: ${e.message}")
+                                            }
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    // JSON delivery: Use SDK tracking
+                                    val event = creative.tracking?.videoEvents?.find { it.key == "first_quartile" }
+                                    android.util.Log.d("Tracking", "[MANUAL] Firing 'first_quartile' event at 25% progress")
+                                    event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
+                                    viewModel.fireVideoEvent(creative, "first_quartile")
+                                }
+                            }
                             firstQuartileTracked = true
                         }
                         
                         if (progress >= 0.5f && !midpointTracked) {
-                            val event = creative.tracking?.videoEvents?.find { it.key == "midpoint" }
-                            android.util.Log.d("Tracking", "[MANUAL] Firing 'midpoint' event at 50% progress")
-                            event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
-                            viewModel.fireVideoEvent(creative, "midpoint")
+                            when {
+                                creative.delivery == "vast_xml" -> {
+                                    vastTrackingUrls["midpoint"]?.forEach { trackingUrl ->
+                                        android.util.Log.d("Tracking", "[MANUAL] Firing VAST 'midpoint' tracking beacon at 50% progress")
+                                        android.util.Log.d("Tracking", "[URL] $trackingUrl")
+                                        scope.launch(Dispatchers.IO) {
+                                            try {
+                                                val connection = java.net.URL(trackingUrl).openConnection() as java.net.HttpURLConnection
+                                                connection.requestMethod = "GET"
+                                                connection.connectTimeout = 3000
+                                                connection.readTimeout = 3000
+                                                val responseCode = connection.responseCode
+                                                android.util.Log.d("Tracking", "[HTTP] Fired tracking beacon (HTTP $responseCode)")
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("Tracking", "[HTTP] Error firing beacon: ${e.message}")
+                                            }
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    // JSON delivery: Use SDK tracking
+                                    val event = creative.tracking?.videoEvents?.find { it.key == "midpoint" }
+                                    android.util.Log.d("Tracking", "[MANUAL] Firing 'midpoint' event at 50% progress")
+                                    event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
+                                    viewModel.fireVideoEvent(creative, "midpoint")
+                                }
+                            }
                             midpointTracked = true
                         }
                         
                         if (progress >= 0.75f && !thirdQuartileTracked) {
-                            val event = creative.tracking?.videoEvents?.find { it.key == "third_quartile" }
-                            android.util.Log.d("Tracking", "[MANUAL] Firing 'third_quartile' event at 75% progress")
-                            event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
-                            viewModel.fireVideoEvent(creative, "third_quartile")
+                            when {
+                                creative.delivery == "vast_xml" -> {
+                                    vastTrackingUrls["thirdQuartile"]?.forEach { trackingUrl ->
+                                        android.util.Log.d("Tracking", "[MANUAL] Firing VAST 'thirdQuartile' tracking beacon at 75% progress")
+                                        android.util.Log.d("Tracking", "[URL] $trackingUrl")
+                                        scope.launch(Dispatchers.IO) {
+                                            try {
+                                                val connection = java.net.URL(trackingUrl).openConnection() as java.net.HttpURLConnection
+                                                connection.requestMethod = "GET"
+                                                connection.connectTimeout = 3000
+                                                connection.readTimeout = 3000
+                                                val responseCode = connection.responseCode
+                                                android.util.Log.d("Tracking", "[HTTP] Fired tracking beacon (HTTP $responseCode)")
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("Tracking", "[HTTP] Error firing beacon: ${e.message}")
+                                            }
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    // JSON delivery: Use SDK tracking
+                                    val event = creative.tracking?.videoEvents?.find { it.key == "third_quartile" }
+                                    android.util.Log.d("Tracking", "[MANUAL] Firing 'third_quartile' event at 75% progress")
+                                    event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
+                                    viewModel.fireVideoEvent(creative, "third_quartile")
+                                }
+                            }
                             thirdQuartileTracked = true
                         }
                         
                         if (progress >= 0.98f && !completeTracked) {
-                            val event = creative.tracking?.videoEvents?.find { it.key == "complete" }
-                            android.util.Log.d("Tracking", "[MANUAL] Firing 'complete' event at 98% progress")
-                            event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
-                            viewModel.fireVideoEvent(creative, "complete")
+                            when {
+                                creative.delivery == "vast_xml" -> {
+                                    vastTrackingUrls["complete"]?.forEach { trackingUrl ->
+                                        android.util.Log.d("Tracking", "[MANUAL] Firing VAST 'complete' tracking beacon at 100% progress")
+                                        android.util.Log.d("Tracking", "[URL] $trackingUrl")
+                                        scope.launch(Dispatchers.IO) {
+                                            try {
+                                                val connection = java.net.URL(trackingUrl).openConnection() as java.net.HttpURLConnection
+                                                connection.requestMethod = "GET"
+                                                connection.connectTimeout = 3000
+                                                connection.readTimeout = 3000
+                                                val responseCode = connection.responseCode
+                                                android.util.Log.d("Tracking", "[HTTP] Fired tracking beacon (HTTP $responseCode)")
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("Tracking", "[HTTP] Error firing beacon: ${e.message}")
+                                            }
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    // JSON delivery: Use SDK tracking
+                                    val event = creative.tracking?.videoEvents?.find { it.key == "complete" }
+                                    android.util.Log.d("Tracking", "[MANUAL] Firing 'complete' event at 98% progress")
+                                    event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
+                                    viewModel.fireVideoEvent(creative, "complete")
+                                }
+                            }
                             completeTracked = true
                         }
                     }
@@ -1853,6 +1973,8 @@ fun ExoPlayerImaVideoPlayer(
                     // For pure IMA (VAST Tag without custom overlays), disable controller
                     // to let IMA render its native UI (watermarks, skip button)
                     useController = useCustomOverlays
+                    controllerAutoShow = false  // Don't show controls automatically at start
+                    controllerHideOnTouch = true  // Hide/show controls on tap
                     useArtwork = !useCustomOverlays && videoConfig.posterImageUrl != null
                     
                     playerViewRef = this
@@ -1924,7 +2046,31 @@ fun ExoPlayerImaVideoPlayer(
                                 completeTracked = true
                                 
                                 when {
-                                    isJsonDelivery || creative.delivery == "vast_xml" -> {
+                                    creative.delivery == "vast_xml" -> {
+                                        vastTrackingUrls["skip"]?.forEach { trackingUrl ->
+                                            android.util.Log.d("Tracking", "[MANUAL] Firing VAST 'skip' tracking")
+                                            android.util.Log.d("Tracking", "[URL] $trackingUrl")
+                                            scope.launch(Dispatchers.IO) {
+                                                try {
+                                                    val connection = java.net.URL(trackingUrl).openConnection() as java.net.HttpURLConnection
+                                                    connection.requestMethod = "GET"
+                                                    connection.connectTimeout = 3000
+                                                    connection.readTimeout = 3000
+                                                    val responseCode = connection.responseCode
+                                                    android.util.Log.d("Tracking", "[HTTP] Fired tracking beacon (HTTP $responseCode)")
+                                                } catch (e: Exception) {
+                                                    android.util.Log.e("Tracking", "[HTTP] Error firing beacon: ${e.message}")
+                                                }
+                                            }
+                                        }
+                                        // Terminate playback - pause and seek to end
+                                        exoPlayer?.let { player ->
+                                            player.pause()
+                                            player.seekTo(player.duration)
+                                            hasCompleted = true
+                                        }
+                                    }
+                                    isJsonDelivery -> {
                                         android.util.Log.d("Tracking", "[MANUAL] Firing 'skip' event")
                                         viewModel.fireVideoEvent(creative, "skip")
                                         // Terminate playback - pause and seek to end
@@ -2181,10 +2327,11 @@ fun BasicVideoPlayer(
                 
                 // Fire quartile events
                 if (progress >= 0.25f && !firstQuartileTracked) {
-                    val event = creative.tracking?.videoEvents?.find { it.key == "first_quartile" }
-                    android.util.Log.d("Tracking", "[MANUAL] Firing 'first_quartile' event at 25% progress")
+                    val eventKey = if (creative.delivery == "vast_xml") "firstQuartile" else "first_quartile"
+                    val event = creative.tracking?.videoEvents?.find { it.key == eventKey }
+                    android.util.Log.d("Tracking", "[MANUAL] Firing '$eventKey' event at 25% progress")
                     event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
-                    viewModel.fireVideoEvent(creative, "first_quartile")
+                    viewModel.fireVideoEvent(creative, eventKey)
                     firstQuartileTracked = true
                 }
                 
@@ -2197,10 +2344,11 @@ fun BasicVideoPlayer(
                 }
                 
                 if (progress >= 0.75f && !thirdQuartileTracked) {
-                    val event = creative.tracking?.videoEvents?.find { it.key == "third_quartile" }
-                    android.util.Log.d("Tracking", "[MANUAL] Firing 'third_quartile' event at 75% progress")
+                    val eventKey = if (creative.delivery == "vast_xml") "thirdQuartile" else "third_quartile"
+                    val event = creative.tracking?.videoEvents?.find { it.key == eventKey }
+                    android.util.Log.d("Tracking", "[MANUAL] Firing '$eventKey' event at 75% progress")
                     event?.url?.let { url -> android.util.Log.d("Tracking", "[URL] $url") }
-                    viewModel.fireVideoEvent(creative, "third_quartile")
+                    viewModel.fireVideoEvent(creative, eventKey)
                     thirdQuartileTracked = true
                 }
                 
@@ -2864,6 +3012,8 @@ fun VastClientVideoPlayer(
                 PlayerView(ctx).apply {
                     player = exoPlayer
                     useController = true
+                    controllerAutoShow = false  // Don't show controls automatically at start
+                    controllerHideOnTouch = true  // Hide/show controls on tap
                     useArtwork = false  // Handle poster in Compose
                 }
             },
