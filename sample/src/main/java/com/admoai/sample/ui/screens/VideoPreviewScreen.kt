@@ -61,7 +61,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -77,6 +79,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.utils.getSkipOffset
 import com.admoai.sdk.utils.isSkippable
+import com.admoai.sdk.utils.getVastTagUrl
 import com.admoai.sample.ui.MainViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -272,16 +275,44 @@ fun VideoPreviewScreen(
                             
                             val implementationText = when (playerType) {
                                 "exoplayer_ima" -> when (delivery) {
-                                    "vast_tag" -> "Media3 ExoPlayer + IMA SDK: Passing VAST Tag URL directly to IMA SDK enables automatic ad tracking and skip functionality. IMA handles impression/quartile events automatically.${if (endCardMode == "native_endcard") " Custom UI companion rendered manually by app." else ""}${if (endCardMode == "vast_companion") " VAST Companion parsed and rendered manually." else ""} Regardless of using the tag URL, you can still handle tracking, companions, and skip manually whenever needed."
-                                    "vast_xml" -> "Media3 ExoPlayer + IMA SDK: VAST XML passed to IMA via adsResponse. Manual companion handling${if (videoConfig.isSkippable) ", manual skip implementation" else ""}. All overlay trackers (overlayShown, closeBtn, button_cta) fired by app."
-                                    else -> "Media3 ExoPlayer + IMA SDK: JSON delivery uses direct video URL. All tracking is app-driven including impressions, quartiles, and overlay events.${if (endCardMode == "native_endcard") " Custom UI companion fully controlled by app." else ""}"
+                                    "vast_tag" -> buildAnnotatedString {
+    append("Media3 ExoPlayer + IMA SDK: Passing VAST Tag URL directly to IMA SDK enables automatic ad tracking and skip functionality. IMA handles impression/quartile events automatically. ")
+    pushStyle(SpanStyle(fontWeight = FontWeight.Bold, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic))
+    append("MediaFile overrides (shown in this example) enable developers flexible VAST responses across SDKs, platforms (Android/iOS), and players.")
+    pop()
+    append(" Regardless of using the tag URL, you can still handle tracking, companions, and skip manually whenever needed.")
+}
+                                    "vast_xml" -> buildAnnotatedString {
+                                        append("Media3 ExoPlayer + IMA SDK: VAST XML passed to IMA via adsResponse. Manual companion handling")
+                                        if (videoConfig.isSkippable) append(", manual skip implementation")
+                                        append(". All overlay trackers (overlayShown, closeBtn, button_cta) fired by app.")
+                                    }
+                                    else -> buildAnnotatedString {
+                                        append("Media3 ExoPlayer + IMA SDK: JSON delivery uses direct video URL. All tracking is app-driven including impressions, quartiles, and overlay events.")
+                                        if (endCardMode == "native_endcard") append(" Custom UI companion fully controlled by app.")
+                                    }
                                 }
                                 "vast_client" -> when (delivery) {
-                                    "vast_tag" -> "Media3 ExoPlayer: Manual VAST parsing from tag URL. Full control over ad lifecycle. Manual tracking for all events (impressions, quartiles, clicks).${if (videoConfig.isSkippable) " Skip functionality implemented manually." else ""}${if (endCardMode == "native_endcard") " Custom UI companion handled by app." else ""}${if (endCardMode == "vast_companion") " VAST Companion extracted from XML and rendered manually." else ""} This demonstrates complete ad management without SDK dependencies."
-                                    "vast_xml" -> "Media3 ExoPlayer: Direct VAST XML parsing. Complete manual control over ad serving. All tracking events fired by app code.${if (videoConfig.isSkippable) " Skip button logic implemented manually." else ""}${if (endCardMode != "none") " Companion ads handled entirely by app." else ""} Ideal for custom ad experiences."
-                                    else -> "Media3 ExoPlayer: JSON delivery with direct video playback. All aspects controlled manually: video loading, playback management, tracking pixels, user interactions.${if (endCardMode == "native_endcard") " Custom UI companion fully app-controlled." else ""} Complete flexibility for custom implementations."
+                                    "vast_tag" -> buildAnnotatedString {
+                                        append("Media3 ExoPlayer: Manual VAST parsing from tag URL. Full control over ad lifecycle. Manual tracking for all events (impressions, quartiles, clicks).")
+                                        if (videoConfig.isSkippable) append(" Skip functionality implemented manually.")
+                                        if (endCardMode == "native_endcard") append(" Custom UI companion handled by app.")
+                                        if (endCardMode == "vast_companion") append(" VAST Companion extracted from XML and rendered manually.")
+                                        append(" This demonstrates complete ad management without SDK dependencies.")
+                                    }
+                                    "vast_xml" -> buildAnnotatedString {
+                                        append("Media3 ExoPlayer: Direct VAST XML parsing. Complete manual control over ad serving. All tracking events fired by app code.")
+                                        if (videoConfig.isSkippable) append(" Skip button logic implemented manually.")
+                                        if (endCardMode != "none") append(" Companion ads handled entirely by app.")
+                                        append(" Ideal for custom ad experiences.")
+                                    }
+                                    else -> buildAnnotatedString {
+                                        append("Media3 ExoPlayer: JSON delivery with direct video playback. All aspects controlled manually: video loading, playback management, tracking pixels, user interactions.")
+                                        if (endCardMode == "native_endcard") append(" Custom UI companion fully app-controlled.")
+                                        append(" Complete flexibility for custom implementations.")
+                                    }
                                 }
-                                else -> "Player configuration details unavailable."
+                                else -> buildAnnotatedString { append("Player configuration details unavailable.") }
                             }
                             
                             Text(
@@ -1359,10 +1390,18 @@ fun ExoPlayerImaVideoPlayer(
                 }
             }
             "vast_tag" -> {
-                // For VAST Tag, fetch and parse the XML to extract skip info
-                val tagUrl = rewriteLocalhostUrl(videoConfig.videoAssetUrl)
+                // For VAST Tag, use SDK helper to get URL with MediaFile overrides
+                // Override: type = "application/x-mpegURL", delivery = "streaming"
+                val tagUrlWithOverrides = creative.getVastTagUrl(
+                    mediaType = "application/x-mpegURL",
+                    mediaDelivery = "streaming"
+                )
+                
+                val tagUrl = tagUrlWithOverrides?.let { rewriteLocalhostUrl(it) }
                 if (tagUrl != null) {
-                    android.util.Log.d("AdResponse", "[VAST Tag] Fetching XML to parse skip configuration: $tagUrl")
+                    android.util.Log.d("AdResponse", "[VAST Tag] Fetching XML to parse skip configuration")
+                    android.util.Log.d("AdResponse", "[SDK Helper] getVastTagUrl() with overrides: $tagUrlWithOverrides")
+                    android.util.Log.d("AdResponse", "[Configuration] MediaFile overrides: type=application/x-mpegURL, delivery=streaming")
                     withContext(Dispatchers.IO) {
                         try {
                             val url = java.net.URL(tagUrl)
@@ -1562,14 +1601,17 @@ fun ExoPlayerImaVideoPlayer(
             
             when (creative.delivery) {
                 "vast_tag" -> {
-                    // VAST Tag: Pass tag URL to IMA SDK (IMA will fetch XML and handle everything)
+                    // VAST Tag: Use SDK helper to get URL with MediaFile overrides
+                    val tagUrlWithOverrides = creative.getVastTagUrl(
+                        mediaType = "application/x-mpegURL",
+                        mediaDelivery = "streaming"
+                    )
+                    
                     // Rewrite localhost to 10.0.2.2 for Android emulator
-                    val rewrittenUrl = rewriteLocalhostUrl(url) ?: url
+                    val rewrittenUrl = tagUrlWithOverrides?.let { rewriteLocalhostUrl(it) } ?: url
+                    
                     android.util.Log.d("Player", "[Delivery Method] VAST Tag - URL will be passed to IMA SDK")
-                    android.util.Log.d("Player", "[Configuration] Original Tag URL: $url")
-                    if (rewrittenUrl != url) {
-                        android.util.Log.d("Player", "[Configuration] Rewritten Tag URL: $rewrittenUrl (localhost → 10.0.2.2)")
-                    }
+                    android.util.Log.d("Player", "[Configuration] MediaFile overrides: type=application/x-mpegURL, delivery=streaming")
                     android.util.Log.d("Player", "[Configuration] IMA SDK will handle: XML fetch, parsing, media selection, automatic tracking")
                     
                     mediaItemBuilder
