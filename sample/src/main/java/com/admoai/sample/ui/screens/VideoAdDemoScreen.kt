@@ -216,8 +216,8 @@ fun VideoAdDemoScreen(
                                         val json = Json { ignoreUnknownKeys = true }
                                         val demoResponse = json.decodeFromString<DecisionResponse>(jsonString)
                                         
-                                        // Store in ViewModel
-                                        viewModel.setDemoResponse(demoResponse)
+                                        // Store in ViewModel with scenario
+                                        viewModel.setDemoResponse(demoResponse, scenario)
                                         
                                         // Get placement key from response
                                         val placementKey = demoResponse.data?.firstOrNull()?.placement ?: "demo"

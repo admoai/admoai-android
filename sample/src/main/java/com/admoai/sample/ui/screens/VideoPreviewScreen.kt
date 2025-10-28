@@ -41,8 +41,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -51,6 +53,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -62,9 +65,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -139,6 +144,10 @@ fun VideoPreviewScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     
+    // Tab state
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Request", "Response")
+    
     // Get overlay threshold from response or default to 50%
     val overlayAtPercent = creative?.contents?.find { it.key == "overlayAt" }?.value?.let {
         (it as? JsonPrimitive)?.contentOrNull?.toFloatOrNull()
@@ -194,16 +203,16 @@ fun VideoPreviewScreen(
             )
         }
     ) { innerPadding ->
-        Surface(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            color = MaterialTheme.colorScheme.surface
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
         ) {
+            // Video content section
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .fillMaxWidth()
                     .padding(16.dp)
             ) {
                 // Creative info
@@ -559,8 +568,90 @@ fun VideoPreviewScreen(
                         }
                     }
                 }
+            }  // End of video content section
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Tabs section
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                ScrollableTabRow(
+                    selectedTabIndex = selectedTabIndex,
+                    edgePadding = 0.dp,
+                    divider = {}
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index },
+                            text = { 
+                                Text(
+                                    text = title,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                ) 
+                            },
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                    }
+                }
+                
+                // Tab content
+                when (selectedTabIndex) {
+                    0 -> VideoDemoRequestTab(viewModel)
+                    1 -> VideoDemoResponseTab(viewModel)
+                }
             }
-        }
+        }  // End of scrollable column
+    }  // End of Scaffold innerPadding
+}  // End of VideoPreviewScreen
+
+/**
+ * Request tab for Video Demo showing the HTTP request
+ */
+@Composable
+private fun VideoDemoRequestTab(viewModel: MainViewModel) {
+    val httpRequest = remember { viewModel.getVideoDemoHttpRequest() }
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Text(
+            text = httpRequest,
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace
+        )
+    }
+}
+
+/**
+ * Response tab for Video Demo showing the JSON response
+ */
+@Composable
+private fun VideoDemoResponseTab(viewModel: MainViewModel) {
+    val formattedResponse by viewModel.formattedResponse.collectAsState()
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Text(
+            text = formattedResponse,
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace
+        )
     }
 }
 

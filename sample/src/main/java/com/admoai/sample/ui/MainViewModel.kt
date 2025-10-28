@@ -141,6 +141,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Formatted response for display
     private val _formattedResponse = MutableStateFlow("")
     val formattedResponse = _formattedResponse.asStateFlow()
+    
+    // Video demo scenario tracking
+    private val _videoDemoScenario = MutableStateFlow<String?>(null)
+    val videoDemoScenario = _videoDemoScenario.asStateFlow()
 
     // Mock placements available in the demo
     val availablePlacements = listOf(
@@ -986,8 +990,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * Set a demo response from the Video Ad Demo feature.
      * This temporarily replaces the current response for demo purposes.
      */
-    fun setDemoResponse(demoResponse: DecisionResponse) {
+    fun setDemoResponse(demoResponse: DecisionResponse, scenario: String? = null) {
         _response.value = demoResponse
         _decisionResponse.value = demoResponse
+        _formattedResponse.value = formatResponseToJson(demoResponse)
+        _videoDemoScenario.value = scenario
+    }
+    
+    /**
+     * Get the video demo HTTP request for display.
+     */
+    @OptIn(ExperimentalSerializationApi::class)
+    fun getVideoDemoHttpRequest(): String {
+        val scenario = _videoDemoScenario.value ?: return "No scenario data available"
+        
+        return try {
+            val requestBody = """
+{
+  "placements": [
+    {
+      "key": "$scenario",
+      "format": "video"
+    }
+  ]
+}
+            """.trimIndent()
+            
+            // Format as an HTTP request with headers
+            val sb = StringBuilder()
+            sb.append("POST /v1/decision HTTP/1.1\n")
+            sb.append("Host: 10.0.2.2:8080\n")
+            sb.append("Content-Type: application/json\n")
+            sb.append("Accept-Language: en\n")
+            sb.append("X-Decision-Version: 2025-11-01\n")
+            sb.append("\n")
+            sb.append(requestBody)
+            
+            sb.toString()
+        } catch (e: Exception) {
+            "Error generating video demo HTTP request: ${e.message}"
+        }
     }
 }
