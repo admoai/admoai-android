@@ -20,6 +20,7 @@ object AdTemplateMapper {
         const val WIDE_IMAGE_ONLY = "wideImageOnly"
         const val STANDARD = "standard"
         const val NORMAL_VIDEOS = "normal_videos"
+        const val REWARD_VIDEOS = "reward_videos"
     }
     
     /**
@@ -155,6 +156,28 @@ object AdTemplateMapper {
         
         // If it has companion content, treat it as normal_videos
         return hasCompanionHeadline || hasCompanionCta
+    }
+    
+    /**
+     * Check if an ad is using the reward_videos template
+     * This checks for either:
+     * 1. Explicit template.key = "reward_videos" in response, OR
+     * 2. Presence of endcard content fields (companionEndcardHeadline, companionEndcardCta, overlayAtPercentage)
+     */
+    fun isRewardVideosTemplate(adData: AdData?): Boolean {
+        // First check explicit template
+        if (hasTemplateKey(adData, TemplateType.REWARD_VIDEOS)) {
+            return true
+        }
+        
+        // Fall back to checking for reward video endcard content presence
+        val creative = adData?.creatives?.firstOrNull() ?: return false
+        val hasEndcardHeadline = creative.contents?.any { it.key == "companionEndcardHeadline" } == true
+        val hasEndcardCta = creative.contents?.any { it.key == "companionEndcardCta" } == true
+        val hasOverlayPercentage = creative.contents?.any { it.key == "overlayAtPercentage" } == true
+        
+        // If it has endcard content, treat it as reward_videos
+        return (hasEndcardHeadline || hasEndcardCta) && hasOverlayPercentage
     }
     
     /**

@@ -189,8 +189,10 @@ fun FreeMinutesPreviewScreen(
         }
         
         // Fullscreen video player overlay
-        if (showVideoPlayer) {
+        if (showVideoPlayer && adData != null) {
             FullscreenVideoPlayer(
+                adData = adData,
+                viewModel = viewModel,
                 onClose = { showVideoPlayer = false }
             )
         }
@@ -357,36 +359,86 @@ private fun RideHistoryCard(index: Int) {
 }
 
 /**
- * Fullscreen video player with close button after 5 seconds
- * Hardcoded for development purposes - will be replaced with ad response data
+ * Fullscreen video player for rewarded video ads
+ * Displays companionHeadline while video plays
+ * Shows endcard with companionEndcard* fields when video completes (overlayAtPercentage = 1.0)
  */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 private fun FullscreenVideoPlayer(
+    adData: AdData,
+    viewModel: MainViewModel,
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var showCloseButton by remember { mutableStateOf(true) }
     var currentPosition by remember { mutableStateOf(0f) }
     var duration by remember { mutableStateOf(0f) }
     var hasCompleted by remember { mutableStateOf(false) }
+    
+    // Extract creative and content from ad data
+    val creative = adData.creatives.firstOrNull() ?: return
+    val companionHeadline = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "companionHeadline")
+    val overlayPercentage = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "overlayAtPercentage")?.toFloatOrNull() ?: 1.0f
+    
+    // Extract video URL from creative
+    var videoUrl by remember { mutableStateOf<String?>(null) }
+    var isLoadingVideo by remember { mutableStateOf(true) }
+    
+    // Load video URL from VAST tag if present
+    LaunchedEffect(creative.vast?.tagUrl) {
+        creative.vast?.tagUrl?.let { tagUrl ->
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val connection = java.net.URL(tagUrl).openConnection() as java.net.HttpURLConnection
+                    connection.requestMethod = "GET"
+                    connection.connect()
+                    
+                    val vastXml = connection.inputStream.bufferedReader().use { it.readText() }
+                    
+                    // Parse VAST XML to extract video URL
+                    val mediaFileUrl = Regex("<MediaFile[^>]*>\\s*<!\\[CDATA\\[([^\\]]+)\\]\\]>\\s*</MediaFile>", RegexOption.IGNORE_CASE)
+                        .find(vastXml)?.groupValues?.get(1)?.trim()
+                        ?: Regex("<MediaFile[^>]*>([^<]+)</MediaFile>", RegexOption.IGNORE_CASE)
+                            .find(vastXml)?.groupValues?.get(1)?.trim()
+                    
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        videoUrl = mediaFileUrl
+                        isLoadingVideo = false
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("FreeMinutes", "Error fetching VAST", e)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        isLoadingVideo = false
+                    }
+                }
+            }
+        } ?: run {
+            // If no VAST tag, use video_asset from contents
+            videoUrl = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "video_asset")
+            isLoadingVideo = false
+        }
+    }
     
     // Create ExoPlayer with stable key to prevent recomposition
     val exoPlayer = remember(context) {
         ExoPlayer.Builder(context).build()
     }
     
-    // Setup media source
-    LaunchedEffect(exoPlayer) {
-        val videoUrl = "https://videos.admoai.com/iStbqX1vecupIYYy7B3ml93RJDteSbdwLVCNSPIaTZo.m3u8"
-        val mediaItem = MediaItem.Builder()
-            .setUri(android.net.Uri.parse(videoUrl))
-            .build()
-        
-        exoPlayer.apply {
-            setMediaItem(mediaItem)
-            prepare()
-            playWhenReady = true
-            repeatMode = Player.REPEAT_MODE_OFF
+    // Setup media source when videoUrl is available
+    LaunchedEffect(videoUrl) {
+        videoUrl?.let { url ->
+            val mediaItem = MediaItem.Builder()
+                .setUri(android.net.Uri.parse(url))
+                .build()
+            
+            exoPlayer.apply {
+                setMediaItem(mediaItem)
+                prepare()
+                playWhenReady = true
+                repeatMode = Player.REPEAT_MODE_OFF
+            }
         }
     }
     
@@ -460,15 +512,17 @@ private fun FullscreenVideoPlayer(
                     )
                 }
                 
-                // Message text
-                Text(
-                    text = "Advertiser will give you free minutes for watching this video",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White,
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                )
+                // Message text from companionHeadline
+                if (!companionHeadline.isNullOrBlank()) {
+                    Text(
+                        text = companionHeadline,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White,
+                        modifier = Modifier
+                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
         }
         
@@ -488,30 +542,43 @@ private fun FullscreenVideoPlayer(
         
         // End-card (shows when video completes)
         if (hasCompleted) {
-            EndCard(onClose = onClose)
+            EndCard(
+                creative = creative,
+                onClose = onClose
+            )
         }
     }
 }
 
 /**
  * End-card displayed after video completion
+ * Uses companionEndcard* fields from ad response
  */
 @Composable
 private fun EndCard(
+    creative: com.admoai.sdk.model.response.Creative,
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
     
+    // Extract endcard content from creative
+    val endcardImage = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "companionEndcardImage")
+    val endcardHeadline = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "companionEndcardHeadline")
+    val endcardCta = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "companionEndcardCta")
+    val endcardDestinationUrl = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "companionEndcardDestinationUrl")
+    
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Background image
-        AsyncImage(
-            model = "https://admoai.s3.eu-west-1.amazonaws.com/mock/admoai+cover.jpg",
-            contentDescription = "End card",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        // Background image from companionEndcardImage
+        if (!endcardImage.isNullOrBlank()) {
+            AsyncImage(
+                model = endcardImage,
+                contentDescription = "End card",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
         
         // X close button with helper text at top
         Row(
@@ -522,22 +589,18 @@ private fun EndCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Helper text (LEFT side)
-            Text(
-                text = buildAnnotatedString {
-                    append("¡The advertiser just granted ")
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                        append("free minutes")
-                    }
-                    append(" for watching this Video!")
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White,
-                modifier = Modifier
-                    .weight(1f)
-                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            )
+            // Helper text from companionEndcardHeadline (LEFT side)
+            if (!endcardHeadline.isNullOrBlank()) {
+                Text(
+                    text = endcardHeadline,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
             
             Spacer(modifier = Modifier.width(8.dp))
             
@@ -559,27 +622,33 @@ private fun EndCard(
             }
         }
         
-        // CTA button at bottom-center
-        Button(
-            onClick = {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("http://example.partner.com/"))
-                context.startActivity(intent)
-            },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 64.dp)
-                .fillMaxWidth(0.8f)
-                .height(48.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary
-            ),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text(
-                text = "Explore more Advertiser deals",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+        // CTA button at bottom-center from companionEndcardCta
+        if (!endcardCta.isNullOrBlank() && !endcardDestinationUrl.isNullOrBlank()) {
+            Button(
+                onClick = {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(endcardDestinationUrl))
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        android.util.Log.e("FreeMinutes", "Error opening URL: $endcardDestinationUrl", e)
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 64.dp)
+                    .fillMaxWidth(0.8f)
+                    .height(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = endcardCta,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
