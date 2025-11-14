@@ -113,11 +113,14 @@ fun WaitingPreviewScreen(
         }
     }
     
-    // Show card when ad data becomes available (both initial load and refresh)
+    // Show/hide card when ad data changes (both initial load and refresh)
     LaunchedEffect(adData) {
         if (adData != null && !isLoading && !isRefreshing) {
             delay(300) // Small delay for animation smoothness
             isCardVisible = true
+        } else if (adData == null && !isLoading) {
+            // Hide card when no ad data is available (e.g., empty creatives)
+            isCardVisible = false
         }
     }
 
@@ -215,8 +218,21 @@ fun WaitingPreviewScreen(
                             viewModel.isVideoCreative(creative)
                         } ?: false
                         
-                        if (isVideoAd) {
-                            // Render video player for video ads
+                        // Check if this is normal_videos template (video with companion content in one card)
+                        val isNormalVideos = com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(data)
+                        
+                        if (isNormalVideos) {
+                            // Render VideoAdCard for normal_videos template (video + companion in unified card)
+                            com.admoai.sample.ui.components.VideoAdCard(
+                                adData = data,
+                                viewModel = viewModel,
+                                placementKey = "waiting",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                            )
+                        } else if (isVideoAd) {
+                            // Render standalone video player for other video ads
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -258,25 +274,33 @@ fun WaitingPreviewScreen(
                     }
                 }
                 
-                // Page indicators
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    repeat(pageCount) { i ->
-                        val isSelected = i == currentPage
-                        Box(
+                // Page indicators - Only show for native ads (not video ads)
+                adData?.let { data ->
+                    val isVideoAd = data.creatives.firstOrNull()?.let { creative ->
+                        viewModel.isVideoCreative(creative)
+                    } ?: false
+                    
+                    if (!isVideoAd) {
+                        Row(
                             modifier = Modifier
-                                .padding(horizontal = 4.dp)
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primary
-                                    else Color.LightGray
+                                .fillMaxWidth()
+                                .padding(top = 16.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            repeat(pageCount) { i ->
+                                val isSelected = i == currentPage
+                                Box(
+                                    modifier = Modifier
+                                        .padding(horizontal = 4.dp)
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isSelected) MaterialTheme.colorScheme.primary
+                                            else Color.LightGray
+                                        )
                                 )
-                        )
+                            }
+                        }
                     }
                 }
             }

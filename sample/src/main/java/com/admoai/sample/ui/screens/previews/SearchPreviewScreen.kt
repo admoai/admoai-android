@@ -70,11 +70,14 @@ fun SearchPreviewScreen(
         }
     }
     
-    // Show card when ad data becomes available (both initial load and refresh)
+    // Show/hide card when ad data changes (both initial load and refresh)
     LaunchedEffect(adData) {
         if (adData != null && !isLoading && !isRefreshing) {
             kotlinx.coroutines.delay(300) // Small delay for animation smoothness
             isCardVisible = true
+        } else if (adData == null && !isLoading) {
+            // Hide card when no ad data is available (e.g., empty creatives)
+            isCardVisible = false
         }
     }
 

@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
 
         // Initialize the AdMoai SDK with OkHttp engine to avoid TLS issues
         val config = SDKConfig(
-            baseUrl = "https://mock.api.admoai.com",
+            baseUrl = "http://10.0.2.2:8080",
             apiVersion = "2025-11-01",
             enableLogging = true,
             networkClientEngine = OkHttp.create()

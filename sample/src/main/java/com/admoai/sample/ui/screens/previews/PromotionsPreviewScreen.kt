@@ -107,11 +107,14 @@ fun PromotionsPreviewScreen(
         }
     }
     
-    // Show card when ad data becomes available (both initial load and refresh)
+    // Show/hide card when ad data changes (both initial load and refresh)
     LaunchedEffect(adData) {
         if (adData != null && !isLoading && !isRefreshing) {
             delay(300) // Small delay for animation smoothness
             isCardVisible = true
+        } else if (adData == null && !isLoading) {
+            // Hide card when no ad data is available (e.g., empty creatives)
+            isCardVisible = false
         }
     }
 
@@ -164,8 +167,21 @@ fun PromotionsPreviewScreen(
                     
                     Log.d("PromotionsPreview", "Rendering decision - isVideoAd: $isVideoAd, adData: ${adData != null}")
                     
-                    if (isVideoAd && adData != null) {
-                        // Render video player for video ads
+                    // Check if this is normal_videos template (video with companion content in one card)
+                    val isNormalVideos = adData?.let { 
+                        com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(it)
+                    } ?: false
+                    
+                    if (isNormalVideos && adData != null) {
+                        // Render VideoAdCard for normal_videos template (video + companion in unified card)
+                        com.admoai.sample.ui.components.VideoAdCard(
+                            adData = adData,
+                            viewModel = viewModel,
+                            placementKey = "promotions",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else if (isVideoAd && adData != null) {
+                        // Render standalone video player for other video ads
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()

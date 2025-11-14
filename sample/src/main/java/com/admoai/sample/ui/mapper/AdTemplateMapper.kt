@@ -19,6 +19,7 @@ object AdTemplateMapper {
         const val CAROUSEL_3_SLIDES = "carousel3Slides"
         const val WIDE_IMAGE_ONLY = "wideImageOnly"
         const val STANDARD = "standard"
+        const val NORMAL_VIDEOS = "normal_videos"
     }
     
     /**
@@ -133,6 +134,27 @@ object AdTemplateMapper {
      */
     fun isStandardTemplate(adData: AdData?): Boolean {
         return hasTemplateKey(adData, TemplateType.STANDARD)
+    }
+    
+    /**
+     * Check if an ad is using the normal_videos template
+     * This checks for either:
+     * 1. Explicit template.key = "normal_videos" in response, OR
+     * 2. Presence of companion content fields (companionHeadline, companionSubtext, companionCta)
+     */
+    fun isNormalVideosTemplate(adData: AdData?): Boolean {
+        // First check explicit template
+        if (hasTemplateKey(adData, TemplateType.NORMAL_VIDEOS)) {
+            return true
+        }
+        
+        // Fall back to checking for companion content presence
+        val creative = adData?.creatives?.firstOrNull() ?: return false
+        val hasCompanionHeadline = creative.contents?.any { it.key == "companionHeadline" } == true
+        val hasCompanionCta = creative.contents?.any { it.key == "companionCta" } == true
+        
+        // If it has companion content, treat it as normal_videos
+        return hasCompanionHeadline || hasCompanionCta
     }
     
     /**

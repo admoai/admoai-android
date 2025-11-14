@@ -90,11 +90,14 @@ fun RideSummaryPreviewScreen(
         }
     }
     
-    // Show card when ad data becomes available (both initial load and refresh)
+    // Show/hide card when ad data changes (both initial load and refresh)
     LaunchedEffect(adData) {
         if (adData != null && !isLoading && !isRefreshing) {
             delay(200) // Small delay for slide-in animation
             isCardVisible = true
+        } else if (adData == null && !isLoading) {
+            // Hide card when no ad data is available (e.g., empty creatives)
+            isCardVisible = false
         }
     }
 
@@ -219,14 +222,14 @@ fun RideSummaryPreviewScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = 24.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -244,7 +247,7 @@ fun RideSummaryPreviewScreen(
             }
             
             // Add spacing before ad card
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             // Ad card with slide-in animation
             Box(
@@ -262,8 +265,21 @@ fun RideSummaryPreviewScreen(
                     viewModel.isVideoCreative(creative)
                 } ?: false
                 
-                if (isVideoAd && adData != null) {
-                    // Render video player for video ads
+                // Check if this is normal_videos template (video with companion content in one card)
+                val isNormalVideos = adData?.let { 
+                    com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(it)
+                } ?: false
+                
+                if (isNormalVideos && adData != null) {
+                    // Render VideoAdCard for normal_videos template (video + companion in unified card)
+                    com.admoai.sample.ui.components.VideoAdCard(
+                        adData = adData,
+                        viewModel = viewModel,
+                        placementKey = "rideSummary",
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else if (isVideoAd && adData != null) {
+                    // Render standalone video player for other video ads
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -312,7 +328,7 @@ fun ReceiptItemRow(item: ReceiptItem) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
@@ -330,7 +346,7 @@ fun ReceiptItemRow(item: ReceiptItem) {
     
     if (item.isTotal) {
         HorizontalDivider(
-            modifier = Modifier.padding(vertical = 8.dp),
+            modifier = Modifier.padding(vertical = 4.dp),
             thickness = 2.dp
         )
     }
