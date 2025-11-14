@@ -358,17 +358,19 @@ fun VideoAdCard(
                         },
                         modifier = Modifier
                             .wrapContentWidth()
-                            .height(40.dp),
+                            .height(36.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF5B7FC7)
+                            containerColor = Color(0xFFF5F5F5)
                         ),
-                        shape = RoundedCornerShape(6.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.4f))
                     ) {
                         Text(
                             text = companionCta,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.DarkGray,
+                            letterSpacing = 0.3.sp
                         )
                     }
                 }

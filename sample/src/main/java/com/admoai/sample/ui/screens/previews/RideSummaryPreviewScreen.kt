@@ -134,7 +134,7 @@ fun RideSummaryPreviewScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                    .padding(horizontal = 24.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.Center
             ) {
                 // Five stars, all filled for 5-star rating
@@ -144,45 +144,45 @@ fun RideSummaryPreviewScreen(
                         contentDescription = "Star $i",
                         tint = Color(0xFFFFC107), // Amber
                         modifier = Modifier
-                            .size(28.dp)
-                            .padding(horizontal = 4.dp)
+                            .size(24.dp)
+                            .padding(horizontal = 3.dp)
                     )
                 }
             }
             
             Text(
                 text = "Thanks for riding with us!",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp)
+                    .padding(vertical = 4.dp)
             )
             
             // Receipt list
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                    .padding(horizontal = 24.dp, vertical = 6.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(12.dp)
                 ) {
                     Text(
                         text = "Trip Summary",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
                     
                     // Origin-destination info
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 16.dp)
+                            .padding(bottom = 8.dp)
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
@@ -247,7 +247,7 @@ fun RideSummaryPreviewScreen(
             }
             
             // Add spacing before ad card
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             
             // Ad card with slide-in animation
             Box(
@@ -328,7 +328,7 @@ fun ReceiptItemRow(item: ReceiptItem) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
@@ -346,8 +346,8 @@ fun ReceiptItemRow(item: ReceiptItem) {
     
     if (item.isTotal) {
         HorizontalDivider(
-            modifier = Modifier.padding(vertical = 4.dp),
-            thickness = 2.dp
+            modifier = Modifier.padding(vertical = 2.dp),
+            thickness = 1.dp
         )
     }
 }
