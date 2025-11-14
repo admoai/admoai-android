@@ -282,6 +282,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Initialize the SDK with OkHttp engine to avoid TLS issues
         val config = SDKConfig(
             baseUrl = MOCK_BASE_URL,
+            apiVersion = "2025-11-01",
             enableLogging = true,
             networkClientEngine = OkHttp.create()
         )
@@ -843,10 +844,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             sb.append("Content-Type: application/json\n")
             sb.append("User-Agent: AdmoaiExample/Android\n")
             
-            // Add X-Decision-Version header for video requests
-            if (isVideoRequest) {
-                sb.append("X-Decision-Version: 2025-11-01\n")
-            }
+            // Add X-Decision-Version header for all requests (as configured in SDK)
+            sb.append("X-Decision-Version: 2025-11-01\n")
             
             sb.append("\n")
             sb.append(requestBody)

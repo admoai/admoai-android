@@ -114,6 +114,11 @@ internal class AdMoaiApiServiceImpl(
                     header(HttpHeaders.AcceptLanguage, lang)
                     logInfo("Added Accept-Language header: $lang")
                 }
+                // Add X-Decision-Version header if apiVersion is set in SDKConfig
+                sdkConfig.apiVersion?.let { version ->
+                    header("X-Decision-Version", version)
+                    logInfo("Added X-Decision-Version header: $version")
+                }
                 setBody(request) // DecisionRequest is set as the body
             }.body() // Deserialize the response body to DecisionResponse
 
@@ -168,6 +173,9 @@ internal class AdMoaiApiServiceImpl(
         headers["Accept"] = ContentType.Application.Json.toString()
         sdkConfig.defaultLanguage?.let { lang ->
             headers[HttpHeaders.AcceptLanguage] = lang
+        }
+        sdkConfig.apiVersion?.let { version ->
+            headers["X-Decision-Version"] = version
         }
         // Body serialization (simplified, real Ktor handles this complexly)
         val body = json.encodeToString(request)

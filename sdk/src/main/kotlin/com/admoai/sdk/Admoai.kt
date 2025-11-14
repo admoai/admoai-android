@@ -323,12 +323,14 @@ class Admoai private constructor() {
          * Initialize the SDK with the minimum required configuration.
          * 
          * @param baseUrl The base URL for the AdMoai API (e.g., "https://api.admoai.com")
+         * @param apiVersion The API version to send in X-Decision-Version header (optional, e.g., "2025-11-01")
          * @param enableLogging Whether to enable debug logging (default: false)
          * @param defaultLanguage The preferred language for responses (optional, format: "en-US")
          */
-        fun initialize(baseUrl: String, enableLogging: Boolean = false, defaultLanguage: String? = null) {
+        fun initialize(baseUrl: String, apiVersion: String? = null, enableLogging: Boolean = false, defaultLanguage: String? = null) {
             val config = SDKConfig(
                 baseUrl = baseUrl,
+                apiVersion = apiVersion,
                 enableLogging = enableLogging,
                 defaultLanguage = defaultLanguage
             )
