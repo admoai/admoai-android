@@ -148,7 +148,9 @@ fun FreeMinutesPreviewScreen(
                         PrizeBox(
                             hasNotification = true, // All boxes show badge
                             onClick = {
-                                // Show fullscreen video player
+                                // Trigger new ad request before showing video player
+                                isRefreshing = true
+                                // Show fullscreen video player after refresh starts
                                 showVideoPlayer = true
                             },
                             modifier = Modifier.weight(1f)
