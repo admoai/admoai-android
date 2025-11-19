@@ -1603,6 +1603,45 @@ fun ExoPlayerImaVideoPlayer(
                         isPlayingAd = false
                         hasAdCompleted = true
                     }
+                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.TAPPED -> {
+                        android.util.Log.d("IMA", "[Clickthrough] User tapped on ad")
+                        
+                        // Get clickthrough URL from the ad
+                        adEvent.ad?.let { ad ->
+                            try {
+                                // IMA SDK provides the clickthrough URL through the ad object
+                                val clickThroughUrl = ad.adPodInfo?.let {
+                                    // For linear ads, clickthrough is in the creative
+                                    ad.adSystem
+                                } ?: ""
+                                
+                                // Try to get from trafficking parameters or use a fallback
+                                // Note: IMA SDK should automatically handle clickthrough for VAST ads
+                                // but we'll log what we can access
+                                android.util.Log.d("IMA", "[Clickthrough] Ad ID: ${ad.adId}")
+                                android.util.Log.d("IMA", "[Clickthrough] Ad Title: ${ad.title}")
+                                android.util.Log.d("IMA", "[Clickthrough] Ad System: ${ad.adSystem}")
+                                android.util.Log.d("IMA", "[Clickthrough] Advertiser Name: ${ad.advertiserName}")
+                                
+                                // The actual clickthrough should be handled automatically by IMA SDK
+                                // when the user taps on the ad video viewport.
+                                // If we reach here, IMA detected the tap but may not have a valid URL
+                                android.util.Log.w("IMA", "[Clickthrough] TAPPED event received - IMA should handle clickthrough automatically")
+                                android.util.Log.w("IMA", "[Clickthrough] If browser doesn't open, check that:")
+                                android.util.Log.w("IMA", "[Clickthrough] 1. ClickThrough URL in VAST uses a valid public URL (not 10.0.2.2 or localhost)")
+                                android.util.Log.w("IMA", "[Clickthrough] 2. URL scheme is http:// or https://")
+                                android.util.Log.w("IMA", "[Clickthrough] 3. AdDisplayContainer overlay is properly layered")
+                                
+                            } catch (e: Exception) {
+                                android.util.Log.e("IMA", "[Clickthrough] Error processing tap: ${e.message}", e)
+                            }
+                        }
+                    }
+                    com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.CLICKED -> {
+                        android.util.Log.d("IMA", "[Clickthrough] CLICKED event - browser should open")
+                        // This event fires when IMA successfully opens the clickthrough URL
+                        // If this doesn't fire after TAPPED, the URL is likely invalid
+                    }
                     else -> {
                         // Log unhandled events for debugging
                         android.util.Log.d("IMA", "[Event] Unhandled IMA event: ${adEvent.type}")

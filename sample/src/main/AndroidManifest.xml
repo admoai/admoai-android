@@ -5,6 +5,23 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- Package visibility for IMA SDK ad clickthrough - Android 11+ requirement -->
+    <!-- Without this, AppsFilter blocks interaction with Chrome and other browsers -->
+    <queries>
+        <!-- Explicitly allow Chrome -->
+        <package android:name="com.android.chrome" />
+        
+        <!-- Allow any browser that handles http/https intents -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
