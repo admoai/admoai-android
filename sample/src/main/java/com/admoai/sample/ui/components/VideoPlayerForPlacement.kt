@@ -1,6 +1,7 @@
 package com.admoai.sample.ui.components
 
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -23,6 +25,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sample.ui.mapper.AdTemplateMapper
@@ -87,6 +91,7 @@ fun VideoPlayerForPlacement(
     var hasCompleted by remember { mutableStateOf(false) }
     var currentPosition by remember { mutableFloatStateOf(0f) }
     var duration by remember { mutableFloatStateOf(0f) }
+    var firstFrameRendered by remember { mutableStateOf(false) }
     
     // Overlay state
     var overlayShown by remember { mutableStateOf(false) }
@@ -185,6 +190,21 @@ fun VideoPlayerForPlacement(
             modifier = modifier.fillMaxSize().background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
+            // Show poster image if available, even when VAST parsing fails
+            if (posterImageUrl != null) {
+                android.util.Log.d("VideoPlayerPlacement", "Showing poster during VAST error: $posterImageUrl")
+                Image(
+                    painter = rememberAsyncImagePainter(
+                        model = ImageRequest.Builder(context)
+                            .data(posterImageUrl)
+                            .crossfade(true)
+                            .build()
+                    ),
+                    contentDescription = "Video poster",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
             Text(
                 "VAST Error: $vastParseError",
                 color = Color.Red,
@@ -200,7 +220,23 @@ fun VideoPlayerForPlacement(
             modifier = modifier.fillMaxSize().background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
-            androidx.compose.material3.CircularProgressIndicator(color = Color.White)
+            // Show poster image during VAST parsing if available
+            if (posterImageUrl != null) {
+                android.util.Log.d("VideoPlayerPlacement", "Showing poster during VAST parsing: $posterImageUrl")
+                Image(
+                    painter = rememberAsyncImagePainter(
+                        model = ImageRequest.Builder(context)
+                            .data(posterImageUrl)
+                            .crossfade(true)
+                            .build()
+                    ),
+                    contentDescription = "Video poster",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            // Show loading indicator on top of poster (or alone if no poster)
+            CircularProgressIndicator(color = Color.White)
         }
         return
     }
@@ -212,6 +248,21 @@ fun VideoPlayerForPlacement(
             modifier = modifier.fillMaxSize().background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
+            // Show poster image if available, even when video URL is missing
+            if (posterImageUrl != null) {
+                android.util.Log.d("VideoPlayerPlacement", "Showing poster when no video URL: $posterImageUrl")
+                Image(
+                    painter = rememberAsyncImagePainter(
+                        model = ImageRequest.Builder(context)
+                            .data(posterImageUrl)
+                            .crossfade(true)
+                            .build()
+                    ),
+                    contentDescription = "Video poster",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
             Text(
                 "No video URL available",
                 color = Color.White,
@@ -248,6 +299,10 @@ fun VideoPlayerForPlacement(
         exoPlayer.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
+            }
+            
+            override fun onRenderedFirstFrame() {
+                firstFrameRendered = true
             }
             
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -495,6 +550,22 @@ fun VideoPlayerForPlacement(
                     }
                 }
             }
+        }
+        
+        // Poster image overlay - shows before video starts, hides after first frame
+        if (!firstFrameRendered && posterImageUrl != null) {
+            android.util.Log.d("VideoPlayerPlacement", "Showing poster overlay (firstFrameRendered=$firstFrameRendered): $posterImageUrl")
+            Image(
+                painter = rememberAsyncImagePainter(
+                    model = ImageRequest.Builder(context)
+                        .data(posterImageUrl)
+                        .crossfade(true)
+                        .build()
+                ),
+                contentDescription = "Video poster",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
         }
         
         // Native end-card overlay

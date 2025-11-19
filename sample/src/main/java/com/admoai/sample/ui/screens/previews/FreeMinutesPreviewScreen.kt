@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -38,6 +39,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import android.content.Intent
 import android.net.Uri
 import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -378,11 +381,13 @@ private fun FullscreenVideoPlayer(
     var currentPosition by remember { mutableStateOf(0f) }
     var duration by remember { mutableStateOf(0f) }
     var hasCompleted by remember { mutableStateOf(false) }
+    var firstFrameRendered by remember { mutableStateOf(false) }
     
     // Extract creative and content from ad data
     val creative = adData.creatives.firstOrNull() ?: return
     val companionHeadline = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "companionHeadline")
     val overlayPercentage = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "overlayAtPercentage")?.toFloatOrNull() ?: 1.0f
+    val posterImageUrl = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "poster_image")
     
     // Extract video URL from creative
     var videoUrl by remember { mutableStateOf<String?>(null) }
@@ -449,6 +454,10 @@ private fun FullscreenVideoPlayer(
     // Track video progress and completion
     LaunchedEffect(exoPlayer) {
         exoPlayer.addListener(object : Player.Listener {
+            override fun onRenderedFirstFrame() {
+                firstFrameRendered = true
+            }
+            
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) {
                     hasCompleted = true
@@ -483,10 +492,27 @@ private fun FullscreenVideoPlayer(
                 PlayerView(ctx).apply {
                     player = exoPlayer
                     useController = false // Hide default controls
+                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM // Zoom to fill entire screen
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
+        
+        // Poster image overlay - shows before video starts, hides after first frame
+        if (!firstFrameRendered && posterImageUrl != null) {
+            android.util.Log.d("FreeMinutes", "Showing poster overlay (firstFrameRendered=$firstFrameRendered): $posterImageUrl")
+            Image(
+                painter = rememberAsyncImagePainter(
+                    model = ImageRequest.Builder(context)
+                        .data(posterImageUrl)
+                        .crossfade(true)
+                        .build()
+                ),
+                contentDescription = "Video poster",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
         
         // Back button with message (hide when video completes)
         if (showCloseButton && !hasCompleted) {

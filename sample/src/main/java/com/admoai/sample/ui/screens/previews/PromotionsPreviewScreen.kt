@@ -68,6 +68,23 @@ fun PromotionsPreviewScreen(
     val context = LocalContext.current
     var isRefreshing by remember { mutableStateOf(false) }
     var isCardVisible by remember { mutableStateOf(adData != null) }
+    val density = LocalDensity.current
+    
+    // Card entry animation (slide in from right like Ride Summary)
+    val cardOffsetX by animateDpAsState(
+        targetValue = if (isCardVisible) 0.dp else 300.dp,
+        animationSpec = spring(
+            dampingRatio = 0.7f,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "card_offset_x"
+    )
+    
+    val cardAlpha by animateFloatAsState(
+        targetValue = if (isCardVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 300),
+        label = "card_alpha"
+    )
     
     // Auto-scrolling carousel pager state
     val pagerState = rememberPagerState(pageCount = { 5 })
@@ -80,13 +97,6 @@ fun PromotionsPreviewScreen(
             pagerState.animateScrollToPage(nextPage)
         }
     }
-    
-    // Animation values for ad card refresh effect
-    val cardAlpha by animateFloatAsState(
-        targetValue = if (isCardVisible) 1f else 0f,
-        animationSpec = tween(durationMillis = 300),
-        label = "card_alpha"
-    )
 
     // Handle refresh button click - only trigger once
     LaunchedEffect(isRefreshing) {
@@ -155,7 +165,10 @@ fun PromotionsPreviewScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
-                        .graphicsLayer(alpha = cardAlpha),
+                        .graphicsLayer(
+                            alpha = cardAlpha,
+                            translationX = with(density) { cardOffsetX.toPx() }
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     // Check if this is a video ad
