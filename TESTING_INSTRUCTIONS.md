@@ -81,16 +81,18 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 **Validation**:
 
 **Video Ad Demo**:
-- Poster shows before play  
-- Skip button at offset (custom UI overlay)  
-- End-card at `overlay_at_percentage` or completion  
-- Quartiles: 0/25/50/75/98%  
-- IMA "Ad" badge for VAST Tag (validates IMA integration)
+- ✅ Black screen during loading (poster NOT shown - Nov 2025 change)
+- ✅ Skip button at offset (custom UI overlay)  
+- ✅ End-card at `overlay_at_percentage` or completion  
+- ✅ Quartiles: 0/25/50/75/98%  
+- ✅ IMA "Ad" and "Learn more" badges for VAST Tag (validates IMA integration)
+- ✅ VAST clickthrough: Tap "Learn more" → browser opens (requires manifest `<queries>` block)
 
 **Placement Previews**:
 - **All Placements**: Back + Response Details buttons visible and clickable
 - **Standard Placements**: Refresh button visible (home, search, menu, promotions, etc.)
 - **Free Minutes Only**: NO refresh button (use prize boxes instead)
+- **No-Ads Behavior** (Nov 2025): When format filter yields no ads, ad card completely hidden (not greyed out)
 
 **Template Rendering**:
 - **imageWithText**: Check if `image_left` or `image_right` style applied correctly
@@ -183,6 +185,14 @@ cd /Users/matias-admoai/Documents/repos/admoai-android
 **Issue**: Card clicks not working  
 **Check**: Using `Card(onClick = ...)` not `.clickable()` modifier  
 **Fix**: Replace `.clickable()` with Card's onClick parameter
+
+**Issue**: VAST clickthrough not working ("Learn more" tap does nothing)  
+**Check**: Logcat for `AppsFilter: BLOCKED` error  
+**Fix**: Add `<queries>` block to `AndroidManifest.xml` (see `VIDEO_CONCEPTS.md` section 14)
+
+**Issue**: Poster image showing before video (old behavior)  
+**Check**: Should show black screen during loading  
+**Fix**: Verify poster overlay removed from video components (Nov 2025 change)
 
 ---
 

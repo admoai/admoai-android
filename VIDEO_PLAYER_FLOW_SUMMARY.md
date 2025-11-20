@@ -323,7 +323,7 @@ Video functionality integrated into Decision Request Builder. Users can now sele
 
 **Content Keys** (from creative.contents):
 - `video_asset` - Video URL (JSON delivery only)
-- `poster_image` - Poster/thumbnail (all deliveries)
+- `poster_image` - Poster/thumbnail (all deliveries) - **NOT displayed** (Nov 2025: black screen shown during loading instead)
 - `is_skippable` - Skip configuration
 - `skip_offset` - Skip offset in seconds
 - `companionHeadline` - End-card headline (camelCase)

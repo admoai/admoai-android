@@ -61,6 +61,11 @@ Video Demo ready. See `VIDEO_CONCEPTS.md` for canonical reference.
 - ✅ Fixed Card click handling (use `onClick` parameter)
 - ✅ Increased API timeout (10s → 30s)
 
+**Recent Fixes** (Nov 2025):
+- ✅ **VAST Clickthrough**: Added `<queries>` block to `AndroidManifest.xml` to fix Android 11+ browser detection (IMA "Learn more" button now works)
+- ✅ **Poster Image Removal**: Removed poster display during video loading (black screen shown instead for cleaner UX)
+- ✅ **No-Ads Behavior**: Ad cards completely hidden when no ads match format filter (instead of greyed-out placeholders)
+
 **UI**: Material Design 3, direct navigation (no preview dialog), context-aware implementation details, italic helper texts
 
 ## Implementation Notes

@@ -22,7 +22,7 @@ This document centralizes the key concepts used by the Admoai Android Sample App
 Rules:
 - `json` → `vast` must be `null` and `videoAsset` must be present.
 - `vast_tag`/`vast_xml` → `videoAsset` must NOT be present; tracking comes from VAST XML.
-- `posterImage` is always present (all deliveries).
+- `posterImage` is always present but NOT displayed during video playback (see section 15).
 
 Terminology:
 - "VAST Tag" = URL endpoint that returns VAST XML.
@@ -100,9 +100,11 @@ User‑defined (editable convention):
 
 ## 7) Compliance & Validation
 
-**IMA Watermarks**:
+**IMA Watermarks & Clickthrough**:
 - VAST Tag playback via IMA shows "Ad" and "Learn more" badges (compliance requirement).
-- Validation: If badges don't appear, integration is incorrect.
+- Tapping "Learn more" opens clickthrough URL in browser.
+- **Android 11+ Requirement**: App must declare package visibility in `AndroidManifest.xml` to detect browsers.
+- Validation: If badges don't appear or clicks fail, check manifest `<queries>` block.
 
 **IMA Skip Button**:
 - Requires minimum 8-second ad duration to display.
@@ -480,7 +482,64 @@ For detailed implementation, flow diagrams, and testing:
 
 ---
 
-## 14) See Also
+## 14) UX Improvements (Nov 2025)
+
+### Poster Image Handling
+**Decision**: Do NOT display `poster_image` before video playback starts.
+
+**Rationale**: Poster images are often low quality and create poor UX.
+
+**Implementation**: Show black screen during video loading instead of poster overlay.
+
+**Files Modified**:
+- `VideoAdCard.kt` - Removed poster extraction and overlay logic
+- `VideoPlayerForPlacement.kt` - Removed poster extraction and overlay logic
+- `FreeMinutesPreviewScreen.kt` - Removed poster overlay
+
+**Note**: Poster images still present in API response but not rendered.
+
+---
+
+### No-Ads Behavior
+**Decision**: When no ads match selected format, hide ad card completely.
+
+**Rationale**: Better emulates real publisher behavior (no ad = no UI).
+
+**Implementation**: Wrap all ad card rendering in `if (adData != null)` checks.
+
+**Files Modified**: All placement preview screens (Home, Menu, Search, Promotions, Waiting, VehicleSelection, RideSummary).
+
+**Before**: Greyed-out placeholder card shown when no ads available.
+
+**After**: Ad card completely hidden, only placement UI visible.
+
+---
+
+### VAST Clickthrough Requirements
+**Android 11+ Package Visibility**: App must declare browser intents in `AndroidManifest.xml`.
+
+**Required Manifest Entry**:
+```xml
+<queries>
+    <package android:name="com.android.chrome" />
+    <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <data android:scheme="http" />
+    </intent>
+    <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <data android:scheme="https" />
+    </intent>
+</queries>
+```
+
+**Without this**: IMA SDK cannot detect browsers, clickthrough fails with `AppsFilter: BLOCKED` error.
+
+**Implementation**: `/sample/src/main/AndroidManifest.xml`
+
+---
+
+## 15) See Also
 - `TESTING_INSTRUCTIONS.md` – How to test and validate.
 - `VIDEO_PLAYER_FLOW_SUMMARY.md` – UI/flow and player responsibilities.
 - `VIDEO_IMPLEMENTATION_ROADMAP.md` – Actionable implementation plan.
