@@ -107,24 +107,27 @@ fun SearchPreviewScreen(
             }
             
             // Ad card after third item
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                        .graphicsLayer(alpha = cardAlpha),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AdCard(
-                        adData = adData,
-                        placementKey = "search", // Explicitly set placement key to search
-                        onTrackImpression = { url ->
-                            // Search ads only need impression tracking, no click handling
-                            onTrackEvent("impression", url)
-                        },
-                        // No onAdClick parameter as search ads don't respond to clicks
-                        modifier = Modifier.fillMaxWidth()
-                    )
+            // Only show ad card when adData is available
+            if (adData != null) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                            .graphicsLayer(alpha = cardAlpha),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AdCard(
+                            adData = adData,
+                            placementKey = "search", // Explicitly set placement key to search
+                            onTrackImpression = { url ->
+                                // Search ads only need impression tracking, no click handling
+                                onTrackEvent("impression", url)
+                            },
+                            // No onAdClick parameter as search ads don't respond to clicks
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
             

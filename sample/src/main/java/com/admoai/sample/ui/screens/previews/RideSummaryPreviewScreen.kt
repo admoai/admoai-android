@@ -249,36 +249,36 @@ fun RideSummaryPreviewScreen(
             // Add spacing before ad card
             Spacer(modifier = Modifier.height(6.dp))
             
-            // Ad card with slide-in animation
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .graphicsLayer(
-                        alpha = cardAlpha,
-                        translationX = with(density) { cardOffsetX.toPx() }
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                // Check if this is a video ad
-                val isVideoAd = adData?.creatives?.firstOrNull()?.let { creative ->
-                    viewModel.isVideoCreative(creative)
-                } ?: false
-                
-                // Check if this is normal_videos template (video with companion content in one card)
-                val isNormalVideos = adData?.let { 
-                    com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(it)
-                } ?: false
-                
-                if (isNormalVideos && adData != null) {
-                    // Render VideoAdCard for normal_videos template (video + companion in unified card)
-                    com.admoai.sample.ui.components.VideoAdCard(
-                        adData = adData,
-                        viewModel = viewModel,
-                        placementKey = "rideSummary",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else if (isVideoAd && adData != null) {
+            // Ad card with slide-in animation from right
+            // Only show ad card when adData is available
+            if (adData != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .graphicsLayer(
+                            alpha = cardAlpha,
+                            translationX = with(density) { cardOffsetX.toPx() }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Check if this is a video ad
+                    val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
+                        viewModel.isVideoCreative(creative)
+                    } ?: false
+                    
+                    // Check if this is normal_videos template (video with companion content in one card)
+                    val isNormalVideos = com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(adData)
+                    
+                    if (isNormalVideos) {
+                        // Render VideoAdCard for normal_videos template (video + companion in unified card)
+                        com.admoai.sample.ui.components.VideoAdCard(
+                            adData = adData,
+                            viewModel = viewModel,
+                            placementKey = "rideSummary",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else if (isVideoAd) {
                     // Render standalone video player for other video ads
                     Box(
                         modifier = Modifier
@@ -308,6 +308,7 @@ fun RideSummaryPreviewScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
                 }
             }
             

@@ -112,33 +112,36 @@ fun HomePreviewScreen(
             )
             
             // Horizontal Ad Card with animation - iOS style
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 70.dp) // Match iOS padding of 70 pts
-                    .graphicsLayer(
-                        alpha = cardAlpha,
-                        translationY = with(density) { cardOffsetY.toPx() }
-                    ),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                HorizontalAdCard(
-                    adData = adData,
-                    placementKey = placement.key, // Pass the placement key for click support check
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    onAdClick = { clickedAdData ->
-                        // Open the full screen creative modal
-                        onAdClick(clickedAdData)
-                    },
-                    onTrackClick = { url ->
-                        // Track click events
-                        onTrackEvent("click", url)
-                    },
-                    onTrackImpression = { url ->
-                        // Track impression
-                        onTrackEvent("impression", url)
-                    }
-                )
+            // Only show ad card when adData is available
+            if (adData != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 70.dp) // Match iOS padding of 70 pts
+                        .graphicsLayer(
+                            alpha = cardAlpha,
+                            translationY = with(density) { cardOffsetY.toPx() }
+                        ),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    HorizontalAdCard(
+                        adData = adData,
+                        placementKey = placement.key, // Pass the placement key for click support check
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        onAdClick = { clickedAdData ->
+                            // Open the full screen creative modal
+                            onAdClick(clickedAdData)
+                        },
+                        onTrackClick = { url ->
+                            // Track click events
+                            onTrackEvent("click", url)
+                        },
+                        onTrackImpression = { url ->
+                            // Track impression
+                            onTrackEvent("impression", url)
+                        }
+                    )
+                }
             }
         }
         

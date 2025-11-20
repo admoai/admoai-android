@@ -75,10 +75,6 @@ fun VideoAdCard(
     val companionCta = AdTemplateMapper.getContentValue(creative, "companionCta")
     val companionDestinationUrl = AdTemplateMapper.getContentValue(creative, "companionDestinationUrl")
     
-    // Extract poster image (snake_case system-generated key)
-    val posterImageUrl = AdTemplateMapper.getContentValue(creative, "poster_image")
-    android.util.Log.d("VideoAdCard", "posterImageUrl: $posterImageUrl")
-    
     // Video player state
     var videoUrl by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -153,22 +149,6 @@ fun VideoAdCard(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            // Show poster image during loading if available
-                            if (posterImageUrl != null) {
-                                android.util.Log.d("VideoAdCard", "Showing poster during VAST loading: $posterImageUrl")
-                                Image(
-                                    painter = rememberAsyncImagePainter(
-                                        model = ImageRequest.Builder(context)
-                                            .data(posterImageUrl)
-                                            .crossfade(true)
-                                            .build()
-                                    ),
-                                    contentDescription = "Video poster",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                            // Show loading indicator on top of poster (or alone if no poster)
                             CircularProgressIndicator(color = Color.White)
                         }
                     }
@@ -177,20 +157,6 @@ fun VideoAdCard(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            // Show poster image if available, even when error occurs
-                            if (posterImageUrl != null) {
-                                Image(
-                                    painter = rememberAsyncImagePainter(
-                                        model = ImageRequest.Builder(context)
-                                            .data(posterImageUrl)
-                                            .crossfade(true)
-                                            .build()
-                                    ),
-                                    contentDescription = "Video poster",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
                             Text(
                                 text = errorMessage ?: "Error",
                                 color = Color.White,
@@ -335,22 +301,6 @@ fun VideoAdCard(
                             },
                             modifier = Modifier.fillMaxSize()
                         )
-                        
-                        // Poster image overlay - shows before video starts, hides after first frame
-                        if (!firstFrameRendered && posterImageUrl != null) {
-                            android.util.Log.d("VideoAdCard", "Showing poster overlay (firstFrameRendered=$firstFrameRendered): $posterImageUrl")
-                            Image(
-                                painter = rememberAsyncImagePainter(
-                                    model = ImageRequest.Builder(context)
-                                        .data(posterImageUrl)
-                                        .crossfade(true)
-                                        .build()
-                                ),
-                                contentDescription = "Video poster",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
                     }
                 }
             }

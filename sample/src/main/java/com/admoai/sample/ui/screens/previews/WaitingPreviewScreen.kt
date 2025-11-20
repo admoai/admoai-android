@@ -205,26 +205,27 @@ fun WaitingPreviewScreen(
                 }
                 
                 // Ad card with animation
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp)
-                        .graphicsLayer { alpha = cardAlpha },
-                    contentAlignment = Alignment.Center
-                ) {
-                    adData?.let { data ->
+                // Only show ad card when adData is available
+                if (adData != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                            .graphicsLayer { alpha = cardAlpha },
+                        contentAlignment = Alignment.Center
+                    ) {
                         // Check if this is a video ad
-                        val isVideoAd = data.creatives.firstOrNull()?.let { creative ->
+                        val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
                             viewModel.isVideoCreative(creative)
                         } ?: false
                         
                         // Check if this is normal_videos template (video with companion content in one card)
-                        val isNormalVideos = com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(data)
+                        val isNormalVideos = com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(adData)
                         
                         if (isNormalVideos) {
                             // Render VideoAdCard for normal_videos template (video + companion in unified card)
                             com.admoai.sample.ui.components.VideoAdCard(
-                                adData = data,
+                                adData = adData,
                                 viewModel = viewModel,
                                 placementKey = "waiting",
                                 modifier = Modifier
@@ -240,7 +241,7 @@ fun WaitingPreviewScreen(
                                     .clip(RoundedCornerShape(12.dp))
                             ) {
                                 com.admoai.sample.ui.components.VideoPlayerForPlacement(
-                                    creative = data.creatives.first(),
+                                    creative = adData.creatives.first(),
                                     viewModel = viewModel,
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -248,7 +249,7 @@ fun WaitingPreviewScreen(
                         } else {
                             // Render native ad card for native ads
                             AdCard(
-                                adData = data,
+                                adData = adData,
                                 placementKey = "waiting",
                                 onAdClick = { clickedAdData -> 
                                     onAdClick(clickedAdData)
@@ -275,8 +276,8 @@ fun WaitingPreviewScreen(
                 }
                 
                 // Page indicators - Only show for native ads (not video ads)
-                adData?.let { data ->
-                    val isVideoAd = data.creatives.firstOrNull()?.let { creative ->
+                if (adData != null) {
+                    val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
                         viewModel.isVideoCreative(creative)
                     } ?: false
                     

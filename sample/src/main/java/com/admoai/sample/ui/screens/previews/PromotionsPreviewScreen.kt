@@ -161,31 +161,31 @@ fun PromotionsPreviewScreen(
                 )
                 
                 // AdCard is the main element - everything else is greyed-out mock UI
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .graphicsLayer(
-                            alpha = cardAlpha,
-                            translationX = with(density) { cardOffsetX.toPx() }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Check if this is a video ad
-                    val isVideoAd = adData?.creatives?.firstOrNull()?.let { creative ->
-                        val result = viewModel.isVideoCreative(creative)
-                        Log.d("PromotionsPreview", "isVideoCreative check: $result, delivery: ${creative.delivery}, vast: ${creative.vast != null}")
-                        result
-                    } ?: false
+                // Only show ad card when adData is available
+                if (adData != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .graphicsLayer(
+                                alpha = cardAlpha,
+                                translationX = with(density) { cardOffsetX.toPx() }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Check if this is a video ad
+                        val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
+                            val result = viewModel.isVideoCreative(creative)
+                            Log.d("PromotionsPreview", "isVideoCreative check: $result, delivery: ${creative.delivery}, vast: ${creative.vast != null}")
+                            result
+                        } ?: false
                     
                     Log.d("PromotionsPreview", "Rendering decision - isVideoAd: $isVideoAd, adData: ${adData != null}")
                     
                     // Check if this is normal_videos template (video with companion content in one card)
-                    val isNormalVideos = adData?.let { 
-                        com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(it)
-                    } ?: false
+                    val isNormalVideos = com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(adData)
                     
-                    if (isNormalVideos && adData != null) {
+                    if (isNormalVideos) {
                         // Render VideoAdCard for normal_videos template (video + companion in unified card)
                         com.admoai.sample.ui.components.VideoAdCard(
                             adData = adData,
@@ -193,7 +193,7 @@ fun PromotionsPreviewScreen(
                             placementKey = "promotions",
                             modifier = Modifier.fillMaxWidth()
                         )
-                    } else if (isVideoAd && adData != null) {
+                    } else if (isVideoAd) {
                         // Render standalone video player for other video ads
                         Box(
                             modifier = Modifier
@@ -231,6 +231,7 @@ fun PromotionsPreviewScreen(
                                 }
                             }
                         )
+                    }
                     }
                 }
                 

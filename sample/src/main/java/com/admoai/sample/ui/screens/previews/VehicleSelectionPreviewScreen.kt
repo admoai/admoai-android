@@ -155,20 +155,20 @@ fun VehicleSelectionPreviewScreen(
             // Spacer for the nav bar with extra padding for visual separation
             Spacer(modifier = Modifier.height(120.dp))
             
-            // Ad Card with animation - positioned at the top below nav bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .graphicsLayer(
-                        alpha = cardAlpha,
-                        translationY = with(density) { cardOffsetY.toPx() }
-                    ),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                adData?.let { ad ->
+            // Ad Card with animation
+            if (adData != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .graphicsLayer(
+                            alpha = cardAlpha,
+                            translationY = with(density) { cardOffsetY.toPx() }
+                        ),
+                    contentAlignment = Alignment.TopCenter
+                ) {
                     // Check if this is a video ad first
-                    val isVideoAd = ad.creatives.firstOrNull()?.let { creative ->
+                    val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
                         viewModel.isVideoCreative(creative)
                     } ?: false
                     
@@ -181,7 +181,7 @@ fun VehicleSelectionPreviewScreen(
                                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                         ) {
                             com.admoai.sample.ui.components.VideoPlayerForPlacement(
-                                creative = ad.creatives.first(),
+                                creative = adData.creatives.first(),
                                 viewModel = viewModel,
                                 modifier = Modifier.fillMaxSize()
                             )
@@ -190,12 +190,12 @@ fun VehicleSelectionPreviewScreen(
                         // Render native ad based on template
                         when {
                             // For imageWithText template with either imageLeft or imageRight style
-                            AdTemplateMapper.isImageWithTextTemplate(ad) -> {
+                            AdTemplateMapper.isImageWithTextTemplate(adData) -> {
                                 SearchAdCard(
-                                    adData = ad,
+                                    adData = adData,
                                     onImpressionTracked = {
                                         // Track the first impression URL
-                                        ad.creatives.firstOrNull()?.tracking?.impressions?.firstOrNull()?.let { impression ->
+                                        adData.creatives.firstOrNull()?.tracking?.impressions?.firstOrNull()?.let { impression ->
                                             onTrackEvent("impression", impression.url)
                                         }
                                     },
@@ -203,10 +203,10 @@ fun VehicleSelectionPreviewScreen(
                                 )
                             }
                             // For wideImageOnly template (any style including "default")
-                            AdTemplateMapper.isWideImageOnlyTemplate(ad) -> {
+                            AdTemplateMapper.isWideImageOnlyTemplate(adData) -> {
                                 // Use HorizontalAdCard which properly handles posterImage for wideImageOnly
                                 HorizontalAdCard(
-                                    adData = ad,
+                                    adData = adData,
                                     placementKey = "vehicleSelection",
                                     onAdClick = onAdClick,
                                     onTrackClick = { url ->
@@ -221,7 +221,7 @@ fun VehicleSelectionPreviewScreen(
                             // Default fallback
                             else -> {
                                 AdCard(
-                                    adData = ad,
+                                    adData = adData,
                                     onAdClick = onAdClick,
                                     onTrackImpression = { url ->
                                         onTrackEvent("impression", url)

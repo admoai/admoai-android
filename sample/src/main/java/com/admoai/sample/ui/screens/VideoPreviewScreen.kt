@@ -289,7 +289,7 @@ fun VideoPreviewScreen(
     pushStyle(SpanStyle(fontWeight = FontWeight.Bold, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic))
     append("MediaFile overrides (shown in this example) enable developers flexible VAST responses across SDKs, platforms (Android/iOS), and players.")
     pop()
-    append(" Regardless of using the tag URL, you can still handle tracking, companions, and skip manually whenever needed.")
+    append(" VAST clickthrough is demonstrated here—tap 'Learn more' to navigate to the specified URL. Regardless of using the tag URL, you can still handle tracking, companions, and skip manually whenever needed.")
 }
                                     "vast_xml" -> buildAnnotatedString {
                                         append("Media3 ExoPlayer + IMA SDK: VAST XML passed to IMA via adsResponse. Manual companion handling")

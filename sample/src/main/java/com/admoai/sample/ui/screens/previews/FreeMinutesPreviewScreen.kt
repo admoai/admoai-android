@@ -387,7 +387,6 @@ private fun FullscreenVideoPlayer(
     val creative = adData.creatives.firstOrNull() ?: return
     val companionHeadline = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "companionHeadline")
     val overlayPercentage = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "overlayAtPercentage")?.toFloatOrNull() ?: 1.0f
-    val posterImageUrl = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "poster_image")
     
     // Extract video URL from creative
     var videoUrl by remember { mutableStateOf<String?>(null) }
@@ -498,23 +497,7 @@ private fun FullscreenVideoPlayer(
             modifier = Modifier.fillMaxSize()
         )
         
-        // Poster image overlay - shows before video starts, hides after first frame
-        if (!firstFrameRendered && posterImageUrl != null) {
-            android.util.Log.d("FreeMinutes", "Showing poster overlay (firstFrameRendered=$firstFrameRendered): $posterImageUrl")
-            Image(
-                painter = rememberAsyncImagePainter(
-                    model = ImageRequest.Builder(context)
-                        .data(posterImageUrl)
-                        .crossfade(true)
-                        .build()
-                ),
-                contentDescription = "Video poster",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        }
-        
-        // Back button with message (hide when video completes)
+        // Close button with message (hide when video completes)
         if (showCloseButton && !hasCompleted) {
             Row(
                 modifier = Modifier

@@ -136,28 +136,31 @@ fun MenuPreviewScreen(
                     SideMenuContent()
                     
                     // Ad banner at the bottom
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp, start = 8.dp, end = 8.dp)
-                            .graphicsLayer(alpha = cardAlpha)
-                    ) {
-                        AdCard(
-                            adData = adData,
-                            placementKey = placement.key, // Add placement key
-                            onAdClick = { clickedAdData -> 
-                                onAdClick(clickedAdData)
-                            },
-                            onTrackClick = { url ->
-                                // Track click events
-                                onTrackEvent("click", url)
-                            },
-                            onTrackImpression = { url ->
-                                onTrackEvent("impression", url)
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                    // Only show ad card when adData is available
+                    if (adData != null) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp, start = 8.dp, end = 8.dp)
+                                .graphicsLayer(alpha = cardAlpha)
+                        ) {
+                            AdCard(
+                                adData = adData,
+                                placementKey = placement.key, // Add placement key
+                                onAdClick = { clickedAdData -> 
+                                    onAdClick(clickedAdData)
+                                },
+                                onTrackClick = { url ->
+                                    // Track click events
+                                    onTrackEvent("click", url)
+                                },
+                                onTrackImpression = { url ->
+                                    onTrackEvent("impression", url)
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 }
             }
