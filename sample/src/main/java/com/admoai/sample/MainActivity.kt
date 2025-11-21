@@ -72,7 +72,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Initialize the AdMoai SDK with OkHttp engine to avoid TLS issues
         val config = SDKConfig(
             baseUrl = "http://10.0.2.2:8080",
             apiVersion = "2025-11-01",
@@ -94,9 +93,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/**
- * Navigation routes for the app
- */
 object Routes {
     const val DECISION_REQUEST = "decision_request"
     const val PLACEMENT_PICKER = "placement_picker"
@@ -109,7 +105,6 @@ object Routes {
     const val VIDEO_AD_DEMO = "video_ad_demo"
     const val COMPOSE_INTEGRATION = "compose_integration"
     
-    // Preview screen routes
     const val PROMOTIONS_PREVIEW = "promotions_preview"
     const val HOME_PREVIEW = "home_preview"
     const val SEARCH_PREVIEW = "search_preview"
@@ -121,18 +116,13 @@ object Routes {
     const val VIDEO_PREVIEW = "video_preview"
 }
 
-/**
- * Main navigation host for the AdMoai sample application.
- */
 @Composable
 fun AdMoaiNavHost(viewModel: MainViewModel) {
     val navController = rememberNavController()
     
-    // Creative detail modal state
     val showingCreativeDetail = viewModel.showingCreativeDetail.collectAsState()
     val selectedAdData = viewModel.selectedAdData.collectAsState()
     
-    // Show creative detail modal when visible
     if (showingCreativeDetail.value) {
         CreativeDetailScreen(
             adData = selectedAdData.value,
@@ -149,15 +139,11 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             DecisionRequestScreen(
                 viewModel = viewModel,
                 onShowRequest = {
-                    // Update the request JSON preview and navigate
                     viewModel.updateRequestJsonPreview()
                     navController.navigate(Routes.REQUEST_PREVIEW)
                 },
                 onRequestPreview = {
-                    // Launch ad request and navigate to demo screen with live data
                     viewModel.loadAds()
-                    
-                    // Navigate to the appropriate demo screen based on selected placement
                     val placementKey = viewModel.placementKey.value
                     when (placementKey) {
                         "home" -> navController.navigate("${Routes.HOME_PREVIEW}/$placementKey")
@@ -168,7 +154,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                         "freeMinutes" -> navController.navigate("${Routes.FREE_MINUTES_PREVIEW}/$placementKey")
                         "vehicleSelection" -> navController.navigate("${Routes.VEHICLE_SELECTION_PREVIEW}/$placementKey")
                         "rideSummary" -> navController.navigate("${Routes.RIDE_SUMMARY_PREVIEW}/$placementKey")
-                        else -> navController.navigate("${Routes.HOME_PREVIEW}/$placementKey") // Default fallback
+                        else -> navController.navigate("${Routes.HOME_PREVIEW}/$placementKey")
                     }
                 },
                 onPlacementClick = {
@@ -193,7 +179,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                     navController.navigate(Routes.COMPOSE_INTEGRATION)
                 },
                 onNavigateBack = {
-                    // Currently at the root, no back navigation
                 }
             )
         }
@@ -261,7 +246,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             )
         }
         
-        // Preview screens
         composable(
             route = "${Routes.PROMOTIONS_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
@@ -288,7 +272,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             }
         }
         
-        // Home preview screen
         composable(
             route = "${Routes.HOME_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
@@ -316,7 +299,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             }
         }
 
-        // Search preview screen
         composable(
             route = "${Routes.SEARCH_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
@@ -337,13 +319,11 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
-                    // Removed onThemeToggle and onAdClick as they're not used for search placement
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) }
                 )
             }
         }
 
-        // Menu preview screen
         composable(
             route = "${Routes.MENU_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
@@ -370,7 +350,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             }
         }
 
-        // Waiting preview screen
         composable(
             route = "${Routes.WAITING_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
@@ -398,7 +377,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             }
         }
 
-        // Free Minutes preview screen
         composable(
             route = "${Routes.FREE_MINUTES_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })

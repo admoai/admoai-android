@@ -24,16 +24,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import java.io.Closeable // Added import
+import java.io.Closeable
 
-// API Key header removed as per requirements
-
-// AdMoaiApiServiceImpl implements AdMoaiApiService and Closeable
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 internal class AdMoaiApiServiceImpl(
     private val sdkConfig: SDKConfig,
-    private val engine: HttpClientEngine? // Engine can be null, CIO is default
-) : AdMoaiApiService, Closeable { // Implement Closeable
+    private val engine: HttpClientEngine?
+) : AdMoaiApiService, Closeable {
 
     // Serializer for request/response bodies
     private val json = Json {
@@ -55,11 +52,10 @@ internal class AdMoaiApiServiceImpl(
             install(Logging) {
                 logger = object : Logger {
                     override fun log(message: String) {
-                        // Ensure logs are noticeable and clearly from Ktor
-                        println("[AdMoaiSDK Ktor]: $message")
+                        println("[Ktor]: $message")
                     }
                 }
-                level = LogLevel.ALL // Log everything: headers, body, etc.
+                level = LogLevel.ALL
             }
         }
         // Timeout
@@ -134,7 +130,7 @@ internal class AdMoaiApiServiceImpl(
                 cause = e
             )
         }
-    }.flowOn(Dispatchers.IO) // Ensure network operations run on IO dispatcher for actual SDK usage
+    }.flowOn(Dispatchers.IO)
 
 
     override fun fireTrackingUrl(url: String): Flow<Unit> = flow {

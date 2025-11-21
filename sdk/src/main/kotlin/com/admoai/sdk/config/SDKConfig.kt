@@ -1,29 +1,17 @@
 package com.admoai.sdk.config
 
 import com.admoai.sdk.core.Clearable
-import io.ktor.client.engine.HttpClientEngine // Ensure this import is present
+import io.ktor.client.engine.HttpClientEngine
 
-/**
- * Configuration for the AdMoai SDK.
- * 
- * @property baseUrl Base URL for the AdMoai API
- * @property apiVersion Optional API version to send in X-Decision-Version header (e.g., "2025-11-01")
- * @property enableLogging Whether to enable debug logging
- * @property defaultLanguage Preferred language for API responses (e.g., "en-US")
- * @property networkClientEngine Custom HTTP client engine for network requests
- * @property networkRequestTimeoutMs Timeout for the entire request in milliseconds
- * @property networkConnectTimeoutMs Timeout for establishing a connection in milliseconds
- * @property networkSocketTimeoutMs Timeout for socket reads in milliseconds
- */
 data class SDKConfig(
     val baseUrl: String,
     val apiVersion: String? = null,
     val enableLogging: Boolean = false,
     val defaultLanguage: String? = null,
-    val networkClientEngine: HttpClientEngine? = null, // Corrected type to HttpClientEngine
-    val networkRequestTimeoutMs: Long = 10000L, // Default 10 seconds
-    val networkConnectTimeoutMs: Long = 10000L, // Default 10 seconds
-    val networkSocketTimeoutMs: Long = 10000L   // Default 10 seconds
+    val networkClientEngine: HttpClientEngine? = null,
+    val networkRequestTimeoutMs: Long = 10000L,
+    val networkConnectTimeoutMs: Long = 10000L,
+    val networkSocketTimeoutMs: Long = 10000L
 ) : Clearable<SDKConfig> {
 
     override fun resetToDefaults(): SDKConfig {
