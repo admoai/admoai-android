@@ -94,22 +94,16 @@ fun VideoAdCard(
         creative.vast?.tagUrl?.let { tagUrl ->
             scope.launch(Dispatchers.IO) {
                 try {
-                    android.util.Log.d("VideoAdCard", "Fetching VAST from: $tagUrl")
                     val connection = URL(tagUrl).openConnection() as HttpURLConnection
                     connection.requestMethod = "GET"
                     connection.connect()
                     
                     val vastXml = connection.inputStream.bufferedReader().use { it.readText() }
-                    android.util.Log.d("VideoAdCard", "VAST XML fetched successfully")
-                    
-                    // Parse VAST XML to extract video URL and tracking URLs
                     val parsed = parseVastXmlForCard(vastXml)
                     withContext(Dispatchers.Main) {
                         videoUrl = parsed.mediaFileUrl
                         vastTrackingUrls = parsed.trackingEvents
                         isLoading = false
-                        android.util.Log.d("VideoAdCard", "Video URL: $videoUrl")
-                        android.util.Log.d("VideoAdCard", "Tracking URLs: ${vastTrackingUrls.keys}")
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("VideoAdCard", "Error fetching VAST", e)
@@ -177,7 +171,6 @@ fun VideoAdCard(
                                 addListener(object : Player.Listener {
                                     override fun onRenderedFirstFrame() {
                                         firstFrameRendered = true
-                                        android.util.Log.d("VideoAdCard", "First frame rendered, hiding poster")
                                     }
                                     
                                     override fun onIsPlayingChanged(isPlaying: Boolean) {

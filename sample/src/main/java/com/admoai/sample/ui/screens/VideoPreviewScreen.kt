@@ -907,15 +907,11 @@ suspend fun fetchVastXmlFromUrl(tagUrl: String): String? = kotlinx.coroutines.wi
         
         val responseCode = connection.responseCode
         if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
-            val xml = connection.inputStream.bufferedReader().use { it.readText() }
-            android.util.Log.d("VAST_FETCHER", "Fetched VAST XML (${xml.length} chars)")
-            xml
+            connection.inputStream.bufferedReader().use { it.readText() }
         } else {
-            android.util.Log.e("VAST_FETCHER", "HTTP error: $responseCode")
             null
         }
     } catch (e: Exception) {
-        android.util.Log.e("VAST_FETCHER", "Error fetching VAST XML: ${e.message}", e)
         null
     }
 }
@@ -952,21 +948,17 @@ private class SimpleVideoAdPlayer(
                 val adInfo = currentAdMediaInfo ?: return
                 when (playbackState) {
                     androidx.media3.common.Player.STATE_BUFFERING -> {
-                        android.util.Log.d("VideoAdPlayer", "Player STATE_BUFFERING")
                         if (hasNotifiedLoaded) {
                             callbacks.forEach { it.onBuffering(adInfo) }
                         }
                     }
                     androidx.media3.common.Player.STATE_READY -> {
-                        android.util.Log.d("VideoAdPlayer", "Player STATE_READY")
                         if (!hasNotifiedLoaded) {
-                            android.util.Log.d("VideoAdPlayer", "Notifying IMA: onLoaded()")
                             callbacks.forEach { it.onLoaded(adInfo) }
                             hasNotifiedLoaded = true
                         }
                     }
                     androidx.media3.common.Player.STATE_ENDED -> {
-                        android.util.Log.d("VideoAdPlayer", "Player STATE_ENDED")
                         callbacks.forEach { it.onEnded(adInfo) }
                         hasNotifiedPlay = false
                         hasNotifiedLoaded = false
@@ -975,21 +967,17 @@ private class SimpleVideoAdPlayer(
             }
             
             override fun onRenderedFirstFrame() {
-                android.util.Log.d("VideoAdPlayer", "First frame rendered")
-                // We now use onIsPlayingChanged for more reliable play/pause signals.
             }
             
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 val adInfo = currentAdMediaInfo ?: return
                 if (isPlaying) {
                     if (!hasNotifiedPlay) {
-                         android.util.Log.d("VideoAdPlayer", "isPlaying=true, notifying IMA: onPlay()")
                          callbacks.forEach { it.onPlay(adInfo) }
                          hasNotifiedPlay = true
                     }
                 } else {
                     if (hasNotifiedPlay) {
-                        android.util.Log.d("VideoAdPlayer", "isPlaying=false, notifying IMA: onPause()")
                         callbacks.forEach { it.onPause(adInfo) }
                         hasNotifiedPlay = false
                     }
@@ -997,7 +985,6 @@ private class SimpleVideoAdPlayer(
             }
             
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                android.util.Log.e("VideoAdPlayer", "Player error - notifying IMA: onError() - ${error.message}")
                 currentAdMediaInfo?.let { adInfo ->
                     callbacks.forEach { it.onError(adInfo) }
                 }
@@ -1006,11 +993,8 @@ private class SimpleVideoAdPlayer(
     }
     
     override fun playAd(adMediaInfo: com.google.ads.interactivemedia.v3.api.player.AdMediaInfo) {
-        android.util.Log.d("VideoAdPlayer", "playAd called: ${adMediaInfo.url}")
-        // Start playback, then notify IMA.
         exoPlayer.play()
         if (!hasNotifiedPlay) {
-            android.util.Log.d("VideoAdPlayer", "Notifying IMA: onPlay()")
             callbacks.forEach { it.onPlay(adMediaInfo) }
             hasNotifiedPlay = true
         }
@@ -1020,50 +1004,41 @@ private class SimpleVideoAdPlayer(
         adMediaInfo: com.google.ads.interactivemedia.v3.api.player.AdMediaInfo,
         adPodInfo: com.google.ads.interactivemedia.v3.api.AdPodInfo
     ) {
-        android.util.Log.d("VideoAdPlayer", "loadAd called: ${adMediaInfo.url}")
         currentAdMediaInfo = adMediaInfo
         hasNotifiedLoaded = false
         hasNotifiedPlay = false
 
-        // Load media and prepare the player. onLoaded() will be called when player is ready.
         val mediaItem = androidx.media3.common.MediaItem.fromUri(adMediaInfo.url)
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
     }
     
     override fun stopAd(adMediaInfo: com.google.ads.interactivemedia.v3.api.player.AdMediaInfo) {
-        android.util.Log.d("VideoAdPlayer", "stopAd called: ${adMediaInfo.url}")
         exoPlayer.stop()
     }
     
     override fun pauseAd(adMediaInfo: com.google.ads.interactivemedia.v3.api.player.AdMediaInfo) {
-        android.util.Log.d("VideoAdPlayer", "pauseAd called: ${adMediaInfo.url}")
         exoPlayer.pause()
     }
     
     override fun release() {
-        android.util.Log.d("VideoAdPlayer", "release called")
         callbacks.clear()
     }
     
     override fun addCallback(callback: com.google.ads.interactivemedia.v3.api.player.VideoAdPlayer.VideoAdPlayerCallback) {
         callbacks.add(callback)
-        android.util.Log.d("VideoAdPlayer", "Callback added, total: ${callbacks.size}")
     }
     
     override fun removeCallback(callback: com.google.ads.interactivemedia.v3.api.player.VideoAdPlayer.VideoAdPlayerCallback) {
         callbacks.remove(callback)
-        android.util.Log.d("VideoAdPlayer", "Callback removed, remaining: ${callbacks.size}")
     }
     
     override fun getAdProgress(): com.google.ads.interactivemedia.v3.api.player.VideoProgressUpdate {
         val current = exoPlayer.currentPosition
         val duration = exoPlayer.duration
         return if (current <= 0L && (duration <= 0L || duration == androidx.media3.common.C.TIME_UNSET)) {
-            // Not ready yet
             com.google.ads.interactivemedia.v3.api.player.VideoProgressUpdate.VIDEO_TIME_NOT_READY
         } else {
-            // Report real progress; allow unknown duration as -1
             val safeDuration = if (duration <= 0L || duration == androidx.media3.common.C.TIME_UNSET) -1L else duration
             com.google.ads.interactivemedia.v3.api.player.VideoProgressUpdate(current, safeDuration)
         }
@@ -1088,41 +1063,10 @@ private class SimpleVideoAdPlayer(
  *    - Supports: VAST Tag (adTagUrl), JSON (direct video)
  *    - LIMITATION: Cannot use adsResponse for VAST XML (Media3 doesn't expose it)
  * 
- * 2. **Google IMA SDK** (GoogleImaSDKPlayer) - CURRENTLY USING MEDIA3 WRAPPER!
- *    - CURRENT STATUS: Still using Media3's ImaAdsLoader (same as player #1)
- *    - TODO: Refactor to use Pure Google IMA SDK as follows:
- * 
- * 1. Create AdDisplayContainer:
- *    val adUiContainer: ViewGroup = findViewById(R.id.adUiContainer)
- *    val displayContainer = ImaSdkFactory.getInstance()
- *        .createAdDisplayContainer(adUiContainer, yourVideoAdPlayer)
- * 
- * 2. Create AdsLoader:
- *    val adsLoader = ImaSdkFactory.getInstance().createAdsLoader(context, displayContainer)
- * 
- * 3. Build AdsRequest with adsResponse for VAST XML:
- *    val request = ImaSdkFactory.getInstance().createAdsRequest().apply {
- *        adsResponse = decodedVastXmlString  // <-- This is the key!
- *        // OR: adTagUrl = "https://..." for VAST Tag
- *        contentProgressProvider = ContentProgressProvider {
- *            VideoProgressUpdate(currentMs, totalMs)
- *        }
- *    }
- * 
- * 4. Listen for ad events:
- *    adsLoader.addAdsLoadedListener { ev ->
- *        adsManager = ev.adsManager
- *        adsManager.addAdEventListener { adEvent ->
- *            // STARTED, FIRST_QUARTILE, MIDPOINT, THIRD_QUARTILE, COMPLETE, CLICK
- *        }
- *        adsManager.init()
- *    }
- * 
- * 5. Request ads:
- *    adsLoader.requestAds(request)
- * 
- * This approach gives full control and supports both VAST Tag (adTagUrl) and 
- * VAST XML (adsResponse) properly.
+ * 2. **Google IMA SDK** (GoogleImaSDKPlayer)
+ *    - Direct integration with Google IMA SDK
+ *    - Supports both VAST Tag (adTagUrl) and VAST XML (adsResponse)
+ *    - Provides full control over ad lifecycle and events
  */
 
 /**
@@ -1208,14 +1152,11 @@ fun parseVastXml(xmlContent: String): VastData {
             }
         }
         
-        android.util.Log.d("VAST_PARSER", "XML parsing done: video=$mediaFileUrl, tracking events=${trackingEvents.keys}")
     } catch (e: Exception) {
-        android.util.Log.e("VAST_PARSER", "Error parsing VAST XML with parser: ${e.message}")
+        android.util.Log.e("VAST_PARSER", "Error parsing VAST XML: ${e.message}")
     }
     
-    // Fallback: Use regex if XML parsing failed to find MediaFile
     if (mediaFileUrl == null) {
-        android.util.Log.d("VAST_PARSER", "Trying regex fallback for MediaFile")
         val mediaFileRegex = """<MediaFile[^>]*>(.*?)</MediaFile>""".toRegex(RegexOption.DOT_MATCHES_ALL)
         mediaFileRegex.find(xmlContent)?.groupValues?.get(1)?.let { match ->
             // Remove CDATA markers and any XML tags
@@ -1233,13 +1174,10 @@ fun parseVastXml(xmlContent: String): VastData {
             }
             
             mediaFileUrl = cleanUrl
-            android.util.Log.d("VAST_PARSER", "Found MediaFile URL via regex: $mediaFileUrl")
         }
     }
     
-    // Fallback: Use regex for tracking URLs if not found
     if (trackingEvents.isEmpty()) {
-        android.util.Log.d("VAST_PARSER", "Trying regex fallback for Tracking events")
         val trackingRegex = """<Tracking\s+event="([^"]+)"[^>]*>(.*?)</Tracking>""".toRegex(RegexOption.DOT_MATCHES_ALL)
         trackingRegex.findAll(xmlContent).forEach { match ->
             val event = match.groupValues[1]
@@ -1256,11 +1194,9 @@ fun parseVastXml(xmlContent: String): VastData {
             }
             
             trackingEvents.getOrPut(event) { mutableListOf() }.add(url)
-            android.util.Log.d("VAST_PARSER", "Found tracking URL via regex for $event: $url")
         }
     }
     
-    android.util.Log.d("VAST_PARSER", "Final result: video=$mediaFileUrl, tracking events=${trackingEvents.keys}, isSkippable=$isSkippable, skipOffset=$skipOffset")
     return VastData(mediaFileUrl, trackingEvents, skipOffset, isSkippable)
 }
 
@@ -1317,28 +1253,17 @@ fun parseVideoData(creative: Creative): VideoPlayerConfig {
         (it as? JsonPrimitive)?.contentOrNull
     }
     
-    // Extract skippable settings
-    // First try from contents (JSON delivery), then fallback to SDK utility functions (VAST deliveries)
     val isSkippable = contents["is_skippable"]?.let {
         val value = (it as? JsonPrimitive)?.contentOrNull
-        android.util.Log.d("AdResponse", "[Content Mapping] is_skippable: $value")
-        // Support both integer (1/0) and text ("true"/"false") formats
         when (value) {
             "1" -> true
             "0" -> false
             else -> value?.toBooleanStrictOrNull() ?: false
         }
-    } ?: run {
-        // Fallback: use SDK utility function (parses from VAST XML for VAST Tag/XML deliveries)
-        val fromSdk = creative.isSkippable()
-        android.util.Log.d("AdResponse", "[Content Mapping] is_skippable (from VAST): $fromSdk")
-        fromSdk
-    }
+    } ?: creative.isSkippable()
     
     val skipOffsetSeconds = contents["skip_offset"]?.let {
         (it as? JsonPrimitive)?.contentOrNull?.let { offset ->
-            android.util.Log.d("AdResponse", "[Content Mapping] skip_offset: $offset")
-            // Parse "00:00:05" format or plain number
             if (offset.contains(":")) {
                 val parts = offset.split(":")
                 parts.lastOrNull()?.toIntOrNull() ?: 5
@@ -1346,12 +1271,7 @@ fun parseVideoData(creative: Creative): VideoPlayerConfig {
                 offset.toIntOrNull() ?: 5
             }
         }
-    } ?: run {
-        // Fallback: use SDK utility function (parses from VAST XML)
-        val fromSdk = creative.getSkipOffset()?.toIntOrNull() ?: 5
-        android.util.Log.d("AdResponse", "[Content Mapping] skip_offset (from VAST): ${fromSdk}s")
-        fromSdk
-    }
+    } ?: creative.getSkipOffset()?.toIntOrNull() ?: 5
     
     android.util.Log.d("AdResponse", "[Skip Configuration] Skippable: $isSkippable, Skip Offset: ${skipOffsetSeconds}s")
     
@@ -1841,13 +1761,7 @@ fun ExoPlayerImaVideoPlayer(
         when (companionRenderingMode) {
             "end-card" -> {
                 // For end-card mode: show companion only after video completes
-                container.alpha = if (showCompanionEndCard) {
-                    android.util.Log.d("IMA", "[Companion] Showing end-card companion (alpha=1)")
-                    1f
-                } else {
-                    android.util.Log.d("IMA", "[Companion] Hiding end-card companion (alpha=0)")
-                    0f
-                }
+                container.alpha = if (showCompanionEndCard) 1f else 0f
             }
             "concurrent" -> {
                 // For concurrent mode: companion visible during playback
@@ -1868,12 +1782,10 @@ fun ExoPlayerImaVideoPlayer(
             delay(100)
             isPlaying = player.isPlaying
             
-            // Track ad vs content playback for VAST Tag
             if (useImaSDK) {
                 val currentlyPlayingAd = player.isPlayingAd
                 if (currentlyPlayingAd != isPlayingAd) {
                     isPlayingAd = currentlyPlayingAd
-                    android.util.Log.d("Media3Player", "Playback mode changed: isPlayingAd=$isPlayingAd")
                 }
             }
             
@@ -1904,8 +1816,7 @@ fun ExoPlayerImaVideoPlayer(
                                                 connection.requestMethod = "GET"
                                                 connection.connectTimeout = 3000
                                                 connection.readTimeout = 3000
-                                                val responseCode = connection.responseCode
-                                                android.util.Log.d("Tracking", "[HTTP] Fired tracking beacon (HTTP $responseCode)")
+                                                connection.responseCode
                                             } catch (e: Exception) {
                                                 android.util.Log.e("Tracking", "[HTTP] Error firing beacon: ${e.message}")
                                             }
@@ -1935,8 +1846,7 @@ fun ExoPlayerImaVideoPlayer(
                                                 connection.requestMethod = "GET"
                                                 connection.connectTimeout = 3000
                                                 connection.readTimeout = 3000
-                                                val responseCode = connection.responseCode
-                                                android.util.Log.d("Tracking", "[HTTP] Fired tracking beacon (HTTP $responseCode)")
+                                                connection.responseCode
                                             } catch (e: Exception) {
                                                 android.util.Log.e("Tracking", "[HTTP] Error firing beacon: ${e.message}")
                                             }
@@ -1966,8 +1876,7 @@ fun ExoPlayerImaVideoPlayer(
                                                 connection.requestMethod = "GET"
                                                 connection.connectTimeout = 3000
                                                 connection.readTimeout = 3000
-                                                val responseCode = connection.responseCode
-                                                android.util.Log.d("Tracking", "[HTTP] Fired tracking beacon (HTTP $responseCode)")
+                                                connection.responseCode
                                             } catch (e: Exception) {
                                                 android.util.Log.e("Tracking", "[HTTP] Error firing beacon: ${e.message}")
                                             }
@@ -1997,8 +1906,7 @@ fun ExoPlayerImaVideoPlayer(
                                                 connection.requestMethod = "GET"
                                                 connection.connectTimeout = 3000
                                                 connection.readTimeout = 3000
-                                                val responseCode = connection.responseCode
-                                                android.util.Log.d("Tracking", "[HTTP] Fired tracking beacon (HTTP $responseCode)")
+                                                connection.responseCode
                                             } catch (e: Exception) {
                                                 android.util.Log.e("Tracking", "[HTTP] Error firing beacon: ${e.message}")
                                             }
@@ -2028,8 +1936,7 @@ fun ExoPlayerImaVideoPlayer(
                                                 connection.requestMethod = "GET"
                                                 connection.connectTimeout = 3000
                                                 connection.readTimeout = 3000
-                                                val responseCode = connection.responseCode
-                                                android.util.Log.d("Tracking", "[HTTP] Fired tracking beacon (HTTP $responseCode)")
+                                                connection.responseCode
                                             } catch (e: Exception) {
                                                 android.util.Log.e("Tracking", "[HTTP] Error firing beacon: ${e.message}")
                                             }
@@ -2462,10 +2369,8 @@ fun BasicVideoPlayer(
                     playWhenReady = true // Autoplay
                 }
                 
-                // Listen for first frame rendered
                 addListener(object : androidx.media3.common.Player.Listener {
                     override fun onRenderedFirstFrame() {
-                        android.util.Log.d("Player", "[Rendering] First frame rendered - hiding poster")
                         firstFrameRendered = true
                     }
                 })

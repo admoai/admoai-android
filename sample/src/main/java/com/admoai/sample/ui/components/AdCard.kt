@@ -184,9 +184,7 @@ fun AdCard(
     }
     
     LaunchedEffect(impressionKey) {
-        // Track impression when card is first displayed - will only execute once per unique ad
         firstCreative?.tracking?.impressions?.find { it.key == "default" }?.let { impression ->
-            println("Tracking impression for placement $adPlacement creative $creativeId")
             onTrackImpression(impression.url)
         }
     }

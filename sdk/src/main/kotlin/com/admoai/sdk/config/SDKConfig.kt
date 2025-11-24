@@ -15,14 +15,12 @@ data class SDKConfig(
 ) : Clearable<SDKConfig> {
 
     override fun resetToDefaults(): SDKConfig {
-        // Retain base URL, reset others to typical defaults
         return SDKConfig(
-            baseUrl = this.baseUrl, // Retain baseUrl
-            apiVersion = this.apiVersion, // Retain apiVersion
+            baseUrl = this.baseUrl,
+            apiVersion = this.apiVersion,
             enableLogging = false,
             defaultLanguage = null,
-            networkClientEngine = this.networkClientEngine, // Retain configured engine or null
-            // Reset timeouts to their default values defined in the primary constructor
+            networkClientEngine = this.networkClientEngine,
             networkRequestTimeoutMs = 10000L,
             networkConnectTimeoutMs = 10000L,
             networkSocketTimeoutMs = 10000L
@@ -30,9 +28,6 @@ data class SDKConfig(
     }
 
     override fun clear(): SDKConfig {
-        // Similar to resetToDefaults for this specific config,
-        // as clearing doesn't make sense for apiKey/baseUrl.
-        // If there were other more dynamic fields, they could be nulled out.
         return resetToDefaults()
     }
 }

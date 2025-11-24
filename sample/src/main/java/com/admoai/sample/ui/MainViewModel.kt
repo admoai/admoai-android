@@ -196,19 +196,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedAdData = MutableStateFlow<AdData?>(null)
     val selectedAdData = _selectedAdData.asStateFlow()
     
-    /**
-     * Track an ad event (impression, click, custom).
-     */
     fun trackAdEvent(eventType: String, trackingUrl: String) {
         viewModelScope.launch {
             try {
-                // Log for debugging
-                println("Tracking $eventType event: $trackingUrl")
-                
-                // Call the appropriate SDK method based on event type
                 when (eventType.lowercase()) {
                     "impression" -> {
-                        // Find the creative with this tracking URL and fire impression
                         _response.value?.data?.flatMap { it.creatives.orEmpty() }?.forEach { creative ->
                             if (creative.tracking.impressions != null) {
                                 for (impression in creative.tracking.impressions) {
@@ -220,7 +212,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                     "click" -> {
-                        // Find the creative with this tracking URL and fire click
                         _response.value?.data?.flatMap { it.creatives.orEmpty() }?.forEach { creative ->
                             if (creative.tracking.clicks != null) {
                                 for (click in creative.tracking.clicks) {
@@ -231,28 +222,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                     }
-                    else -> {
-                        // Custom events would go here
-                        println("Custom event type: $eventType not implemented")
-                    }
                 }
             } catch (e: Exception) {
-                println("Error tracking $eventType: ${e.message}")
+                android.util.Log.e(TAG, "Error tracking $eventType", e)
             }
         }
     }
     
-    /**
-     * Show the creative detail screen with selected ad data.
-     */
     fun showCreativeDetail(adData: AdData?) {
         _selectedAdData.value = adData
         _showingCreativeDetail.value = true
     }
     
-    /**
-     * Hide the creative detail screen.
-     */
     fun hideCreativeDetail() {
         _showingCreativeDetail.value = false
     }
@@ -321,57 +302,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _geoTargets.value = availableCities
     }
 
-    /**
-     * Update the selected placement key.
-     */
     fun setPlacementKey(key: String) {
         _placementKey.value = key
     }
 
-    /**
-     * Update user ID.
-     */
     fun setUserId(id: String) {
         _userId.value = id
         sdk.setUserConfig(newUserConfig = UserConfig(id = id))
     }
 
-    /**
-     * Update user IP.
-     */
     fun setUserIp(ip: String) {
         _userIp.value = ip
     }
 
-    /**
-     * Update user timezone.
-     */
     fun setUserTimezone(timezone: String) {
         _userTimezone.value = timezone
     }
 
-    /**
-     * Toggle GDPR consent.
-     */
     fun setGdprConsent(enabled: Boolean) {
         _gdprConsent.value = enabled
     }
 
-    /**
-     * Toggle app data collection.
-     */
     fun setCollectAppData(enabled: Boolean) {
         _collectAppData.value = enabled
-        // Auto-refresh request preview when toggle changes
         updateRequestJsonPreview()
     }
 
-    /**
-     * Toggle device data collection.
-     */
     fun setCollectDeviceData(enabled: Boolean) {
         _collectDeviceData.value = enabled
-        // Auto-refresh request preview when toggle changes
         updateRequestJsonPreview()
     }
 
@@ -541,9 +499,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             builder.setLocationTargets(locations)
         }
 
-        // Add custom targeting if any (format is now part of Placement, not custom targeting)
-        // Note: Video-specific options (delivery, endcard, overlayAt, isSkippable, skipOffset) 
-        // are NOT sent to the server - they only control UI behavior in the sample app
         if (_customTargets.value.isNotEmpty()) {
             val customTargetList = _customTargets.value.map { 
                 CustomTargetingInfo(it.key, JsonPrimitive(it.value))
@@ -551,7 +506,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             builder.setCustomTargets(customTargetList)
         }
 
-        // Disable app/device collection only when toggles are OFF
         if (!_collectAppData.value) {
             builder.disableAppCollection()
         }

@@ -39,7 +39,6 @@ class Admoai private constructor() {
 
     private val configurationMutex = Mutex()
 
-    // Configuration properties
     private var userConfig: UserConfig? = null
     private var deviceConfig: DeviceConfig? = null
     private var appConfig: AppConfig? = null
@@ -107,12 +106,7 @@ class Admoai private constructor() {
 
         val requestTargeting = initialDecisionRequest.targeting
         val finalCustomTargetingInfo = mutableListOf<CustomTargetingInfo>()
-        // Add any custom targeting from the original request if not already added
         requestTargeting?.custom?.let { finalCustomTargetingInfo.addAll(it) }
-
-        // Device and app data are now added as top-level fields in the JSON request
-        // when the respective collectDeviceData and collectAppData flags are enabled
-        // No need to add to custom targeting anymore
 
         val mergedTargeting: Targeting? = if (requestTargeting?.geo != null || requestTargeting?.location != null || finalCustomTargetingInfo.isNotEmpty()) {
             Targeting(
@@ -122,7 +116,6 @@ class Admoai private constructor() {
             )
         } else { null }
 
-        // Create app object if app data collection is enabled
         val appObject = if (initialDecisionRequest.collectAppData && this.appConfig != null) {
             val appConf = this.appConfig!!
             App(
@@ -134,7 +127,6 @@ class Admoai private constructor() {
             )
         } else null
 
-        // Create device object if device data collection is enabled
         val deviceObject = if (initialDecisionRequest.collectDeviceData && this.deviceConfig != null) {
             val devConf = this.deviceConfig!!
             Device(
@@ -160,11 +152,11 @@ class Admoai private constructor() {
     }
 
     /**
-     * Request ads from the AdMoai API.
+     * Requests ads from the AdMoai decision engine.
      * 
-     * @param initialDecisionRequest The decision request
+     * @param initialDecisionRequest Decision request with placements and targeting
      * @return Flow emitting the decision response
-     * @throws AdMoaiConfigurationException if the SDK is not initialized or configured
+     * @throws AdMoaiConfigurationException if SDK not initialized
      */
     fun requestAds(initialDecisionRequest: DecisionRequest): Flow<DecisionResponse> {
         if (!isInitialized() || sdkConfig == null) {
@@ -240,7 +232,7 @@ class Admoai private constructor() {
         private var isSdkInitialized = false
 
         /**
-         * Convenience initializer that matches iOS SDK pattern - only baseUrl required.
+         * Initialize SDK with minimal configuration.
          */
         @JvmStatic
         @JvmOverloads

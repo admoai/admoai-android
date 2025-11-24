@@ -82,27 +82,20 @@ fun PromotionsCarouselCard(
         "${adPlacement}_${creativeId}_main"
     }
     
-    // Track main impression when carousel is first displayed - executes only once
     LaunchedEffect(mainImpressionKey) {
         creative.tracking.impressions?.find { it.key == "default" }?.let { impression ->
-            println("PromotionsCarousel: Tracking main impression for placement $adPlacement creative $creativeId")
             onTrackImpression(impression.url)
         }
     }
     
-    // Prepare carousel data for 3 slides
     val slides = remember(creative) {
         (1..3).map { index ->
-            // Note: API returns "URLSlide1" with capital URL, not "urlSlide1"
-            val url = AdContent.extractUrlContent(creative, "URLSlide$index") ?: ""
-            val cta = AdContent.extractTextContent(creative, "ctaSlide$index") ?: ""
-            println("PromotionsCarousel: Slide $index - CTA: '$cta', URL: '$url'")
             CarouselSlide(
                 index = index,
                 imageUrl = AdContent.extractUrlContent(creative, "imageSlide$index") ?: "",
                 headline = AdContent.extractTextContent(creative, "headlineSlide$index") ?: "",
-                cta = cta,
-                url = url,
+                cta = AdContent.extractTextContent(creative, "ctaSlide$index") ?: "",
+                url = AdContent.extractUrlContent(creative, "URLSlide$index") ?: "",
                 trackingKey = "slide$index"
             )
         }
@@ -156,13 +149,9 @@ fun PromotionsCarouselCard(
                 "${adPlacement}_${creativeId}_${currentSlide.trackingKey}"
             }
             
-            // Track impression once per unique slide view
             LaunchedEffect(slideImpressionKey, pagerState.currentPage) {
-                // Only track if this is the current visible slide
                 if (pagerState.currentPage == page) {
-                    // Track impression for the current slide
                     creative.tracking.impressions?.find { it.key == currentSlide.trackingKey }?.let { impression ->
-                        println("PromotionsCarousel: Tracking slide impression for $currentSlide.trackingKey")
                         onTrackImpression(impression.url)
                     }
                 }
@@ -170,13 +159,8 @@ fun PromotionsCarouselCard(
             CarouselSlideContent(
                 slide = slide,
                 onClick = {
-                    // Handle CTA click with URL from slide
-                    println("PromotionsCarousel: Slide clicked - URL: '${slide.url}'")
                     if (slide.url.isNotEmpty()) {
-                        println("PromotionsCarousel: Opening URL: ${slide.url}")
                         onSlideClick(slide.url)
-                    } else {
-                        println("PromotionsCarousel: No URL to open")
                     }
                 }
             )

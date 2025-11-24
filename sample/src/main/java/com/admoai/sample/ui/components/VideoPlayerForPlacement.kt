@@ -55,16 +55,7 @@ fun VideoPlayerForPlacement(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
-    // Log creative details for debugging
-    android.util.Log.d("VideoPlayerPlacement", "Creative delivery: ${creative.delivery}")
-    android.util.Log.d("VideoPlayerPlacement", "Creative vast: ${creative.vast}")
-    android.util.Log.d("VideoPlayerPlacement", "Creative contents size: ${creative.contents.size}")
-    
-    // Extract video data from creative
-    // Note: video_asset is snake_case, companion* fields are camelCase
     val videoAssetUrl = AdTemplateMapper.getContentValue(creative, "video_asset")
-    
-    android.util.Log.d("VideoPlayerPlacement", "videoAssetUrl: $videoAssetUrl")
     val companionHeadline = AdTemplateMapper.getContentValue(creative, "companionHeadline")
     val companionCta = AdTemplateMapper.getContentValue(creative, "companionCta")
     val companionDestinationUrl = AdTemplateMapper.getContentValue(creative, "companionDestinationUrl")
@@ -125,8 +116,6 @@ fun VideoPlayerForPlacement(
         if (creative.delivery == "vast_tag") {
             // Fetch VAST XML from tagUrl
             creative.vast?.tagUrl?.let { tagUrl ->
-                android.util.Log.d("VideoPlayerPlacement", "Fetching VAST XML from: $tagUrl")
-                
                 withContext(Dispatchers.IO) {
                     try {
                         val url = URL(tagUrl)
@@ -138,16 +127,11 @@ fun VideoPlayerForPlacement(
                         val responseCode = connection.responseCode
                         if (responseCode == HttpURLConnection.HTTP_OK) {
                             val xmlContent = connection.inputStream.bufferedReader().use { it.readText() }
-                            android.util.Log.d("VideoPlayerPlacement", "Fetched VAST XML (${xmlContent.length} chars)")
-                            
-                            // Parse VAST XML
                             val parsedData = parseVastXml(xmlContent)
                             vastVideoUrl = parsedData.mediaFileUrl
                             vastTrackingUrls = parsedData.trackingEvents
                             vastSkipOffset = parsedData.skipOffset ?: skipOffset
                             vastIsSkippable = parsedData.isSkippable
-                            
-                            android.util.Log.d("VideoPlayerPlacement", "Parsed VAST: video=${parsedData.mediaFileUrl}, skip=${parsedData.isSkippable}")
                         } else {
                             vastParseError = "HTTP $responseCode"
                         }
@@ -162,15 +146,11 @@ fun VideoPlayerForPlacement(
             creative.vast?.xmlBase64?.let { base64Xml ->
                 try {
                     val decoded = String(android.util.Base64.decode(base64Xml, android.util.Base64.DEFAULT))
-                    android.util.Log.d("VideoPlayerPlacement", "Decoding VAST XML (${decoded.length} chars)")
-                    
                     val parsedData = parseVastXml(decoded)
                     vastVideoUrl = parsedData.mediaFileUrl
                     vastTrackingUrls = parsedData.trackingEvents
                     vastSkipOffset = parsedData.skipOffset ?: skipOffset
                     vastIsSkippable = parsedData.isSkippable
-                    
-                    android.util.Log.d("VideoPlayerPlacement", "Parsed VAST XML: video=${parsedData.mediaFileUrl}")
                 } catch (e: Exception) {
                     android.util.Log.e("VideoPlayerPlacement", "Error parsing VAST XML", e)
                     vastParseError = e.message
@@ -224,10 +204,7 @@ fun VideoPlayerForPlacement(
         return
     }
     
-    // Setup video
     LaunchedEffect(finalVideoUrl) {
-        android.util.Log.d("VideoPlayer", "Setting up video: $finalVideoUrl")
-        
         val mediaItem = MediaItem.Builder().setUri(Uri.parse(finalVideoUrl)).build()
         
         exoPlayer.apply {
@@ -263,7 +240,6 @@ fun VideoPlayerForPlacement(
                                             connection.connectTimeout = 3000
                                             connection.readTimeout = 3000
                                             connection.responseCode
-                                            android.util.Log.d("Tracking", "Fired VAST 'complete' beacon")
                                         } catch (e: Exception) {
                                             android.util.Log.e("Tracking", "Error firing complete beacon", e)
                                         }
@@ -302,7 +278,6 @@ fun VideoPlayerForPlacement(
                                         connection.connectTimeout = 3000
                                         connection.readTimeout = 3000
                                         connection.responseCode
-                                        android.util.Log.d("Tracking", "Fired VAST 'start' beacon")
                                     } catch (e: Exception) {
                                         android.util.Log.e("Tracking", "Error firing start beacon", e)
                                     }
@@ -328,7 +303,6 @@ fun VideoPlayerForPlacement(
                                         connection.connectTimeout = 3000
                                         connection.readTimeout = 3000
                                         connection.responseCode
-                                        android.util.Log.d("Tracking", "Fired VAST 'firstQuartile' beacon")
                                     } catch (e: Exception) {
                                         android.util.Log.e("Tracking", "Error firing firstQuartile beacon", e)
                                     }
@@ -353,7 +327,6 @@ fun VideoPlayerForPlacement(
                                         connection.connectTimeout = 3000
                                         connection.readTimeout = 3000
                                         connection.responseCode
-                                        android.util.Log.d("Tracking", "Fired VAST 'midpoint' beacon")
                                     } catch (e: Exception) {
                                         android.util.Log.e("Tracking", "Error firing midpoint beacon", e)
                                     }
@@ -378,7 +351,6 @@ fun VideoPlayerForPlacement(
                                         connection.connectTimeout = 3000
                                         connection.readTimeout = 3000
                                         connection.responseCode
-                                        android.util.Log.d("Tracking", "Fired VAST 'thirdQuartile' beacon")
                                     } catch (e: Exception) {
                                         android.util.Log.e("Tracking", "Error firing thirdQuartile beacon", e)
                                     }
@@ -458,7 +430,6 @@ fun VideoPlayerForPlacement(
                                                 connection.connectTimeout = 3000
                                                 connection.readTimeout = 3000
                                                 connection.responseCode
-                                                android.util.Log.d("Tracking", "Fired VAST 'skip' beacon")
                                             } catch (e: Exception) {
                                                 android.util.Log.e("Tracking", "Error firing skip beacon", e)
                                             }
