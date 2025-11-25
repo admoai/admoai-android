@@ -83,6 +83,7 @@ fun VideoAdCard(
     var firstFrameRendered by remember { mutableStateOf(false) }
     
     // Tracking state
+    var impressionTracked by remember { mutableStateOf(false) }
     var startTracked by remember { mutableStateOf(false) }
     var firstQuartileTracked by remember { mutableStateOf(false) }
     var midpointTracked by remember { mutableStateOf(false) }
@@ -179,15 +180,34 @@ fun VideoAdCard(
                                             if (!startTracked) {
                                                 startTracked = true
                                                 scope.launch(Dispatchers.IO) {
+                                                    // Fire impression first (VAST standard)
+                                                    if (!impressionTracked) {
+                                                        impressionTracked = true
+                                                        vastTrackingUrls["impression"]?.forEach { url ->
+                                                            android.util.Log.d("Tracking", "[VideoAdCard] Firing VAST 'impression'")
+                                                            try {
+                                                                val conn = URL(url).openConnection() as HttpURLConnection
+                                                                conn.requestMethod = "GET"
+                                                                conn.connect()
+                                                                conn.inputStream.close()
+                                                                android.util.Log.d("Tracking", "[VideoAdCard] ✓ Impression fired successfully")
+                                                            } catch (e: Exception) {
+                                                                android.util.Log.e("Tracking", "[VideoAdCard] Error firing impression", e)
+                                                            }
+                                                        }
+                                                    }
+                                                    
+                                                    // Fire start event
                                                     vastTrackingUrls["start"]?.forEach { url ->
-                                                        android.util.Log.d("VideoAdCard", "[MANUAL] Firing VAST 'start' tracking")
+                                                        android.util.Log.d("Tracking", "[VideoAdCard] Firing VAST 'start'")
                                                         try {
                                                             val conn = URL(url).openConnection() as HttpURLConnection
                                                             conn.requestMethod = "GET"
                                                             conn.connect()
                                                             conn.inputStream.close()
+                                                            android.util.Log.d("Tracking", "[VideoAdCard] ✓ Start fired successfully")
                                                         } catch (e: Exception) {
-                                                            android.util.Log.e("VideoAdCard", "Error firing start tracking", e)
+                                                            android.util.Log.e("Tracking", "[VideoAdCard] Error firing start", e)
                                                         }
                                                     }
                                                 }
@@ -209,14 +229,15 @@ fun VideoAdCard(
                                                         completeTracked = true
                                                         scope.launch(Dispatchers.IO) {
                                                             vastTrackingUrls["complete"]?.forEach { url ->
-                                                                android.util.Log.d("VideoAdCard", "[MANUAL] Firing VAST 'complete' tracking")
+                                                                android.util.Log.d("Tracking", "[VideoAdCard] Firing VAST 'complete'")
                                                                 try {
                                                                     val conn = URL(url).openConnection() as HttpURLConnection
                                                                     conn.requestMethod = "GET"
                                                                     conn.connect()
                                                                     conn.inputStream.close()
+                                                                    android.util.Log.d("Tracking", "[VideoAdCard] ✓ Complete fired successfully")
                                                                 } catch (e: Exception) {
-                                                                    android.util.Log.e("VideoAdCard", "Error firing complete tracking", e)
+                                                                    android.util.Log.e("Tracking", "[VideoAdCard] Error firing complete", e)
                                                                 }
                                                             }
                                                         }
@@ -225,14 +246,15 @@ fun VideoAdCard(
                                                         thirdQuartileTracked = true
                                                         scope.launch(Dispatchers.IO) {
                                                             vastTrackingUrls["thirdQuartile"]?.forEach { url ->
-                                                                android.util.Log.d("VideoAdCard", "[MANUAL] Firing VAST 'thirdQuartile' tracking")
+                                                                android.util.Log.d("Tracking", "[VideoAdCard] Firing VAST 'thirdQuartile'")
                                                                 try {
                                                                     val conn = URL(url).openConnection() as HttpURLConnection
                                                                     conn.requestMethod = "GET"
                                                                     conn.connect()
                                                                     conn.inputStream.close()
+                                                                    android.util.Log.d("Tracking", "[VideoAdCard] ✓ Third quartile fired successfully")
                                                                 } catch (e: Exception) {
-                                                                    android.util.Log.e("VideoAdCard", "Error firing thirdQuartile tracking", e)
+                                                                    android.util.Log.e("Tracking", "[VideoAdCard] Error firing thirdQuartile", e)
                                                                 }
                                                             }
                                                         }
@@ -241,14 +263,15 @@ fun VideoAdCard(
                                                         midpointTracked = true
                                                         scope.launch(Dispatchers.IO) {
                                                             vastTrackingUrls["midpoint"]?.forEach { url ->
-                                                                android.util.Log.d("VideoAdCard", "[MANUAL] Firing VAST 'midpoint' tracking")
+                                                                android.util.Log.d("Tracking", "[VideoAdCard] Firing VAST 'midpoint'")
                                                                 try {
                                                                     val conn = URL(url).openConnection() as HttpURLConnection
                                                                     conn.requestMethod = "GET"
                                                                     conn.connect()
                                                                     conn.inputStream.close()
+                                                                    android.util.Log.d("Tracking", "[VideoAdCard] ✓ Midpoint fired successfully")
                                                                 } catch (e: Exception) {
-                                                                    android.util.Log.e("VideoAdCard", "Error firing midpoint tracking", e)
+                                                                    android.util.Log.e("Tracking", "[VideoAdCard] Error firing midpoint", e)
                                                                 }
                                                             }
                                                         }
@@ -257,14 +280,15 @@ fun VideoAdCard(
                                                         firstQuartileTracked = true
                                                         scope.launch(Dispatchers.IO) {
                                                             vastTrackingUrls["firstQuartile"]?.forEach { url ->
-                                                                android.util.Log.d("VideoAdCard", "[MANUAL] Firing VAST 'firstQuartile' tracking")
+                                                                android.util.Log.d("Tracking", "[VideoAdCard] Firing VAST 'firstQuartile'")
                                                                 try {
                                                                     val conn = URL(url).openConnection() as HttpURLConnection
                                                                     conn.requestMethod = "GET"
                                                                     conn.connect()
                                                                     conn.inputStream.close()
+                                                                    android.util.Log.d("Tracking", "[VideoAdCard] ✓ First quartile fired successfully")
                                                                 } catch (e: Exception) {
-                                                                    android.util.Log.e("VideoAdCard", "Error firing firstQuartile tracking", e)
+                                                                    android.util.Log.e("Tracking", "[VideoAdCard] Error firing firstQuartile", e)
                                                                 }
                                                             }
                                                         }
@@ -342,6 +366,7 @@ fun VideoAdCard(
                                 context.startActivity(intent)
                                 
                                 // Track companion click
+                                android.util.Log.d("Tracking", "[VideoAdCard] Firing companion click")
                                 scope.launch(Dispatchers.IO) {
                                     creative.tracking?.custom?.find { it.key == "companionClick" }?.let { event ->
                                         try {
@@ -349,9 +374,9 @@ fun VideoAdCard(
                                             conn.requestMethod = "GET"
                                             conn.connect()
                                             conn.inputStream.close()
-                                            android.util.Log.d("VideoAdCard", "Tracked companion click")
+                                            android.util.Log.d("Tracking", "[VideoAdCard] ✓ Companion click fired successfully")
                                         } catch (e: Exception) {
-                                            android.util.Log.e("VideoAdCard", "Error tracking companion click", e)
+                                            android.util.Log.e("Tracking", "[VideoAdCard] Error firing companion click", e)
                                         }
                                     }
                                 }

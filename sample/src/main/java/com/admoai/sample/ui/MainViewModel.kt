@@ -205,7 +205,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             if (creative.tracking.impressions != null) {
                                 for (impression in creative.tracking.impressions) {
                                     if (impression.url == trackingUrl) {
-                                        sdk.fireImpression(creative.tracking, impression.key)
+                                        android.util.Log.d(TAG, "[Tracking] Firing impression (key=${impression.key})")
+                                        sdk.fireImpression(creative.tracking, impression.key).collect {}
+                                        android.util.Log.d(TAG, "[Tracking] ✓ Impression fired successfully")
                                     }
                                 }
                             }
@@ -216,7 +218,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             if (creative.tracking.clicks != null) {
                                 for (click in creative.tracking.clicks) {
                                     if (click.url == trackingUrl) {
-                                        sdk.fireClick(creative.tracking, click.key)
+                                        android.util.Log.d(TAG, "[Tracking] Firing click (key=${click.key})")
+                                        sdk.fireClick(creative.tracking, click.key).collect {}
+                                        android.util.Log.d(TAG, "[Tracking] ✓ Click fired successfully")
                                     }
                                 }
                             }
@@ -224,7 +228,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e(TAG, "Error tracking $eventType", e)
+                android.util.Log.e(TAG, "[Tracking] Error firing $eventType: ${e.message}")
             }
         }
     }
@@ -719,7 +723,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun fireImpression(creative: Creative, key: String = "default") {
         val tracking = creative.tracking ?: return
-        sdk.fireImpression(tracking, key)
+        viewModelScope.launch {
+            try {
+                android.util.Log.d(TAG, "[Tracking] Firing impression (key=$key)")
+                sdk.fireImpression(tracking, key).collect {}
+                android.util.Log.d(TAG, "[Tracking] ✓ Impression fired successfully")
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "[Tracking] Error firing impression: ${e.message}")
+            }
+        }
     }
 
     /**
@@ -727,7 +739,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun fireClick(creative: Creative, key: String = "default") {
         val tracking = creative.tracking ?: return
-        sdk.fireClick(tracking, key)
+        viewModelScope.launch {
+            try {
+                android.util.Log.d(TAG, "[Tracking] Firing click (key=$key)")
+                sdk.fireClick(tracking, key).collect {}
+                android.util.Log.d(TAG, "[Tracking] ✓ Click fired successfully")
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "[Tracking] Error firing click: ${e.message}")
+            }
+        }
     }
 
     /**
@@ -735,15 +755,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun fireCustomEvent(creative: Creative, key: String) {
         val tracking = creative.tracking ?: return
-        sdk.fireCustomEvent(tracking, key)
+        viewModelScope.launch {
+            try {
+                android.util.Log.d(TAG, "[Tracking] Firing custom event (key=$key)")
+                sdk.fireCustomEvent(tracking, key).collect {}
+                android.util.Log.d(TAG, "[Tracking] ✓ Custom event fired successfully")
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "[Tracking] Error firing custom event: ${e.message}")
+            }
+        }
     }
 
     /**
-     * Fire video event tracking (start, firstQuartile, midpoint, thirdQuartile, complete, skip).
+     * Fire video event tracking (start, first_quartile, midpoint, third_quartile, complete, skip).
      */
     fun fireVideoEvent(creative: Creative, key: String) {
         val tracking = creative.tracking ?: return
-        sdk.fireVideoEvent(tracking, key)
+        viewModelScope.launch {
+            try {
+                android.util.Log.d(TAG, "[Tracking] Firing video event (key=$key)")
+                sdk.fireVideoEvent(tracking, key).collect {}
+                android.util.Log.d(TAG, "[Tracking] ✓ Video event '$key' fired successfully")
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "[Tracking] Error firing video event '$key': ${e.message}")
+            }
+        }
     }
 
     /**
