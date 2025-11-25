@@ -87,6 +87,7 @@ fun VideoPlayerForPlacement(
     var overlayTracked by remember { mutableStateOf(false) }
     
     // Tracking state
+    var impressionTracked by remember { mutableStateOf(false) }
     var startTracked by remember { mutableStateOf(false) }
     var firstQuartileTracked by remember { mutableStateOf(false) }
     var midpointTracked by remember { mutableStateOf(false) }
@@ -264,6 +265,33 @@ fun VideoPlayerForPlacement(
                 duration = exoPlayer.duration.toFloat()
                 val progress = currentPosition / duration
                 
+                // Fire impression first (before any video events)
+                if (!impressionTracked && progress >= 0.0f) {
+                    impressionTracked = true
+                    android.util.Log.d("Tracking", "[MANUAL] Firing 'impression' event")
+                    if (isVastDelivery) {
+                        vastTrackingUrls["impression"]?.let { urls ->
+                            scope.launch(Dispatchers.IO) {
+                                urls.forEach { url ->
+                                    try {
+                                        val connection = URL(url).openConnection() as HttpURLConnection
+                                        connection.requestMethod = "GET"
+                                        connection.connectTimeout = 3000
+                                        connection.readTimeout = 3000
+                                        connection.responseCode
+                                        android.util.Log.d("Tracking", "[MANUAL] ✓ Impression fired successfully")
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("Tracking", "Error firing impression beacon", e)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // JSON: Use SDK method
+                        viewModel.fireImpression(creative)
+                    }
+                }
+                
                 // Fire tracking events at quartiles
                 if (!startTracked && progress >= 0.0f) {
                     android.util.Log.d("Tracking", "[MANUAL] Firing 'start' event")
@@ -278,6 +306,7 @@ fun VideoPlayerForPlacement(
                                         connection.connectTimeout = 3000
                                         connection.readTimeout = 3000
                                         connection.responseCode
+                                        android.util.Log.d("Tracking", "[MANUAL] ✓ Start fired successfully")
                                     } catch (e: Exception) {
                                         android.util.Log.e("Tracking", "Error firing start beacon", e)
                                     }

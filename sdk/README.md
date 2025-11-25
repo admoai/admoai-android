@@ -1,29 +1,25 @@
-# AdMoai Kotlin SDK
+# Admoai Android SDK
 
-AdMoai Kotlin SDK is a native advertising solution that enables seamless integration of ads into Android applications. The SDK provides a robust API for requesting and displaying various ad formats with advanced targeting capabilities.
+The Admoai Android SDK is a lightweight wrapper around the Decision Engine API, enabling Android applications to request, render, and track native and video advertisements with advanced targeting capabilities.
 
 ## Features
 
-- Native ad format support
-- Rich targeting options (geo, location, custom)
-- User consent management (GDPR)
-- Flexible ad templates
-- Companion ad support
-- Carousel ad layouts
-- Impression and click tracking
-- Per-request data collection control
-- Jetpack Compose integration
+- **Native Ads** – Multiple template types (wide, image+text, text-only, carousel)
+- **Video Ads** – JSON, VAST Tag, and VAST XML delivery methods
+- **Rich Targeting** – Geo, location, and custom key-value targeting
+- **Format Filter** – Request native-only, video-only, or any format
+- **User Consent** – GDPR compliance with consent management
+- **Event Tracking** – Impressions, clicks, video quartiles, and custom events
+- **Jetpack Compose** – Native `rememberAdState` integration
+- **Per-Request Control** – Override user/device data collection per request
 
 ## Requirements
 
-- Android API 24+
-- Kotlin 1.8+
+- **Android API** 24+ (Android 7.0)
+- **Kotlin** 1.8+
+- **JDK** 17+
 
 ## Installation
-
-The AdMoai Android SDK is available on Maven Central.
-
-### Maven Central
 
 Add the dependency to your app's `build.gradle.kts`:
 
@@ -33,59 +29,35 @@ dependencies {
 }
 ```
 
-Or in your `build.gradle` file:
+Or in Groovy (`build.gradle`):
 
 ```groovy
-repositories {
-    maven {
-        name = "GitHubPackages"
-        url "https://maven.pkg.github.com/admoai/admoai-android"
-        credentials {
-            username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
-            password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
-        }
-    }
-}
-
 dependencies {
-    implementation 'com.admoai:admoai-android-sdk:1.0.0'
+    implementation 'com.admoai:admoai-android:1.0.0'
 }
 ```
 
-### Authentication
-
-Create a GitHub Personal Access Token with `read:packages` permission and add it to your `gradle.properties` file:
-
-```properties
-gpr.user=YOUR_GITHUB_USERNAME
-gpr.key=YOUR_GITHUB_TOKEN
-```
-
-Alternatively, set environment variables:
-```bash
-export USERNAME=YOUR_GITHUB_USERNAME
-export TOKEN=YOUR_GITHUB_TOKEN
-```
+---
 
 ## Quick Start
 
-1. Initialize the SDK:
+### 1. Initialize the SDK
 
 ```kotlin
-// Initialize SDK with base URL and optional configurations
-val config = SDKConfig(baseUrl = "https://example.api.admoai.com")
-// Optionally configure additional settings
-// val config = SDKConfig(
-//     baseUrl = "https://example.api.admoai.com",
-//     enableLogging = true,
-//     defaultLanguage = "en-US"
-// )
+val config = SDKConfig(
+    baseUrl = "https://api.admoai.com",
+    apiVersion = "2025-11-01",           // Optional: enables format filter (for Video Ads)
+    enableLogging = true,                  // Optional: for debugging
+    networkRequestTimeoutMs = 30000L       // Optional: 30s timeout
+)
 
-// Initialize the SDK
 Admoai.initialize(sdkConfig = config)
 val sdk = Admoai.getInstance()
+```
 
-// Configure user settings globally
+### 2. Configure User Settings (Optional)
+
+```kotlin
 sdk.setUserConfig(
     UserConfig(
         id = "user_123",
@@ -94,174 +66,340 @@ sdk.setUserConfig(
         consentData = Consent(gdpr = true)
     )
 )
+
+// Auto-populate device and app info
+sdk.setDeviceConfig(DeviceConfig.systemDefault())
+sdk.setAppConfig(AppConfig.systemDefault())
 ```
 
-2. Create and send an ad request:
-
-```kotlin
-// Using coroutines
-suspend fun requestAds() {
-    // Build request with placement
-    val request = sdk.createRequestBuilder()
-        .addPlacement(key = "home")
-        .build()
-    
-    // Request ads
-    val response = sdk.requestAds(request).first() // Using Flow.first() to get the first emitted value
-}
-```
-
-You can also build the request with targeting and user settings:
+### 3. Build and Send a Request
 
 ```kotlin
 val request = sdk.createRequestBuilder()
-    .addPlacement(key = "home")
-    
-    // Override user settings for this request
-    .setUserId("different_user")
-    .setUserIp("203.0.113.2")
-    .setUserTimezone("America/New_York")
-    .setUserConsent(User.Consent(gdpr = false))
-    
-    // Add targeting
-    .addGeoTargeting(2643743)  // London
-    .addLocationTargeting(latitude = 37.7749, longitude = -122.4194)
+    .addPlacement(key = "home", format = PlacementFormat.NATIVE)
+    .addPlacement(key = "promotions", format = PlacementFormat.VIDEO)
+    .addGeoTargeting(geoId = 2643743)  // London
     .addCustomTargeting(key = "category", value = "news")
-    
-    // Build request
     .build()
-```
 
-3. Handle the creative:
-
-```kotlin
-response.body.data?.firstOrNull()?.let { decision ->
-    decision.creatives?.firstOrNull()?.let { creative ->
-        // Access creative properties
-        val headline = creative.contents?.find { it.key == "headline" }?.value?.toString()
-        val imageUrl = creative.contents?.find { it.key == "coverImage" }?.value?.toString()
-        
-        // Track impression
-        sdk.fireImpression(tracking = creative.tracking)
-        
-        // Handle click with tracking (Android example)
-        creative.tracking.clicks?.find { it.key == "default" }?.url?.let { clickUrl ->
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(clickUrl))
-            context.startActivity(intent)
+// Request ads (returns Flow)
+sdk.requestAds(request).collect { response ->
+    response.data?.forEach { adData ->
+        adData.creatives?.forEach { creative ->
+            // Render creative
         }
     }
 }
 ```
 
-4. Clean up on logout:
+### 4. Extract Content
 
 ```kotlin
-// Reset user configuration when user logs out
-sdk.clearUserConfig()  // Resets to: id = null, ip = null, timezone = null, consent.gdpr = false
+creative.contents?.find { it.key == "headline" }?.value?.toString()
+creative.contents?.find { it.key == "poster_image" }?.value?.toString()
+creative.contents?.find { it.key == "video_asset" }?.value?.toString()
 ```
+
+### 5. Track Events
+
+```kotlin
+// Impressions
+sdk.fireImpression(creative.tracking)
+
+// Clicks
+sdk.fireClick(creative.tracking)
+
+// Video quartiles (for JSON delivery)
+sdk.fireVideoEvent(creative.tracking, "start")           // 0%
+sdk.fireVideoEvent(creative.tracking, "first_quartile")  // 25%
+sdk.fireVideoEvent(creative.tracking, "midpoint")        // 50%
+sdk.fireVideoEvent(creative.tracking, "third_quartile")  // 75%
+sdk.fireVideoEvent(creative.tracking, "complete")        // 98%
+sdk.fireVideoEvent(creative.tracking, "skip")            // on skip
+
+// Custom events
+sdk.fireCustomEvent(creative.tracking, "companionOpened")
+```
+
+### 6. Clean Up on Logout
+
+```kotlin
+sdk.clearUserConfig()
+sdk.clearDeviceConfig()
+sdk.clearAppConfig()
+```
+
+---
+
+## Configuration Reference
+
+### SDKConfig
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `baseUrl` | String | Required | Decision Engine API endpoint |
+| `apiVersion` | String? | `null` | API version (e.g., `"2025-11-01"` for format filter) |
+| `enableLogging` | Boolean | `false` | Enable debug logging |
+| `defaultLanguage` | String? | `null` | Default language for requests |
+| `networkRequestTimeoutMs` | Long | `10000` | HTTP request timeout (ms) |
+| `networkConnectTimeoutMs` | Long | `10000` | Connection timeout (ms) |
+| `networkSocketTimeoutMs` | Long | `10000` | Socket timeout (ms) |
+
+### PlacementFormat
+
+| Value | Description |
+|-------|-------------|
+| `PlacementFormat.NATIVE` | Request native ads only |
+| `PlacementFormat.VIDEO` | Request video ads only |
+| `null` | Request any format (default, recommended) |
+
+> **Note**: Format filter requires `apiVersion = "2025-11-01"` or later.
+
+---
+
+## Video Ad Support
+
+The SDK supports three video delivery methods:
+
+| Delivery | Response Field | Tracking |
+|----------|----------------|----------|
+| **JSON** | `video_asset` content key | SDK methods (`fireVideoEvent`) |
+| **VAST Tag** | `vast.tagUrl` | IMA SDK automatic or manual HTTP |
+| **VAST XML** | `vast.xmlBase64` | Manual HTTP GET |
+
+### Detecting Video Ads
+
+```kotlin
+// Check delivery method
+val isVideo = creative.delivery == "json" || 
+              creative.delivery == "vast_tag" || 
+              creative.delivery == "vast_xml"
+
+// Get video URL (JSON delivery)
+val videoUrl = creative.contents?.find { it.key == "video_asset" }?.value?.toString()
+
+// Get VAST tag URL
+val vastTagUrl = creative.vast?.tagUrl
+
+// Get VAST XML (Base64 encoded)
+val vastXmlBase64 = creative.vast?.xmlBase64
+```
+
+### Video Tracking Events
+
+**Important**: Always fire the **impression** event first when the ad is displayed, then fire video-specific events as playback progresses.
+
+| Event | When to Fire | Key |
+|-------|--------------|-----|
+| **Impression** | Ad displayed (before playback) | `default` |
+| Start | Video begins playing (0%) | `start` |
+| First Quartile | 25% progress | `first_quartile` |
+| Midpoint | 50% progress | `midpoint` |
+| Third Quartile | 75% progress | `third_quartile` |
+| Complete | Video ends (98%) | `complete` |
+| Skip | User skips | `skip` |
+
+**Manual tracking** works with any delivery method:
+
+```kotlin
+// 1. Fire impression first (when ad is displayed)
+sdk.fireImpression(creative.tracking)
+
+// 2. Fire video events as playback progresses
+sdk.fireVideoEvent(creative.tracking, "start")
+sdk.fireVideoEvent(creative.tracking, "first_quartile")
+sdk.fireVideoEvent(creative.tracking, "midpoint")
+sdk.fireVideoEvent(creative.tracking, "third_quartile")
+sdk.fireVideoEvent(creative.tracking, "complete")
+sdk.fireVideoEvent(creative.tracking, "skip")  // if user skips
+```
+
+- **JSON delivery**: Tracking URLs are in the response—easiest to use with SDK methods
+- **VAST Tag/XML**: Requires fetching the tag URL or decoding Base64 XML to extract tracking URLs, then firing HTTP GET beacons manually
+
+> **Tip**: For VAST-based ads, you may optionally integrate a third-party VAST SDK (e.g., Google IMA) for automatic tracking and Open Measurement (OM) viewability. This is outside the scope of the current Admoai SDK but demonstrated in the [Sample App](../sample/README.md).
+
+---
 
 ## Event Tracking
 
-The SDK automatically handles event tracking through HTTP requests. Each creative contains tracking URLs for different events (impressions, clicks, custom events) that are called when triggered.
+The SDK fires tracking beacons via HTTP requests. All methods return `Flow<Unit>`.
 
-### Tracking Configuration
-
-Each creative includes tracking configuration for different event types:
+### Available Methods
 
 ```kotlin
-// Available tracking URLs in the creative
-val impressionUrls = creative.tracking.impression
-val clickUrls = creative.tracking.click
-val customEventUrls = creative.tracking.custom
+// Impressions (fired when ad is displayed)
+sdk.fireImpression(trackingInfo, key = "default")
 
-// Fire tracking events directly
-sdk.fireImpression(creative.tracking)
-sdk.fireClick(creative.tracking, key = "default") // or specify a different key
-sdk.fireCustom(creative.tracking, eventName = "videoStart")
+// Clicks (fired on user tap)
+sdk.fireClick(trackingInfo, key = "default")
+
+// Video events (JSON delivery only)
+sdk.fireVideoEvent(trackingInfo, key = "start")
+
+// Custom events
+sdk.fireCustomEvent(trackingInfo, key = "companionOpened")
 ```
+
+### Tracking Keys
+
+Each tracking type supports multiple keys. Use `"default"` for standard events or specify custom keys defined in your campaign configuration.
+
+---
 
 ## Jetpack Compose Integration
 
-The SDK provides native Jetpack Compose support through the `rememberAdState` composable, which manages ad requests and state in a declarative way:
+The SDK provides native Compose support through `rememberAdState`:
 
 ```kotlin
 @Composable
-fun MyAdScreen() {
-    // Create a decision request
-    val decisionRequest = remember {
+fun AdScreen() {
+    val request = remember {
         DecisionRequest(
-            placements = listOf(
-                Placement(
-                    key = "home",
-                    count = 1
-                )
-            )
+            placements = listOf(Placement(key = "home"))
         )
     }
     
-    // Use rememberAdState to manage ad loading
-    val adState by rememberAdState(decisionRequest)
+    val adState by rememberAdState(request)
     
     when (adState) {
-        is AdState.Loading -> {
-            CircularProgressIndicator()
-        }
-        
+        AdState.Idle -> { /* Ready */ }
+        AdState.Loading -> CircularProgressIndicator()
         is AdState.Success -> {
-            val adData = adState.response.data?.firstOrNull()
-            if (adData != null) {
-                // Display your ad content
-                AdCard(
-                    adData = adData,
-                    onTrackImpression = { /* Handle impression */ },
-                    onAdClick = { /* Handle click */ }
-                )
-            }
+            val creative = adState.response.data?.firstOrNull()?.creatives?.firstOrNull()
+            creative?.let { AdCard(it) }
         }
-        
         is AdState.Error -> {
-            Text(
-                text = "Failed to load ad: ${adState.exception.message}",
-                color = MaterialTheme.colorScheme.error
-            )
-        }
-        
-        AdState.Idle -> {
-            Text("Ready to load ads")
+            Text("Error: ${adState.exception.message}")
         }
     }
 }
 ```
 
-### Compose vs Traditional Approach
+### AdState
 
-The `rememberAdState` composable provides several benefits over the traditional ViewModel approach:
+| State | Description |
+|-------|-------------|
+| `AdState.Idle` | Initial state, ready to load |
+| `AdState.Loading` | Request in progress |
+| `AdState.Success` | Response received, contains `response` |
+| `AdState.Error` | Request failed, contains `exception` |
 
-- **Declarative**: State management follows Compose principles
-- **Lifecycle-aware**: Automatically handles composition lifecycle
-- **Less boilerplate**: No need for separate ViewModel setup
-- **Reactive**: Built on Kotlin Flow for automatic UI updates
+### Benefits
+
+- **Declarative** – State management follows Compose principles
+- **Lifecycle-aware** – Automatically handles composition lifecycle
+- **Less boilerplate** – No separate ViewModel required
+- **Reactive** – Built on Kotlin Flow
+
+---
+
+## Request Builder
+
+The `DecisionRequestBuilder` provides a fluent API:
+
+```kotlin
+val request = sdk.createRequestBuilder()
+    // Placements
+    .addPlacement(key = "home")
+    .addPlacement(key = "promotions", format = PlacementFormat.VIDEO)
+    
+    // User overrides (per-request)
+    .setUserId("user_123")
+    .setUserIp("203.0.113.1")
+    .setUserTimezone("America/New_York")
+    .setUserConsent(Consent(gdpr = true))
+    
+    // Targeting
+    .addGeoTargeting(geoId = 2643743)
+    .addLocationTargeting(latitude = 37.7749, longitude = -122.4194)
+    .addCustomTargeting(key = "category", value = "news")
+    
+    // Data collection
+    .disableAppCollection()
+    .disableDeviceCollection()
+    
+    .build()
+```
+
+---
+
+## Response Structure
+
+```kotlin
+DecisionResponse
+├── success: Boolean
+├── data: List<AdData>?
+│   └── AdData
+│       ├── placement: String
+│       └── creatives: List<Creative>?
+│           └── Creative
+│               ├── id: String?
+│               ├── contents: List<Content>     // Key-value pairs
+│               ├── advertiser: Advertiser?
+│               ├── template: TemplateInfo?     // {key, style}
+│               ├── tracking: TrackingInfo      // Tracking URLs
+│               ├── delivery: String?           // "json", "vast_tag", "vast_xml"
+│               └── vast: VastData?             // {tagUrl} or {xmlBase64}
+├── errors: List<Error>?
+└── warnings: List<Warning>?
+```
+
+---
 
 ## Default Configuration Helpers
 
-For ease of integration, the SDK provides helper methods for getting system default configurations:
+Auto-populate device and app information:
 
 ```kotlin
-// Get system default device configuration
-val deviceConfig = DeviceConfig.systemDefault()
+// Device info (model, OS, manufacturer, etc.)
+sdk.setDeviceConfig(DeviceConfig.systemDefault())
 
-// Get system default app configuration
-val appConfig = AppConfig.systemDefault()
-
-// Apply these configurations
-sdk.setDeviceConfig(deviceConfig)
-sdk.setAppConfig(appConfig)
+// App info (name, version, identifier, etc.)
+sdk.setAppConfig(AppConfig.systemDefault())
 ```
 
-## API Reference
+---
 
-See the API documentation for detailed information on all classes and methods.
+## Thread Safety
+
+The SDK is designed for concurrent use:
+
+- Singleton pattern with thread-safe initialization
+- Configuration changes are mutex-protected
+- All network calls are non-blocking (Kotlin Flow)
+
+---
+
+## Proguard / R8
+
+If using code shrinking, add these rules:
+
+```proguard
+-keep class com.admoai.sdk.** { *; }
+-keepclassmembers class com.admoai.sdk.model.** { *; }
+```
+
+---
+
+## Sample App
+
+See the [Sample App](../sample/README.md) for complete integration examples demonstrating:
+
+- Native ad templates
+- Video playback with VAST and JSON
+- Tracking implementation
+- Compose integration
+
+---
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/admoai/admoai-android/issues)
+- **Email**: support@admoai.com
+
+---
 
 ## License
 
-Copyright 2025 AdMoai Inc. All rights reserved.
+Copyright 2025 Admoai Inc. All rights reserved.

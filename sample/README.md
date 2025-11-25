@@ -265,14 +265,22 @@ fun AdScreen() {
 ### Tracking Events
 
 ```kotlin
-// Native ads
+// Impressions (fired when ad is displayed)
 sdk.fireImpression(creative.tracking)
+
+// Clicks (fired on user tap)
 sdk.fireClick(creative.tracking)
 
-// Video ads (JSON delivery)
-sdk.fireVideoEvent(creative.tracking, "start")
-sdk.fireVideoEvent(creative.tracking, "first_quartile")
-sdk.fireVideoEvent(creative.tracking, "complete")
+// Video quartiles 
+sdk.fireVideoEvent(creative.tracking, "start")           // 0%
+sdk.fireVideoEvent(creative.tracking, "first_quartile")  // 25%
+sdk.fireVideoEvent(creative.tracking, "midpoint")        // 50%
+sdk.fireVideoEvent(creative.tracking, "third_quartile")  // 75%
+sdk.fireVideoEvent(creative.tracking, "complete")        // 98%
+sdk.fireVideoEvent(creative.tracking, "skip")            // on skip
+
+// Custom events
+sdk.fireCustomEvent(creative.tracking, "companionOpened")
 ```
 
 ---
@@ -382,7 +390,6 @@ This cross-platform consistency helps mobility-industry developers who ship on b
 ## Related Documentation
 
 - **[SDK Documentation](../sdk/README.md)** – Core SDK integration guide
-- **[Complete Reference](../ADMOAI_ANDROID_COMPLETE_REFERENCE.md)** – Full technical documentation
 
 ---
 
