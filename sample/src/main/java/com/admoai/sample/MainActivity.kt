@@ -40,6 +40,7 @@ import com.admoai.sdk.Admoai
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sample.Routes
+import com.admoai.sample.config.AppConfig
 import com.admoai.sample.ui.MainViewModel
 import io.ktor.client.engine.okhttp.OkHttp
 import com.admoai.sample.ui.screens.CustomTargetingScreen
@@ -73,9 +74,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val config = SDKConfig(
-            baseUrl = "http://10.0.2.2:8080",
-            apiVersion = "2025-11-01",
-            enableLogging = true,
+            baseUrl = AppConfig.API_BASE_URL,
+            apiVersion = AppConfig.API_VERSION,
+            enableLogging = AppConfig.ENABLE_LOGGING,
             networkClientEngine = OkHttp.create()
         )
         Admoai.initialize(config)

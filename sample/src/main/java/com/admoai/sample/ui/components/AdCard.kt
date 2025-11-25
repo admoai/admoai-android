@@ -217,7 +217,6 @@ fun AdCard(
                     }
                 },
                 modifier = modifier
-                // Note: No click handler for search placement per requirements
             )
         }
         
@@ -232,7 +231,6 @@ fun AdCard(
                     }
                 },
                 modifier = modifier
-                // Note: No click handler for menu placement per requirements
             )
         }
         // Handle promotions or waiting placement with carousel
@@ -259,9 +257,6 @@ fun AdCard(
                 onTrackImpression = onTrackImpression
             )
         }
-        // Add additional template mappings here as they are defined
-        // Example: templateKey == "searchResult" || placementKey == "search" -> { SearchResultAdCard(...) }
-        
         // Default fallback to standard vertical card layout
         else -> {
             // Use a vertical card as fallback (the old implementation would go here)

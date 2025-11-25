@@ -246,11 +246,8 @@ fun VideoPreviewScreen(
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "The mock server returned $expectedDelivery delivery but no video URL was found. " +
-                                        "This likely means:\n" +
-                                        "1. The mock server at localhost:8080 is not running\n" +
-                                        "2. The mock server returned unexpected data format\n" +
-                                        "3. The scenario mapping is incorrect\n\n" +
+                                    text = "Expected $expectedDelivery delivery but no video URL was found. " +
+                                        "This may indicate an API response issue or unsupported scenario.\n\n" +
                                         "Falling back to simulated player.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onErrorContainer
@@ -1219,8 +1216,7 @@ suspend fun fireVastTrackingBeacons(urls: List<String>) = kotlinx.coroutines.wit
 }
 
 /**
- * Rewrite localhost URLs to 10.0.2.2 for Android emulator
- * Android emulator uses 10.0.2.2 to access host machine's localhost
+ * Rewrites localhost URLs to the Android emulator's host address.
  */
 fun rewriteLocalhostUrl(url: String?): String? {
     if (url == null) return null
@@ -1238,8 +1234,7 @@ fun rewriteLocalhostUrl(url: String?): String? {
 fun parseVideoData(creative: Creative): VideoPlayerConfig {
     val contents = creative.contents.associate { it.key to it.value }
     
-    // Extract video URL - handle different delivery methods
-    // Rewrite localhost URLs to 10.0.2.2 for Android emulator compatibility
+    // Extract video URL based on delivery method
     val videoAssetUrl = when (creative.delivery) {
         "vast_tag" -> rewriteLocalhostUrl(creative.vast?.tagUrl) // VAST tag URL (IMA will fetch and parse)
         "vast_xml" -> "vast_xml_placeholder" // Placeholder - actual XML is in vast.xmlBase64

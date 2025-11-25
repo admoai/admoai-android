@@ -6,7 +6,7 @@ import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.admoai.sdk.Admoai
-import com.admoai.sdk.config.AppConfig
+import com.admoai.sdk.config.AppConfig as SdkAppConfig
 import com.admoai.sdk.config.DeviceConfig
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.config.UserConfig
@@ -23,6 +23,7 @@ import com.admoai.sdk.model.response.ContentType
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sdk.model.response.TrackingInfo
+import com.admoai.sample.config.AppConfig
 import com.admoai.sample.ui.model.CustomTargetItem
 import com.admoai.sample.ui.model.GeoTargetItem
 import com.admoai.sample.ui.model.LocationItem
@@ -48,7 +49,6 @@ import java.util.UUID
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     companion object {
-        private const val MOCK_BASE_URL = "http://10.0.2.2:8080"
         private const val TAG = "MainViewModel"
     }
 
@@ -262,9 +262,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Initialize the SDK with OkHttp engine to avoid TLS issues
         val config = SDKConfig(
-            baseUrl = MOCK_BASE_URL,
-            apiVersion = "2025-11-01",
-            enableLogging = true,
+            baseUrl = AppConfig.API_BASE_URL,
+            apiVersion = AppConfig.API_VERSION,
+            enableLogging = AppConfig.ENABLE_LOGGING,
             networkClientEngine = OkHttp.create()
         )
         sdk = Admoai.getInstance()
@@ -274,7 +274,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         sdk.setUserConfig(newUserConfig = UserConfig(id = _userId.value))
         
         // Set app config for data collection
-        val appConfig = AppConfig(
+        val appConfig = SdkAppConfig(
             appName = appName,
             appVersion = appVersion,
             packageName = appIdentifier,
@@ -571,8 +571,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Load ads from the server.
-     * For video format, makes a direct request to localhost:8080 with custom header.
+     * Load ads from the Decision API.
      */
     fun loadAds() {
         _isLoading.value = true
@@ -667,7 +666,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val requestBody = prettyJson.encodeToString(finalRequest)
             
             // Use same host and endpoint for all requests (video and native)
-            val targetHost = MOCK_BASE_URL.removePrefix("http://")
+            val targetHost = AppConfig.API_BASE_URL.replace(Regex("^https?://"), "")
             val endpoint = "/v1/decision"
             
             // Format as an HTTP request with headers
@@ -850,12 +849,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             """.trimIndent()
             
             // Format as an HTTP request with headers
+            val host = AppConfig.API_BASE_URL.replace(Regex("^https?://"), "").replace(Regex(":[0-9]+$"), "")
             val sb = StringBuilder()
             sb.append("POST /v1/decision HTTP/1.1\n")
-            sb.append("Host: 10.0.2.2:8080\n")
+            sb.append("Host: $host\n")
             sb.append("Content-Type: application/json\n")
             sb.append("Accept-Language: en\n")
-            sb.append("X-Decision-Version: 2025-11-01\n")
+            sb.append("X-Decision-Version: ${AppConfig.API_VERSION}\n")
             sb.append("\n")
             sb.append(requestBody)
             

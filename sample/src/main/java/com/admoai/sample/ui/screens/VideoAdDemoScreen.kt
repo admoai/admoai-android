@@ -31,6 +31,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.serialization.json.Json
 import com.admoai.sdk.model.response.DecisionResponse
+import com.admoai.sample.config.AppConfig
 
 
 /**
@@ -64,12 +65,11 @@ private fun getLocalMockScenario(delivery: String, endCard: String, skippable: B
 }
 
 /**
- * Fetches mock video data from localhost decision-engine
- * Note: Using 10.0.2.2 for Android emulator (maps to host machine's localhost)
+ * Fetches video data from the Decision API for the given scenario.
  */
-private suspend fun fetchMockVideoData(scenario: String): Result<String> = withContext(Dispatchers.IO) {
+private suspend fun fetchVideoData(scenario: String): Result<String> = withContext(Dispatchers.IO) {
     try {
-        val url = URL("http://10.0.2.2:8080/v1/decision")
+        val url = URL("${AppConfig.API_BASE_URL}/v1/decision")
         val connection = url.openConnection() as HttpURLConnection
         connection.requestMethod = "POST"
         connection.connectTimeout = 15000  // Increased from 5s to 15s
@@ -78,7 +78,7 @@ private suspend fun fetchMockVideoData(scenario: String): Result<String> = withC
         // Set required headers
         connection.setRequestProperty("Accept-Language", "en")
         connection.setRequestProperty("Content-Type", "application/json")
-        connection.setRequestProperty("X-Decision-Version", "2025-11-01")
+        connection.setRequestProperty("X-Decision-Version", AppConfig.API_VERSION)
         connection.doOutput = true
         
         // Build request body with scenario as placement key
@@ -101,7 +101,7 @@ private suspend fun fetchMockVideoData(scenario: String): Result<String> = withC
         val responseCode = connection.responseCode
         if (responseCode == HttpURLConnection.HTTP_OK) {
             val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
-            Log.d("VideoAdDemo", "Fetched mock data for scenario: $scenario (${responseBody.length} chars)")
+            Log.d("VideoAdDemo", "Fetched data for scenario: $scenario")
             Result.success(responseBody)
         } else {
             val errorMsg = "HTTP error: $responseCode"
@@ -109,7 +109,7 @@ private suspend fun fetchMockVideoData(scenario: String): Result<String> = withC
             Result.failure(Exception(errorMsg))
         }
     } catch (e: Exception) {
-        Log.e("VideoAdDemo", "Error fetching mock data: ${e.message}", e)
+        Log.e("VideoAdDemo", "Error fetching data: ${e.message}", e)
         Result.failure(e)
     }
 }
@@ -133,8 +133,8 @@ fun VideoAdDemoScreen(
     // Compute current scenario (derived state, updates when inputs change)
     val currentScenario = getLocalMockScenario(videoDelivery, videoEndCard, isSkippable)
     
-    var isLoadingMockData by remember { mutableStateOf(false) }
-    var mockDataResult by remember { mutableStateOf<Result<String>?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    var fetchResult by remember { mutableStateOf<Result<String>?>(null) }
     var showResultDialog by remember { mutableStateOf(false) }
     
     val scope = rememberCoroutineScope()
@@ -202,13 +202,12 @@ fun VideoAdDemoScreen(
             // Launch button
             Button(
                 onClick = {
-                    isLoadingMockData = true
+                    isLoading = true
                     
-                    // Fetch and parse mock data, then navigate directly to video preview
                     scope.launch {
                         currentScenario?.let { scenario ->
-                            val result = fetchMockVideoData(scenario)
-                            isLoadingMockData = false
+                            val result = fetchVideoData(scenario)
+                            isLoading = false
                             
                             result.fold(
                                 onSuccess = { jsonString ->
@@ -226,12 +225,12 @@ fun VideoAdDemoScreen(
                                         onNavigateToVideoPreview(placementKey)
                                     } catch (e: Exception) {
                                         Log.e("VideoAdDemo", "Parse error: ${e.message}", e)
-                                        mockDataResult = Result.failure(Exception("JSON parse error: ${e.message}"))
+                                        fetchResult = Result.failure(Exception("JSON parse error: ${e.message}"))
                                         showResultDialog = true
                                     }
                                 },
                                 onFailure = { error ->
-                                    mockDataResult = result
+                                    fetchResult = result
                                     showResultDialog = true
                                 }
                             )
@@ -258,10 +257,10 @@ fun VideoAdDemoScreen(
     
     
     // Loading dialog
-    if (isLoadingMockData) {
+    if (isLoading) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Loading Mock Data") },
+            title = { Text("Loading Video Data") },
             text = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -276,15 +275,15 @@ fun VideoAdDemoScreen(
     }
     
     // Result dialog showing fetched data
-    if (showResultDialog && mockDataResult != null) {
+    if (showResultDialog && fetchResult != null) {
         AlertDialog(
             onDismissRequest = { 
                 showResultDialog = false
-                mockDataResult = null
+                fetchResult = null
             },
             title = { 
                 Text(
-                    if (mockDataResult?.isSuccess == true) "Mock Data Fetched" 
+                    if (fetchResult?.isSuccess == true) "Data Fetched" 
                     else "Error Fetching Data"
                 ) 
             },
@@ -293,12 +292,12 @@ fun VideoAdDemoScreen(
                     modifier = Modifier.verticalScroll(rememberScrollState())
                 ) {
                     Text("Scenario: $currentScenario")
-                    Text("Endpoint: POST https://10.0.2.2:8080/v1/decision")
+                    Text("Endpoint: POST ${AppConfig.API_BASE_URL}/v1/decision")
                     Text("Placement Key: $currentScenario")
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    mockDataResult?.fold(
+                    fetchResult?.fold(
                         onSuccess = { data ->
                             Text(
                                 text = "Response (${data.length} chars):",
@@ -329,7 +328,7 @@ fun VideoAdDemoScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Make sure the decision-engine is running on localhost:8080",
+                                text = "Check your network connection and API configuration.",
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -339,7 +338,7 @@ fun VideoAdDemoScreen(
             confirmButton = {
                 TextButton(onClick = { 
                     showResultDialog = false
-                    mockDataResult = null
+                    fetchResult = null
                 }) {
                     Text("Close")
                 }

@@ -241,9 +241,6 @@ fun HorizontalAdCard(
     val headlineText = AdTemplateMapper.getContentValue(firstCreative, "headline")
     val imageUrlText = coverImage?.value?.toString()?.removeSurrounding("\"")
     
-    // Note: We extract click tracking URLs but don't need to extract these visual elements
-    // since they are only needed in the CreativeDetailScreen, which has its own extraction
-    
     // Use different layouts based on the template style
     if (isWideImageOnly) {
         // WideImageOnly style - full width image with branding overlay
