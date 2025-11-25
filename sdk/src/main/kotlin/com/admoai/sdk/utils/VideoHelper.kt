@@ -66,19 +66,11 @@ fun Creative.getVastXmlBase64(mediaType: String? = null, mediaDelivery: String? 
     }
 }
 
-/**
- * Checks if the video ad is skippable based on content properties.
- * @return true if the ad has isSkippable content set to true, false otherwise
- */
 fun Creative.isSkippable(): Boolean = 
     contents.find { it.key == "isSkippable" }?.value?.let { jsonElement ->
         (jsonElement as? JsonPrimitive)?.booleanOrNull
     } ?: false
 
-/**
- * Gets the skip offset value for skippable video ads.
- * @return Skip offset value as string or null if not available
- */
 fun Creative.getSkipOffset(): String? = 
     contents.find { it.key == "skipOffset" }?.value?.let { jsonElement ->
         (jsonElement as? JsonPrimitive)?.contentOrNull

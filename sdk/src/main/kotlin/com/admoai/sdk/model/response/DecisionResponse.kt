@@ -17,11 +17,8 @@ import kotlinx.serialization.json.JsonElement
 @Serializable
 data class DecisionResponse(
     val success: Boolean,
-    val data: List<AdData>? = null, // Nullable if success is false
+    val data: List<AdData>? = null,
     val errors: List<Error>? = null,
     val warnings: List<Warning>? = null,
-    val metadata: JsonElement? = null // OpenAPI shows this as "type: object, properties: {}, nullable: true"
-                                      // Using JsonElement for now if its structure is dynamic or not strictly defined yet.
-                                      // Or we can define a specific MetadataResponse class if it has known fields.
-                                      // For now, let's keep it simple and add it if we find specific fields for it.
+    val metadata: JsonElement? = null
 )

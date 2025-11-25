@@ -28,6 +28,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonPrimitive
 import androidx.annotation.VisibleForTesting
 import java.io.Closeable
+
 class Admoai private constructor() {
 
     private var sdkConfig: SDKConfig? = null
@@ -176,51 +177,33 @@ class Admoai private constructor() {
         return currentApiService.getHttpRequestData(finalDecisionRequest)
     }
 
-    fun fireImpression(trackingInfo: TrackingInfo, key: String = "default"): Flow<Unit> {
-        val currentApiService = apiService ?: return flowOf(Unit)
-        val url = trackingInfo.impressions?.find { it.key == key }?.url
-        return if (url != null) {
-            currentApiService.fireTrackingUrl(url)
-        } else {
-            flowOf(Unit)
-        }
-    }
+    fun fireImpression(trackingInfo: TrackingInfo, key: String = "default"): Flow<Unit> =
+        fireTrackingEvent(trackingInfo.impressions, key)
 
-    fun fireClick(trackingInfo: TrackingInfo, key: String = "default"): Flow<Unit> {
-        val currentApiService = apiService ?: return flowOf(Unit)
-        val url = trackingInfo.clicks?.find { it.key == key }?.url
-        return if (url != null) {
-            currentApiService.fireTrackingUrl(url)
-        } else {
-            flowOf(Unit)
-        }
-    }
+    fun fireClick(trackingInfo: TrackingInfo, key: String = "default"): Flow<Unit> =
+        fireTrackingEvent(trackingInfo.clicks, key)
 
-    fun fireCustomEvent(trackingInfo: TrackingInfo, key: String): Flow<Unit> {
-        val currentApiService = apiService ?: return flowOf(Unit)
-        val url = trackingInfo.custom?.find { it.key == key }?.url
-        return if (url != null) {
-            currentApiService.fireTrackingUrl(url)
-        } else {
-            flowOf(Unit)
-        }
-    }
+    fun fireCustomEvent(trackingInfo: TrackingInfo, key: String): Flow<Unit> =
+        fireTrackingEvent(trackingInfo.custom, key)
 
-    fun fireVideoEvent(trackingInfo: TrackingInfo, key: String): Flow<Unit> {
+    fun fireVideoEvent(trackingInfo: TrackingInfo, key: String): Flow<Unit> =
+        fireTrackingEvent(trackingInfo.videoEvents, key)
+
+    private fun fireTrackingEvent(events: List<com.admoai.sdk.model.response.TrackingDetail>?, key: String): Flow<Unit> {
         val currentApiService = apiService ?: return flowOf(Unit)
-        val url = trackingInfo.videoEvents?.find { it.key == key }?.url
-        return if (url != null) {
-            currentApiService.fireTrackingUrl(url)
-        } else {
-            flowOf(Unit)
-        }
+        val url = events?.find { it.key == key }?.url ?: return flowOf(Unit)
+        return currentApiService.fireTrackingUrl(url)
     }
 
     internal fun log(message: String, level: LogLevel = LogLevel.INFO, throwable: Throwable? = null) {
         if (sdkConfig?.enableLogging == true || level == LogLevel.ERROR) {
-            val logMessage = "[AdMoaiSDK ${level.name}]: $message"
-            println(logMessage)
-            throwable?.printStackTrace()
+            val tag = "AdMoaiSDK"
+            when (level) {
+                LogLevel.DEBUG -> android.util.Log.d(tag, message, throwable)
+                LogLevel.INFO -> android.util.Log.i(tag, message, throwable)
+                LogLevel.WARNING -> android.util.Log.w(tag, message, throwable)
+                LogLevel.ERROR -> android.util.Log.e(tag, message, throwable)
+            }
         }
     }
 

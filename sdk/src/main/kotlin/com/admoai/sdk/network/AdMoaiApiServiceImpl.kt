@@ -4,7 +4,6 @@ import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.exception.AdMoaiNetworkException
 import com.admoai.sdk.model.request.DecisionRequest
 import com.admoai.sdk.model.response.DecisionResponse
-import com.admoai.sdk.model.response.TrackingInfo
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.HttpClientEngine
@@ -90,7 +89,6 @@ internal class AdMoaiApiServiceImpl(
         }
     }.flowOn(Dispatchers.IO)
 
-
     override fun fireTrackingUrl(url: String): Flow<Unit> = flow {
         try {
             val response: HttpResponse = httpClient.get(url)
@@ -104,7 +102,6 @@ internal class AdMoaiApiServiceImpl(
             throw AdMoaiNetworkException("Tracking request failed: ${e.message}", e)
         }
     }.flowOn(Dispatchers.IO)
-
 
     override fun getHttpRequestData(request: DecisionRequest): AdmoaiHttpRequest {
         val url = sdkConfig.baseUrl.trimEnd('/') + "/v1/decision"
