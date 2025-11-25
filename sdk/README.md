@@ -109,7 +109,7 @@ sdk.fireImpression(creative.tracking)
 // Clicks
 sdk.fireClick(creative.tracking)
 
-// Video quartiles (for JSON delivery)
+// Video quartiles 
 sdk.fireVideoEvent(creative.tracking, "start")           // 0%
 sdk.fireVideoEvent(creative.tracking, "first_quartile")  // 25%
 sdk.fireVideoEvent(creative.tracking, "midpoint")        // 50%
