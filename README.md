@@ -4,6 +4,7 @@
 [![Android API](https://img.shields.io/badge/API-24%2B-brightgreen.svg?style=flat)](https://android-arsenal.com/api?level=24)
 [![Kotlin](https://img.shields.io/badge/kotlin-1.8+-blue.svg?logo=kotlin)](http://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Ready-green)](https://developer.android.com/jetpack/compose)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 
 AdMoai Android SDK provides a comprehensive native advertising solution for Android applications. Built with modern Android development practices, it offers seamless integration of ads with advanced targeting capabilities and full Jetpack Compose support.
 
@@ -120,7 +121,12 @@ See the [Sample App README](./sample/README.md) for detailed instructions on run
 
 ## Contributing
 
-We welcome contributions! Please see our contributing guidelines and code of conduct.
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on:
+
+- How to submit Pull Requests
+- Commit message conventions (Conventional Commits)
+- Code style and testing requirements
+- Development workflow
 
 ## License
 
