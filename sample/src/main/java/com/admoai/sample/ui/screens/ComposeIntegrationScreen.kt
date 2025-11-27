@@ -31,11 +31,12 @@ fun ComposeIntegrationScreen(
     viewModel: MainViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val placementKey by viewModel.placementKey.collectAsStateWithLifecycle()
-    
-    // Use the SAME DecisionRequest for both approaches to ensure identical ads
-    val decisionRequest = remember(placementKey) {
-        viewModel.buildRequest() // This includes all targeting, user data, etc.
+    // Use a native ad placement (home) for this demo - video ads don't render well in AdCard
+    // The demo is about showing rememberAdState usage, not video playback
+    val decisionRequest = remember {
+        Admoai.getInstance().createRequestBuilder()
+            .addPlacement(Placement(key = "home", format = null)) // Native ad placement
+            .build()
     }
     
     Scaffold(
