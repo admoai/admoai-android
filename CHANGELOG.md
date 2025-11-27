@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0](https://github.com/admoai/admoai-android/admoai/admoai-android/compare/v1.0.0...v1.1.0) (2025-11-27)
+
+
+### Added
+
+* add contributing guidelines and release configuration ([#1](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/1)) ([ab0fc86](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/ab0fc86d0841398c9819dfdbb1187b5ba03fe968))
+* **sdk:** add video ad support with VAST Tag, VAST XML, and JSON delivery ([#2](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/2)) ([d1f5945](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/d1f5945f756fedcb9a553f2839629156c9901801))
+
+
+### Changed
+
+* Refactor release-please configuration and update GitHub Actions workflow ([#6](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/6)) ([528dc07](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/528dc072ad9e7224858006dd1f7e8b58689c412d))
+* Update release-please configuration to use generic file types for extra files ([#3](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/3)) ([977056d](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/977056d5cf79f0b9602ae554b3700022b90b42ac))
+* Update release-please workflow to include config and manifest file parameters ([#4](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/4)) ([9e9f86b](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/9e9f86b425e127394e72ab4870dba376a5659528))
+
+
+### Documentation
+
+* Update README for Maven Central availability ([1d6b1bd](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/1d6b1bd26dad65909b5fe8b005cfedeb2b830d29))
+
 ## [1.0.0] - 2025-06-24
 
 ### Added
