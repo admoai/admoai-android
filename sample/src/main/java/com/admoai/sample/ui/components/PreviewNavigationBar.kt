@@ -23,7 +23,7 @@ import com.admoai.sample.ui.model.PlacementItem
  * - Standard height (56dp + top safe area)
  * - Left: Back button (blue text)
  * - Center: Two-line stack with placement name and key
- * - Right: Two icons - document (response details) and refresh
+ * - Right: Icons - document (response details), and refresh (optional)
  */
 @Composable
 fun PreviewNavigationBar(
@@ -31,7 +31,8 @@ fun PreviewNavigationBar(
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    isRefreshing: Boolean = false
+    isRefreshing: Boolean = false,
+    showRefreshButton: Boolean = true
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (isRefreshing) 360f else 0f,
@@ -81,19 +82,21 @@ fun PreviewNavigationBar(
                 )
             }
             
-            // Refresh icon with animation
-            IconButton(
-                onClick = { if (!isRefreshing) onRefreshClick() },
-                enabled = !isRefreshing
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Refresh Ad",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.graphicsLayer { 
-                        rotationZ = rotation
-                    }
-                )
+            // Refresh icon with animation (conditionally shown)
+            if (showRefreshButton) {
+                IconButton(
+                    onClick = { if (!isRefreshing) onRefreshClick() },
+                    enabled = !isRefreshing
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh Ad",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.graphicsLayer { 
+                            rotationZ = rotation
+                        }
+                    )
+                }
             }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(

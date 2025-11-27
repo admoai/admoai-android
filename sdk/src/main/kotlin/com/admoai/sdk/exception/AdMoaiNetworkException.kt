@@ -10,5 +10,5 @@ package com.admoai.sdk.exception
 class AdMoaiNetworkException(
     message: String,
     cause: Throwable? = null,
-    val statusCode: Int? = null // Added statusCode
+    val statusCode: Int? = null
 ) : AdMoaiException(message, cause)

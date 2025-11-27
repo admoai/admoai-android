@@ -23,8 +23,6 @@ data class DecisionRequest(
     val user: User? = null,
     val app: App? = null,
     val device: Device? = null,
-
-    // Added fields for controlling data collection - marked as @Transient to not be serialized
     @Transient
     val collectAppData: Boolean = true,
     @Transient

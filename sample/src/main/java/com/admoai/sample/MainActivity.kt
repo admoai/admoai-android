@@ -37,8 +37,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.admoai.sdk.Admoai
+import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.model.response.DecisionResponse
+import com.admoai.sample.Routes
+import com.admoai.sample.config.AppConfig
 import com.admoai.sample.ui.MainViewModel
+import io.ktor.client.engine.okhttp.OkHttp
 import com.admoai.sample.ui.screens.CustomTargetingScreen
 import com.admoai.sample.ui.screens.DecisionRequestScreen
 import com.admoai.sample.ui.screens.GeoTargetingScreen
@@ -48,6 +52,7 @@ import com.admoai.sample.ui.screens.RequestPreviewScreen
 import com.admoai.sample.ui.screens.ResponseDetailsScreen
 import com.admoai.sample.ui.screens.TimezonePickerScreen
 import com.admoai.sample.ui.screens.CreativeDetailScreen
+import com.admoai.sample.ui.screens.VideoAdDemoScreen
 import com.admoai.sample.ui.screens.ComposeIntegrationScreen
 import com.admoai.sample.ui.screens.previews.HomePreviewScreen
 import com.admoai.sample.ui.screens.previews.MenuPreviewScreen
@@ -56,6 +61,8 @@ import com.admoai.sample.ui.screens.previews.RideSummaryPreviewScreen
 import com.admoai.sample.ui.screens.previews.SearchPreviewScreen
 import com.admoai.sample.ui.screens.previews.VehicleSelectionPreviewScreen
 import com.admoai.sample.ui.screens.previews.WaitingPreviewScreen
+import com.admoai.sample.ui.screens.previews.FreeMinutesPreviewScreen
+import com.admoai.sample.ui.screens.VideoPreviewScreen
 import com.admoai.sample.ui.theme.AdmoaikotlinTheme
 import kotlinx.coroutines.launch
 
@@ -66,8 +73,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Initialize the AdMoai SDK
-        Admoai.initialize("https://mock.api.admoai.com", true)
+        val config = SDKConfig(
+            baseUrl = AppConfig.API_BASE_URL,
+            apiVersion = AppConfig.API_VERSION,
+            enableLogging = AppConfig.ENABLE_LOGGING,
+            networkClientEngine = OkHttp.create()
+        )
+        Admoai.initialize(config)
 
         setContent {
             AdmoaikotlinTheme {
@@ -82,9 +94,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/**
- * Navigation routes for the app
- */
 object Routes {
     const val DECISION_REQUEST = "decision_request"
     const val PLACEMENT_PICKER = "placement_picker"
@@ -94,30 +103,27 @@ object Routes {
     const val LOCATION_TARGETING = "location_targeting"
     const val CUSTOM_TARGETING = "custom_targeting"
     const val TIMEZONE_PICKER = "timezone_picker"
+    const val VIDEO_AD_DEMO = "video_ad_demo"
     const val COMPOSE_INTEGRATION = "compose_integration"
     
-    // Preview screen routes
     const val PROMOTIONS_PREVIEW = "promotions_preview"
     const val HOME_PREVIEW = "home_preview"
     const val SEARCH_PREVIEW = "search_preview"
     const val MENU_PREVIEW = "menu_preview"
     const val WAITING_PREVIEW = "waiting_preview"
+    const val FREE_MINUTES_PREVIEW = "free_minutes_preview"
     const val VEHICLE_SELECTION_PREVIEW = "vehicle_selection_preview"
     const val RIDE_SUMMARY_PREVIEW = "ride_summary_preview"
+    const val VIDEO_PREVIEW = "video_preview"
 }
 
-/**
- * Main navigation host for the AdMoai sample application.
- */
 @Composable
 fun AdMoaiNavHost(viewModel: MainViewModel) {
     val navController = rememberNavController()
     
-    // Creative detail modal state
     val showingCreativeDetail = viewModel.showingCreativeDetail.collectAsState()
     val selectedAdData = viewModel.selectedAdData.collectAsState()
     
-    // Show creative detail modal when visible
     if (showingCreativeDetail.value) {
         CreativeDetailScreen(
             adData = selectedAdData.value,
@@ -134,15 +140,11 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             DecisionRequestScreen(
                 viewModel = viewModel,
                 onShowRequest = {
-                    // Update the request JSON preview and navigate
                     viewModel.updateRequestJsonPreview()
                     navController.navigate(Routes.REQUEST_PREVIEW)
                 },
                 onRequestPreview = {
-                    // Launch ad request and navigate to demo screen with live data
                     viewModel.loadAds()
-                    
-                    // Navigate to the appropriate demo screen based on selected placement
                     val placementKey = viewModel.placementKey.value
                     when (placementKey) {
                         "home" -> navController.navigate("${Routes.HOME_PREVIEW}/$placementKey")
@@ -150,9 +152,10 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                         "menu" -> navController.navigate("${Routes.MENU_PREVIEW}/$placementKey")
                         "promotions" -> navController.navigate("${Routes.PROMOTIONS_PREVIEW}/$placementKey")
                         "waiting" -> navController.navigate("${Routes.WAITING_PREVIEW}/$placementKey")
+                        "freeMinutes" -> navController.navigate("${Routes.FREE_MINUTES_PREVIEW}/$placementKey")
                         "vehicleSelection" -> navController.navigate("${Routes.VEHICLE_SELECTION_PREVIEW}/$placementKey")
                         "rideSummary" -> navController.navigate("${Routes.RIDE_SUMMARY_PREVIEW}/$placementKey")
-                        else -> navController.navigate("${Routes.HOME_PREVIEW}/$placementKey") // Default fallback
+                        else -> navController.navigate("${Routes.HOME_PREVIEW}/$placementKey")
                     }
                 },
                 onPlacementClick = {
@@ -170,11 +173,13 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 onTimezonePickerClick = {
                     navController.navigate(Routes.TIMEZONE_PICKER)
                 },
+                onVideoAdDemoClick = {
+                    navController.navigate(Routes.VIDEO_AD_DEMO)
+                },
                 onComposeIntegrationClick = {
                     navController.navigate(Routes.COMPOSE_INTEGRATION)
                 },
                 onNavigateBack = {
-                    // Currently at the root, no back navigation
                 }
             )
         }
@@ -242,7 +247,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             )
         }
         
-        // Preview screens
         composable(
             route = "${Routes.PROMOTIONS_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
@@ -256,6 +260,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 PromotionsPreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,
@@ -268,7 +273,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             }
         }
         
-        // Home preview screen
         composable(
             route = "${Routes.HOME_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
@@ -282,6 +286,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 HomePreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,
@@ -295,7 +300,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             }
         }
 
-        // Search preview screen
         composable(
             route = "${Routes.SEARCH_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
@@ -309,19 +313,18 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 SearchPreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,
                     onBackClick = { navController.popBackStack() },
                     onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
                     onRefreshClick = { viewModel.loadAds() },
-                    // Removed onThemeToggle and onAdClick as they're not used for search placement
                     onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) }
                 )
             }
         }
 
-        // Menu preview screen
         composable(
             route = "${Routes.MENU_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
@@ -335,6 +338,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 MenuPreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,
@@ -347,7 +351,6 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             }
         }
 
-        // Waiting preview screen
         composable(
             route = "${Routes.WAITING_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
@@ -361,6 +364,34 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 WaitingPreviewScreen(
+                    viewModel = viewModel,
+                    placement = it,
+                    adData = adData,
+                    isLoading = isLoading,
+                    onBackClick = { navController.popBackStack() },
+                    onDetailsClick = { navController.navigate(Routes.RESPONSE_DETAILS) },
+                    onRefreshClick = { viewModel.loadAds() },
+                    onAdClick = { clickedAdData -> viewModel.showCreativeDetail(clickedAdData) },
+                    onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) },
+                    onThemeToggle = { /* Theme toggle action */ }
+                )
+            }
+        }
+
+        composable(
+            route = "${Routes.FREE_MINUTES_PREVIEW}/{placementKey}",
+            arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val placementKey = backStackEntry.arguments?.getString("placementKey") ?: ""
+            val placement = viewModel.getPlacementByKey(placementKey)
+            val adData = viewModel.getAdDataForPlacement(placementKey)
+            
+            // Observe loading state
+            val isLoading by viewModel.isLoading.collectAsState()
+            
+            placement?.let {
+                FreeMinutesPreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,
@@ -388,6 +419,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 VehicleSelectionPreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,
@@ -401,9 +433,33 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             }
         }
 
+        composable(Routes.VIDEO_AD_DEMO) {
+            VideoAdDemoScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToVideoPreview = { placementKey ->
+                    navController.navigate("${Routes.VIDEO_PREVIEW}/$placementKey")
+                }
+            )
+        }
+        
         composable(Routes.COMPOSE_INTEGRATION) {
             ComposeIntegrationScreen(
                 viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Video preview screen
+        composable(
+            route = "${Routes.VIDEO_PREVIEW}/{placementKey}",
+            arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val placementKey = backStackEntry.arguments?.getString("placementKey") ?: ""
+            
+            VideoPreviewScreen(
+                viewModel = viewModel,
+                placementKey = placementKey,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -421,6 +477,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             
             placement?.let {
                 RideSummaryPreviewScreen(
+                    viewModel = viewModel,
                     placement = it,
                     adData = adData,
                     isLoading = isLoading,

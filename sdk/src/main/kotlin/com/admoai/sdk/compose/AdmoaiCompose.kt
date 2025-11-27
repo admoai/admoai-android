@@ -77,8 +77,8 @@ private fun createAdRequestFlow(admoai: Admoai, decisionRequest: DecisionRequest
         return@flow
     }
     
-    if (decisionRequest.placements.isNullOrEmpty()) {
-        emit(AdState.Error(AdMoaiValidationException("DecisionRequest must contain at least one placement.")))
+    if (decisionRequest.placements.isEmpty()) {
+        emit(AdState.Error(AdMoaiValidationException("DecisionRequest must contain at least one placement")))
         return@flow
     }
     

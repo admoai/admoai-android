@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,10 +38,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import com.admoai.sdk.model.response.AdData
+import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
+import com.admoai.sample.ui.components.HorizontalAdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
 import kotlinx.coroutines.delay
@@ -55,6 +62,7 @@ import kotlinx.coroutines.delay
  */
 @Composable
 fun WaitingPreviewScreen(
+    viewModel: MainViewModel,
     placement: PlacementItem,
     adData: AdData?,
     isLoading: Boolean,
@@ -65,8 +73,9 @@ fun WaitingPreviewScreen(
     onTrackEvent: (String, String) -> Unit = {_, _ -> },
     onThemeToggle: () -> Unit
 ) {
+    val context = LocalContext.current
     var isRefreshing by remember { mutableStateOf(false) }
-    var isCardVisible by remember { mutableStateOf(true) }
+    var isCardVisible by remember { mutableStateOf(adData != null) }
     var currentPage by remember { mutableIntStateOf(0) }
     val pageCount = 3 // Number of carousel pages
     
@@ -85,8 +94,8 @@ fun WaitingPreviewScreen(
         label = "card_alpha"
     )
 
-    // Handle refresh animation and observe loading state
-    LaunchedEffect(isRefreshing, isLoading) {
+    // Handle refresh button click - only trigger once
+    LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
@@ -94,12 +103,6 @@ fun WaitingPreviewScreen(
             delay(300)
             // Trigger ad request via callback
             onRefreshClick()
-            // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible) {
-            // Wait a moment for animation smoothness after loading completes
-            delay(300)
-            // Show the card with the new data
-            isCardVisible = true
         }
     }
     
@@ -107,6 +110,17 @@ fun WaitingPreviewScreen(
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
+        }
+    }
+    
+    // Show/hide card when ad data changes (both initial load and refresh)
+    LaunchedEffect(adData) {
+        if (adData != null && !isLoading && !isRefreshing) {
+            delay(300) // Small delay for animation smoothness
+            isCardVisible = true
+        } else if (adData == null && !isLoading) {
+            // Hide card when no ad data is available (e.g., empty creatives)
+            isCardVisible = false
         }
     }
 
@@ -140,33 +154,7 @@ fun WaitingPreviewScreen(
             )
         }
         
-        // Theme toggle circles in top corners
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .padding(top = 56.dp) // Add padding for the TopAppBar
-                .zIndex(5f), // Ensure clickable but below nav
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // White circle (light theme)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .clickable { onThemeToggle() }
-            )
-            
-            // Black circle (dark theme)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black)
-                    .clickable { onThemeToggle() }
-            )
-        }
+        // Theme toggle circles removed to avoid overlaying navigation buttons
 
         // Fixed bottom layout - not a modal sheet
         Surface(
@@ -217,46 +205,103 @@ fun WaitingPreviewScreen(
                 }
                 
                 // Ad card with animation
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp)
-                        .graphicsLayer { alpha = cardAlpha },
-                    contentAlignment = Alignment.Center
-                ) {
-                    adData?.let {
-                        AdCard(
-                            adData = it,
-                            onAdClick = { clickedAdData -> 
-                                onAdClick(clickedAdData)
-                            },
-                            onTrackImpression = { url ->
-                                onTrackEvent("impression", url)
-                            },
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
+                // Only show ad card when adData is available
+                if (adData != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                            .graphicsLayer { alpha = cardAlpha },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Check if this is a video ad
+                        val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
+                            viewModel.isVideoCreative(creative)
+                        } ?: false
+                        
+                        // Check if this is normal_videos template (video with companion content in one card)
+                        val isNormalVideos = com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(adData)
+                        
+                        if (isNormalVideos) {
+                            // Render VideoAdCard for normal_videos template (video + companion in unified card)
+                            com.admoai.sample.ui.components.VideoAdCard(
+                                adData = adData,
+                                viewModel = viewModel,
+                                placementKey = "waiting",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                            )
+                        } else if (isVideoAd) {
+                            // Render standalone video player for other video ads
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(16f / 9f)
+                                    .clip(RoundedCornerShape(12.dp))
+                            ) {
+                                com.admoai.sample.ui.components.VideoPlayerForPlacement(
+                                    creative = adData.creatives.first(),
+                                    viewModel = viewModel,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        } else {
+                            // Render native ad card for native ads
+                            AdCard(
+                                adData = adData,
+                                placementKey = "waiting",
+                                onAdClick = { clickedAdData -> 
+                                    onAdClick(clickedAdData)
+                                },
+                                onTrackImpression = { url ->
+                                    onTrackEvent("impression", url)
+                                },
+                                onSlideClick = { url ->
+                                    // Open URL in browser when CTA is clicked
+                                    Log.d("WaitingPreview", "onSlideClick called with URL: $url")
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                        Log.d("WaitingPreview", "Starting browser intent for: $url")
+                                        context.startActivity(intent)
+                                        Log.d("WaitingPreview", "Browser intent started successfully")
+                                    } catch (e: Exception) {
+                                        Log.e("WaitingPreview", "Failed to open URL: $url", e)
+                                    }
+                                },
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        }
                     }
                 }
                 
-                // Page indicators
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    repeat(pageCount) { i ->
-                        val isSelected = i == currentPage
-                        Box(
+                // Page indicators - Only show for native ads (not video ads)
+                if (adData != null) {
+                    val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
+                        viewModel.isVideoCreative(creative)
+                    } ?: false
+                    
+                    if (!isVideoAd) {
+                        Row(
                             modifier = Modifier
-                                .padding(horizontal = 4.dp)
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primary
-                                    else Color.LightGray
+                                .fillMaxWidth()
+                                .padding(top = 16.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            repeat(pageCount) { i ->
+                                val isSelected = i == currentPage
+                                Box(
+                                    modifier = Modifier
+                                        .padding(horizontal = 4.dp)
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isSelected) MaterialTheme.colorScheme.primary
+                                            else Color.LightGray
+                                        )
                                 )
-                        )
+                            }
+                        }
                     }
                 }
             }

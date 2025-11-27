@@ -19,6 +19,7 @@ import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.HorizontalAdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
+import kotlinx.coroutines.delay
 
 /**
  * Home placement preview screen
@@ -31,6 +32,7 @@ import com.admoai.sample.ui.model.PlacementItem
  */
 @Composable
 fun HomePreviewScreen(
+    viewModel: MainViewModel,
     placement: PlacementItem,
     adData: AdData?,
     isLoading: Boolean,
@@ -42,7 +44,7 @@ fun HomePreviewScreen(
     onTrackEvent: (String, String) -> Unit
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
-    var isCardVisible by remember { mutableStateOf(true) }
+    var isCardVisible by remember { mutableStateOf(adData != null) }
     val density = LocalDensity.current
     
     // Animation values for card refresh effect
@@ -61,8 +63,8 @@ fun HomePreviewScreen(
         label = "card_alpha"
     )
 
-    // Handle refresh animation and observe loading state
-    LaunchedEffect(isRefreshing, isLoading) {
+    // Handle refresh button click - only trigger once
+    LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
@@ -70,12 +72,6 @@ fun HomePreviewScreen(
             kotlinx.coroutines.delay(300)
             // Trigger ad request via callback
             onRefreshClick()
-            // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible) {
-            // Wait a moment for animation smoothness after loading completes
-            kotlinx.coroutines.delay(300)
-            // Show the card with the new data
-            isCardVisible = true
         }
     }
     
@@ -83,6 +79,17 @@ fun HomePreviewScreen(
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
+        }
+    }
+    
+    // Show/hide card when ad data changes (both initial load and refresh)
+    LaunchedEffect(adData) {
+        if (adData != null && !isLoading && !isRefreshing) {
+            delay(300) // Small delay for animation smoothness
+            isCardVisible = true
+        } else if (adData == null && !isLoading) {
+            // Hide card when no ad data is available (e.g., empty creatives)
+            isCardVisible = false
         }
     }
 
@@ -105,62 +112,40 @@ fun HomePreviewScreen(
             )
             
             // Horizontal Ad Card with animation - iOS style
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 70.dp) // Match iOS padding of 70 pts
-                    .graphicsLayer(
-                        alpha = cardAlpha,
-                        translationY = with(density) { cardOffsetY.toPx() }
-                    ),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                HorizontalAdCard(
-                    adData = adData,
-                    placementKey = placement.key, // Pass the placement key for click support check
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    onAdClick = { clickedAdData ->
-                        // Open the full screen creative modal
-                        onAdClick(clickedAdData)
-                    },
-                    onTrackClick = { url ->
-                        // Track click events
-                        onTrackEvent("click", url)
-                    },
-                    onTrackImpression = { url ->
-                        // Track impression
-                        onTrackEvent("impression", url)
-                    }
-                )
+            // Only show ad card when adData is available
+            if (adData != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 70.dp) // Match iOS padding of 70 pts
+                        .graphicsLayer(
+                            alpha = cardAlpha,
+                            translationY = with(density) { cardOffsetY.toPx() }
+                        ),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    HorizontalAdCard(
+                        adData = adData,
+                        placementKey = placement.key, // Pass the placement key for click support check
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        onAdClick = { clickedAdData ->
+                            // Open the full screen creative modal
+                            onAdClick(clickedAdData)
+                        },
+                        onTrackClick = { url ->
+                            // Track click events
+                            onTrackEvent("click", url)
+                        },
+                        onTrackImpression = { url ->
+                            // Track impression
+                            onTrackEvent("impression", url)
+                        }
+                    )
+                }
             }
         }
         
-        // Theme toggle circles in top corners
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .padding(top = 56.dp), // Add padding for the TopAppBar
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // White circle (light theme)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .clickable { onThemeToggle() }
-            )
-            
-            // Black circle (dark theme)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black)
-                    .clickable { onThemeToggle() }
-            )
-        }
+        // Theme toggle circles removed to avoid overlaying navigation buttons
         
         // Bottom navigation bar with 4 circles (iOS style)
         Column(

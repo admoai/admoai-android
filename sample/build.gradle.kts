@@ -37,6 +37,11 @@ android {
     buildFeatures {
         compose = true
     }
+    
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
+    
 }
 
 dependencies {
@@ -67,15 +72,26 @@ dependencies {
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.4.0")
     
+    // ExoPlayer with IMA extension for video playback (sample app only)
+    implementation("androidx.media3:media3-exoplayer:1.2.1")
+    implementation("androidx.media3:media3-ui:1.2.1")
+    implementation("androidx.media3:media3-exoplayer-ima:1.2.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.2.1") // HLS support for .m3u8
+    implementation("androidx.media3:media3-exoplayer-dash:1.2.1") // DASH support
+    implementation("androidx.media3:media3-datasource:1.2.1") // Data source support
+    
+    // VAST parser for manual VAST handling (TODO: Add when implementing full VAST parsing)
+    // implementation("com.github.InteractiveAdvertisingBureau:vast-client-java:1.0.0")
+    
     // Ktor and Serialization (for sample app usage)
     implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp) // OkHttp engine for Ktor
     implementation(libs.kotlinx.serialization.json)
     
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation("org.robolectric:robolectric:4.10.3")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

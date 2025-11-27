@@ -30,9 +30,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import com.admoai.sdk.model.response.AdData
+import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
@@ -50,6 +55,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PromotionsPreviewScreen(
+    viewModel: MainViewModel,
     placement: PlacementItem,
     adData: AdData?,
     isLoading: Boolean,
@@ -59,8 +65,26 @@ fun PromotionsPreviewScreen(
     onAdClick: (AdData) -> Unit = {},
     onTrackEvent: (String, String) -> Unit = {_, _ -> }
 ) {
+    val context = LocalContext.current
     var isRefreshing by remember { mutableStateOf(false) }
-    var isCardVisible by remember { mutableStateOf(true) }
+    var isCardVisible by remember { mutableStateOf(adData != null) }
+    val density = LocalDensity.current
+    
+    // Card entry animation (slide in from right like Ride Summary)
+    val cardOffsetX by animateDpAsState(
+        targetValue = if (isCardVisible) 0.dp else 300.dp,
+        animationSpec = spring(
+            dampingRatio = 0.7f,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "card_offset_x"
+    )
+    
+    val cardAlpha by animateFloatAsState(
+        targetValue = if (isCardVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 300),
+        label = "card_alpha"
+    )
     
     // Auto-scrolling carousel pager state
     val pagerState = rememberPagerState(pageCount = { 5 })
@@ -73,16 +97,9 @@ fun PromotionsPreviewScreen(
             pagerState.animateScrollToPage(nextPage)
         }
     }
-    
-    // Animation values for ad card refresh effect
-    val cardAlpha by animateFloatAsState(
-        targetValue = if (isCardVisible) 1f else 0f,
-        animationSpec = tween(durationMillis = 300),
-        label = "card_alpha"
-    )
 
-    // Handle refresh animation and observe loading state
-    LaunchedEffect(isRefreshing, isLoading) {
+    // Handle refresh button click - only trigger once
+    LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
@@ -90,12 +107,6 @@ fun PromotionsPreviewScreen(
             delay(300)
             // Trigger ad request via callback
             onRefreshClick()
-            // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible) {
-            // Wait a moment for animation smoothness after loading completes
-            delay(300)
-            // Show the card with the new data
-            isCardVisible = true
         }
     }
     
@@ -103,6 +114,17 @@ fun PromotionsPreviewScreen(
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
+        }
+    }
+    
+    // Show/hide card when ad data changes (both initial load and refresh)
+    LaunchedEffect(adData) {
+        if (adData != null && !isLoading && !isRefreshing) {
+            delay(300) // Small delay for animation smoothness
+            isCardVisible = true
+        } else if (adData == null && !isLoading) {
+            // Hide card when no ad data is available (e.g., empty creatives)
+            isCardVisible = false
         }
     }
 
@@ -139,23 +161,78 @@ fun PromotionsPreviewScreen(
                 )
                 
                 // AdCard is the main element - everything else is greyed-out mock UI
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .graphicsLayer(alpha = cardAlpha),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AdCard(
-                        adData = adData,
-                        placementKey = "promotions",
-                        onAdClick = { clickedAdData -> 
-                            onAdClick(clickedAdData)
-                        },
-                        onTrackImpression = { url ->
-                            onTrackEvent("impression", url)
+                // Only show ad card when adData is available
+                if (adData != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .graphicsLayer(
+                                alpha = cardAlpha,
+                                translationX = with(density) { cardOffsetX.toPx() }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Check if this is a video ad
+                        val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
+                            val result = viewModel.isVideoCreative(creative)
+                            Log.d("PromotionsPreview", "isVideoCreative check: $result, delivery: ${creative.delivery}, vast: ${creative.vast != null}")
+                            result
+                        } ?: false
+                    
+                    Log.d("PromotionsPreview", "Rendering decision - isVideoAd: $isVideoAd, adData: ${adData != null}")
+                    
+                    // Check if this is normal_videos template (video with companion content in one card)
+                    val isNormalVideos = com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(adData)
+                    
+                    if (isNormalVideos) {
+                        // Render VideoAdCard for normal_videos template (video + companion in unified card)
+                        com.admoai.sample.ui.components.VideoAdCard(
+                            adData = adData,
+                            viewModel = viewModel,
+                            placementKey = "promotions",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else if (isVideoAd) {
+                        // Render standalone video player for other video ads
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(12.dp))
+                        ) {
+                            com.admoai.sample.ui.components.VideoPlayerForPlacement(
+                                creative = adData.creatives.first(),
+                                viewModel = viewModel,
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
-                    )
+                    } else {
+                        // Render native ad card for native ads
+                        AdCard(
+                            adData = adData,
+                            placementKey = "promotions",
+                            onAdClick = { clickedAdData -> 
+                                onAdClick(clickedAdData)
+                            },
+                            onTrackImpression = { url ->
+                                onTrackEvent("impression", url)
+                            },
+                            onSlideClick = { url ->
+                                // Open URL in browser when carousel CTA is clicked
+                                Log.d("PromotionsPreview", "onSlideClick called with URL: $url")
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                    Log.d("PromotionsPreview", "Starting browser intent for: $url")
+                                    context.startActivity(intent)
+                                    Log.d("PromotionsPreview", "Browser intent started successfully")
+                                } catch (e: Exception) {
+                                    Log.e("PromotionsPreview", "Failed to open URL: $url", e)
+                                }
+                            }
+                        )
+                    }
+                    }
                 }
                 
                 // Grey separator

@@ -8,6 +8,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.admoai.sdk.model.response.AdData
@@ -46,61 +48,81 @@ fun MenuAdCard(
         "${adPlacement}_${creativeId}"
     }
     
-    // Use LaunchedEffect to ensure impression is tracked only once per unique ad
     LaunchedEffect(impressionKey) {
-        println("MenuAdCard: Tracking impression for placement $adPlacement creative $creativeId")
         onImpressionTracked()
     }
     
-    // Card with text-only layout styled as a lateral menu item (no images)
-    Card(
+    // Wrap Card in Box to position "Ad" watermark
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        )
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        // Card with text-only layout styled as a lateral menu item (no images)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+            )
         ) {
-            // Text content column
-            Column(
-                modifier = Modifier.weight(1f)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Main text content
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                
-                // Only show advertiser name if we have one
-                if (advertiserName != "Sponsored") {
-                    Spacer(modifier = Modifier.height(4.dp))
+                // Text content column
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Main text content
                     Text(
-                        text = advertiserName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    
+                    // Only show advertiser name if we have one
+                    if (advertiserName != "Sponsored") {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = advertiserName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                
+                // Sponsored badge - only show when priority is SPONSORSHIP
+                if (showSponsoredLabel) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Sponsored",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        fontSize = 10.sp
                     )
                 }
             }
-            
-            // Sponsored badge - only show when priority is SPONSORSHIP
-            if (showSponsoredLabel) {
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Sponsored",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                    fontSize = 10.sp
-                )
-            }
+        }
+        
+        // "Ad" watermark badge at bottom-right corner
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(12.dp),
+            shape = RoundedCornerShape(3.dp),
+            color = Color(0xFFF5F5F5)
+        ) {
+            Text(
+                text = "Ad",
+                color = Color.Gray,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Normal,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+            )
         }
     }
 }

@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.admoai.sdk.model.response.AdData
+import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
@@ -38,17 +39,18 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MenuPreviewScreen(
+    viewModel: MainViewModel,
     placement: PlacementItem,
     adData: AdData?,
     isLoading: Boolean,
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    onAdClick: (AdData) -> Unit = {},
+    onAdClick: (AdData) -> Unit,
     onTrackEvent: (String, String) -> Unit = {_, _ -> }
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
-    var isCardVisible by remember { mutableStateOf(true) }
+    var isCardVisible by remember { mutableStateOf(adData != null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     
@@ -59,8 +61,8 @@ fun MenuPreviewScreen(
         label = "card_alpha"
     )
 
-    // Handle refresh animation and observe loading state
-    LaunchedEffect(isRefreshing, isLoading) {
+    // Handle refresh button click - only trigger once
+    LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
@@ -68,12 +70,6 @@ fun MenuPreviewScreen(
             kotlinx.coroutines.delay(300)
             // Trigger ad request via callback
             onRefreshClick()
-            // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible) {
-            // Wait a moment for animation smoothness after loading completes
-            kotlinx.coroutines.delay(300)
-            // Show the card with the new data
-            isCardVisible = true
         }
     }
     
@@ -81,6 +77,17 @@ fun MenuPreviewScreen(
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
+        }
+    }
+    
+    // Show/hide card when ad data changes (both initial load and refresh)
+    LaunchedEffect(adData) {
+        if (adData != null && !isLoading && !isRefreshing) {
+            kotlinx.coroutines.delay(300) // Small delay for animation smoothness
+            isCardVisible = true
+        } else if (adData == null && !isLoading) {
+            // Hide card when no ad data is available (e.g., empty creatives)
+            isCardVisible = false
         }
     }
 
@@ -129,28 +136,31 @@ fun MenuPreviewScreen(
                     SideMenuContent()
                     
                     // Ad banner at the bottom
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp, start = 8.dp, end = 8.dp)
-                            .graphicsLayer(alpha = cardAlpha)
-                    ) {
-                        AdCard(
-                            adData = adData,
-                            placementKey = placement.key, // Add placement key
-                            onAdClick = { clickedAdData -> 
-                                onAdClick(clickedAdData)
-                            },
-                            onTrackClick = { url ->
-                                // Track click events
-                                onTrackEvent("click", url)
-                            },
-                            onTrackImpression = { url ->
-                                onTrackEvent("impression", url)
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                    // Only show ad card when adData is available
+                    if (adData != null) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp, start = 8.dp, end = 8.dp)
+                                .graphicsLayer(alpha = cardAlpha)
+                        ) {
+                            AdCard(
+                                adData = adData,
+                                placementKey = placement.key, // Add placement key
+                                onAdClick = { clickedAdData -> 
+                                    onAdClick(clickedAdData)
+                                },
+                                onTrackClick = { url ->
+                                    // Track click events
+                                    onTrackEvent("click", url)
+                                },
+                                onTrackImpression = { url ->
+                                    onTrackEvent("impression", url)
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 }
             }

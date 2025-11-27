@@ -161,7 +161,8 @@ fun AdCard(
     modifier: Modifier = Modifier,
     onAdClick: (AdData) -> Unit = {},
     onTrackClick: (String) -> Unit = {},
-    onTrackImpression: (String) -> Unit = {}
+    onTrackImpression: (String) -> Unit = {},
+    onSlideClick: (String) -> Unit = {}
 ) {
     if (adData == null) {
         // Display placeholder card if no ad data is available
@@ -183,9 +184,7 @@ fun AdCard(
     }
     
     LaunchedEffect(impressionKey) {
-        // Track impression when card is first displayed - will only execute once per unique ad
         firstCreative?.tracking?.impressions?.find { it.key == "default" }?.let { impression ->
-            println("Tracking impression for placement $adPlacement creative $creativeId")
             onTrackImpression(impression.url)
         }
     }
@@ -218,7 +217,6 @@ fun AdCard(
                     }
                 },
                 modifier = modifier
-                // Note: No click handler for search placement per requirements
             )
         }
         
@@ -233,18 +231,19 @@ fun AdCard(
                     }
                 },
                 modifier = modifier
-                // Note: No click handler for menu placement per requirements
             )
         }
-        // Handle promotions placement with carousel
-        placementKey == "promotions" || AdTemplateMapper.isCarouselTemplate(adData) -> {
+        // Handle promotions or waiting placement with carousel
+        placementKey == "promotions" || placementKey == "waiting" || AdTemplateMapper.isCarouselTemplate(adData) -> {
             PromotionsCarouselCard(
                 adData = adData,
                 onTrackImpression = { trackingUrl ->
                     onTrackImpression(trackingUrl)
                 },
+                onSlideClick = { url ->
+                    onSlideClick(url)
+                },
                 modifier = modifier
-                // Note: No click handler for promotions placement per requirements
             )
         }
         // Handle rideSummary placement
@@ -258,9 +257,6 @@ fun AdCard(
                 onTrackImpression = onTrackImpression
             )
         }
-        // Add additional template mappings here as they are defined
-        // Example: templateKey == "searchResult" || placementKey == "search" -> { SearchResultAdCard(...) }
-        
         // Default fallback to standard vertical card layout
         else -> {
             // Use a vertical card as fallback (the old implementation would go here)

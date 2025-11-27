@@ -50,6 +50,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import com.admoai.sdk.model.response.AdData
@@ -68,6 +69,7 @@ import kotlinx.coroutines.launch
 fun PromotionsCarouselCard(
     adData: AdData,
     onTrackImpression: (String) -> Unit = {},
+    onSlideClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // Extract creative
@@ -80,15 +82,12 @@ fun PromotionsCarouselCard(
         "${adPlacement}_${creativeId}_main"
     }
     
-    // Track main impression when carousel is first displayed - executes only once
     LaunchedEffect(mainImpressionKey) {
         creative.tracking.impressions?.find { it.key == "default" }?.let { impression ->
-            println("PromotionsCarousel: Tracking main impression for placement $adPlacement creative $creativeId")
             onTrackImpression(impression.url)
         }
     }
     
-    // Prepare carousel data for 3 slides
     val slides = remember(creative) {
         (1..3).map { index ->
             CarouselSlide(
@@ -96,6 +95,7 @@ fun PromotionsCarouselCard(
                 imageUrl = AdContent.extractUrlContent(creative, "imageSlide$index") ?: "",
                 headline = AdContent.extractTextContent(creative, "headlineSlide$index") ?: "",
                 cta = AdContent.extractTextContent(creative, "ctaSlide$index") ?: "",
+                url = AdContent.extractUrlContent(creative, "URLSlide$index") ?: "",
                 trackingKey = "slide$index"
             )
         }
@@ -149,20 +149,20 @@ fun PromotionsCarouselCard(
                 "${adPlacement}_${creativeId}_${currentSlide.trackingKey}"
             }
             
-            // Track impression once per unique slide view
             LaunchedEffect(slideImpressionKey, pagerState.currentPage) {
-                // Only track if this is the current visible slide
                 if (pagerState.currentPage == page) {
-                    // Track impression for the current slide
                     creative.tracking.impressions?.find { it.key == currentSlide.trackingKey }?.let { impression ->
-                        println("PromotionsCarousel: Tracking slide impression for $currentSlide.trackingKey")
                         onTrackImpression(impression.url)
                     }
                 }
             }
             CarouselSlideContent(
                 slide = slide,
-                // No click handler as per requirements
+                onClick = {
+                    if (slide.url.isNotEmpty()) {
+                        onSlideClick(slide.url)
+                    }
+                }
             )
         }
         
@@ -185,6 +185,7 @@ private data class CarouselSlide(
     val imageUrl: String,
     val headline: String,
     val cta: String,
+    val url: String,
     val trackingKey: String
 )
 
@@ -194,82 +195,103 @@ private data class CarouselSlide(
 @Composable
 private fun CarouselSlideContent(
     slide: CarouselSlide,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column {
-            // Image with 16:9 aspect ratio
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                SubcomposeAsyncImage(
-                    model = slide.imageUrl,
-                    contentDescription = slide.headline,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+    // Wrap Card in Box to position "Ad" watermark
+    Box(modifier = modifier.fillMaxWidth()) {
+        Card(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Column {
+                // Image with 16:9 aspect ratio
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                 ) {
-                    when (painter.state) {
-                        is coil.compose.AsyncImagePainter.State.Loading -> {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(modifier = Modifier.size(30.dp))
+                    SubcomposeAsyncImage(
+                        model = slide.imageUrl,
+                        contentDescription = slide.headline,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        when (painter.state) {
+                            is coil.compose.AsyncImagePainter.State.Loading -> {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(modifier = Modifier.size(30.dp))
+                                }
                             }
-                        }
-                        is coil.compose.AsyncImagePainter.State.Error -> {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Filled.BrokenImage,
-                                    contentDescription = "Error loading image",
-                                    modifier = Modifier.size(48.dp),
-                                    tint = MaterialTheme.colorScheme.error
-                                )
+                            is coil.compose.AsyncImagePainter.State.Error -> {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Filled.BrokenImage,
+                                        contentDescription = "Error loading image",
+                                        modifier = Modifier.size(48.dp),
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
                             }
+                            else -> SubcomposeAsyncImageContent()
                         }
-                        else -> SubcomposeAsyncImageContent()
                     }
                 }
-            }
-            
-            // Headline text
-            Text(
-                text = slide.headline,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 16.dp)
-            )
-            
-            // CTA row with chevron
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp)
-            ) {
+                
+                // Headline text
                 Text(
-                    text = slide.cta,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    text = slide.headline,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp)
                 )
                 
-                Spacer(modifier = Modifier.width(4.dp))
-                
-                Icon(
-                    imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
-                )
+                // CTA row with chevron
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp)
+                ) {
+                    Text(
+                        text = slide.cta,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    
+                    Spacer(modifier = Modifier.width(4.dp))
+                    
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
+        }
+        
+        // "Ad" watermark badge at bottom-right corner
+        androidx.compose.material3.Surface(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(12.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(3.dp),
+            color = Color(0xFFF5F5F5)
+        ) {
+            Text(
+                text = "Ad",
+                color = Color.Gray,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Normal,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+            )
         }
     }
 }

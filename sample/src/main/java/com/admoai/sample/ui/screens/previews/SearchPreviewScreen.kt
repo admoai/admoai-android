@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.admoai.sdk.model.response.AdData
+import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
@@ -28,6 +29,7 @@ import com.admoai.sample.ui.model.PlacementItem
  */
 @Composable
 fun SearchPreviewScreen(
+    viewModel: MainViewModel,
     placement: PlacementItem,
     adData: AdData?,
     isLoading: Boolean,
@@ -39,7 +41,7 @@ fun SearchPreviewScreen(
     onTrackEvent: (String, String) -> Unit = {_, _ -> }
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
-    var isCardVisible by remember { mutableStateOf(true) }
+    var isCardVisible by remember { mutableStateOf(adData != null) }
     // No need for density as we're using Dp values directly
     
     // Animation values for card refresh effect
@@ -49,8 +51,8 @@ fun SearchPreviewScreen(
         label = "card_alpha"
     )
 
-    // Handle refresh animation and observe loading state
-    LaunchedEffect(isRefreshing, isLoading) {
+    // Handle refresh button click - only trigger once
+    LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
@@ -58,12 +60,6 @@ fun SearchPreviewScreen(
             kotlinx.coroutines.delay(300)
             // Trigger ad request via callback
             onRefreshClick()
-            // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible) {
-            // Wait a moment for animation smoothness after loading completes
-            kotlinx.coroutines.delay(300)
-            // Show the card with the new data
-            isCardVisible = true
         }
     }
     
@@ -73,11 +69,21 @@ fun SearchPreviewScreen(
             isRefreshing = false
         }
     }
+    
+    // Show/hide card when ad data changes (both initial load and refresh)
+    LaunchedEffect(adData) {
+        if (adData != null && !isLoading && !isRefreshing) {
+            kotlinx.coroutines.delay(300) // Small delay for animation smoothness
+            isCardVisible = true
+        } else if (adData == null && !isLoading) {
+            // Hide card when no ad data is available (e.g., empty creatives)
+            isCardVisible = false
+        }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
     ) {
         // Navigation bar
         PreviewNavigationBar(
@@ -101,24 +107,27 @@ fun SearchPreviewScreen(
             }
             
             // Ad card after third item
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                        .graphicsLayer(alpha = cardAlpha),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AdCard(
-                        adData = adData,
-                        placementKey = "search", // Explicitly set placement key to search
-                        onTrackImpression = { url ->
-                            // Search ads only need impression tracking, no click handling
-                            onTrackEvent("impression", url)
-                        },
-                        // No onAdClick parameter as search ads don't respond to clicks
-                        modifier = Modifier.fillMaxWidth()
-                    )
+            // Only show ad card when adData is available
+            if (adData != null) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                            .graphicsLayer(alpha = cardAlpha),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AdCard(
+                            adData = adData,
+                            placementKey = "search", // Explicitly set placement key to search
+                            onTrackImpression = { url ->
+                                // Search ads only need impression tracking, no click handling
+                                onTrackEvent("impression", url)
+                            },
+                            // No onAdClick parameter as search ads don't respond to clicks
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
             

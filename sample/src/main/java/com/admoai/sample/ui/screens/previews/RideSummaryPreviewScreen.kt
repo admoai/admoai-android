@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.admoai.sdk.model.response.AdData
+import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
@@ -39,6 +40,7 @@ import kotlinx.coroutines.delay
  */
 @Composable
 fun RideSummaryPreviewScreen(
+    viewModel: MainViewModel,
     placement: PlacementItem,
     adData: AdData?,
     isLoading: Boolean,
@@ -50,7 +52,7 @@ fun RideSummaryPreviewScreen(
     @Suppress("UNUSED_PARAMETER") onThemeToggle: () -> Unit
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
-    var isCardVisible by remember { mutableStateOf(false) }
+    var isCardVisible by remember { mutableStateOf(adData != null) }
     val density = LocalDensity.current
     
     // Card entry animation (slide in from right)
@@ -69,8 +71,8 @@ fun RideSummaryPreviewScreen(
         label = "card_alpha"
     )
 
-    // Handle refresh animation and observe loading state
-    LaunchedEffect(isRefreshing, isLoading) {
+    // Handle refresh button click - only trigger once
+    LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
@@ -78,12 +80,6 @@ fun RideSummaryPreviewScreen(
             delay(300)
             // Trigger ad request via callback
             onRefreshClick()
-            // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible) {
-            // Wait a moment for animation smoothness after loading completes
-            delay(300)
-            // Show the card with the new data
-            isCardVisible = true
         }
     }
     
@@ -94,10 +90,15 @@ fun RideSummaryPreviewScreen(
         }
     }
     
-    // Animate card in on first composition
-    LaunchedEffect(Unit) {
-        delay(200)
-        isCardVisible = true
+    // Show/hide card when ad data changes (both initial load and refresh)
+    LaunchedEffect(adData) {
+        if (adData != null && !isLoading && !isRefreshing) {
+            delay(200) // Small delay for slide-in animation
+            isCardVisible = true
+        } else if (adData == null && !isLoading) {
+            // Hide card when no ad data is available (e.g., empty creatives)
+            isCardVisible = false
+        }
     }
 
     // Receipt items for the summary
@@ -133,7 +134,7 @@ fun RideSummaryPreviewScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                    .padding(horizontal = 24.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.Center
             ) {
                 // Five stars, all filled for 5-star rating
@@ -143,45 +144,45 @@ fun RideSummaryPreviewScreen(
                         contentDescription = "Star $i",
                         tint = Color(0xFFFFC107), // Amber
                         modifier = Modifier
-                            .size(28.dp)
-                            .padding(horizontal = 4.dp)
+                            .size(24.dp)
+                            .padding(horizontal = 3.dp)
                     )
                 }
             }
             
             Text(
                 text = "Thanks for riding with us!",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp)
+                    .padding(vertical = 4.dp)
             )
             
             // Receipt list
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                    .padding(horizontal = 24.dp, vertical = 6.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(12.dp)
                 ) {
                     Text(
                         text = "Trip Summary",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
                     
                     // Origin-destination info
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 16.dp)
+                            .padding(bottom = 8.dp)
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
@@ -221,14 +222,14 @@ fun RideSummaryPreviewScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = 24.dp, vertical = 4.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -246,33 +247,69 @@ fun RideSummaryPreviewScreen(
             }
             
             // Add spacing before ad card
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             
-            // Ad card with slide-in animation
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .graphicsLayer(
-                        alpha = cardAlpha,
-                        translationX = with(density) { cardOffsetX.toPx() }
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                AdCard(
-                    adData = adData,
-                    placementKey = placement.key,
-                    onAdClick = { clickedAdData -> 
-                        onAdClick(clickedAdData)
-                    },
-                    onTrackImpression = { url ->
-                        onTrackEvent("impression", url)
-                    },
-                    onTrackClick = { url ->
-                        onTrackEvent("click", url)
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            // Ad card with slide-in animation from right
+            // Only show ad card when adData is available
+            if (adData != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .graphicsLayer(
+                            alpha = cardAlpha,
+                            translationX = with(density) { cardOffsetX.toPx() }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Check if this is a video ad
+                    val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
+                        viewModel.isVideoCreative(creative)
+                    } ?: false
+                    
+                    // Check if this is normal_videos template (video with companion content in one card)
+                    val isNormalVideos = com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(adData)
+                    
+                    if (isNormalVideos) {
+                        // Render VideoAdCard for normal_videos template (video + companion in unified card)
+                        com.admoai.sample.ui.components.VideoAdCard(
+                            adData = adData,
+                            viewModel = viewModel,
+                            placementKey = "rideSummary",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else if (isVideoAd) {
+                    // Render standalone video player for other video ads
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 9f)
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                    ) {
+                        com.admoai.sample.ui.components.VideoPlayerForPlacement(
+                            creative = adData.creatives.first(),
+                            viewModel = viewModel,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                } else {
+                    // Render native ad card for native ads
+                    AdCard(
+                        adData = adData,
+                        placementKey = placement.key,
+                        onAdClick = { clickedAdData -> 
+                            onAdClick(clickedAdData)
+                        },
+                        onTrackImpression = { url ->
+                            onTrackEvent("impression", url)
+                        },
+                        onTrackClick = { url ->
+                            onTrackEvent("click", url)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                }
             }
             
             // Spacer at bottom for padding
@@ -292,7 +329,7 @@ fun ReceiptItemRow(item: ReceiptItem) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
@@ -310,8 +347,8 @@ fun ReceiptItemRow(item: ReceiptItem) {
     
     if (item.isTotal) {
         HorizontalDivider(
-            modifier = Modifier.padding(vertical = 8.dp),
-            thickness = 2.dp
+            modifier = Modifier.padding(vertical = 2.dp),
+            thickness = 1.dp
         )
     }
 }

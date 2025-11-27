@@ -64,9 +64,7 @@ fun SearchAdCard(
             "${adPlacement}_${creativeId}"
         }
         
-        // Use LaunchedEffect to ensure impression is tracked only once per unique ad
         LaunchedEffect(impressionKey) {
-            println("SearchAdCard: Tracking impression for placement $adPlacement creative $creativeId")
             onImpressionTracked()
         }
         

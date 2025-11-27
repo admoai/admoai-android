@@ -26,7 +26,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.admoai.sdk.model.response.AdData
+import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
+import com.admoai.sample.ui.components.HorizontalAdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.components.SearchAdCard
 import com.admoai.sample.ui.mapper.AdTemplateMapper
@@ -46,18 +48,19 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun VehicleSelectionPreviewScreen(
+    viewModel: MainViewModel,
     placement: PlacementItem,
     adData: AdData?,
     isLoading: Boolean,
     onBackClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
-    onAdClick: (AdData) -> Unit = {},
-    onTrackEvent: (String, String) -> Unit = {_, _ -> },
+    onAdClick: (AdData) -> Unit,
+    onTrackEvent: (String, String) -> Unit,
     onThemeToggle: () -> Unit
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
-    var isCardVisible by remember { mutableStateOf(true) }
+    var isCardVisible by remember { mutableStateOf(adData != null) }
     val density = LocalDensity.current
     // No need for coroutine scope as we're using LaunchedEffect for animations
     
@@ -80,21 +83,24 @@ fun VehicleSelectionPreviewScreen(
     // Pulse animation for vehicle icons
     val vehicleIconAlpha = remember { Animatable(1f) }
     
-    // Handle refresh animation with vehicle pulse
-    LaunchedEffect(isRefreshing, isLoading) {
+    // Handle refresh button click with vehicle pulse animation
+    LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
             // Hide the card first
             isCardVisible = false
+            // Pulse the vehicle icon
+            vehicleIconAlpha.animateTo(
+                targetValue = 0.3f,
+                animationSpec = tween(durationMillis = 200)
+            )
+            vehicleIconAlpha.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 200)
+            )
             // Wait for the card to animate out
-            delay(300)
+            delay(100)
             // Trigger ad request via callback
             onRefreshClick()
-            // Don't show card until loading completes (handled by next condition)
-        } else if (!isLoading && !isCardVisible) {
-            // Wait a moment for animation smoothness after loading completes
-            delay(300)
-            // Show the card with the new data
-            isCardVisible = true
         }
     }
     
@@ -102,6 +108,17 @@ fun VehicleSelectionPreviewScreen(
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
+        }
+    }
+    
+    // Show/hide card when ad data changes (both initial load and refresh)
+    LaunchedEffect(adData) {
+        if (adData != null && !isLoading && !isRefreshing) {
+            delay(300) // Small delay for animation smoothness
+            isCardVisible = true
+        } else if (adData == null && !isLoading) {
+            // Hide card when no ad data is available (e.g., empty creatives)
+            isCardVisible = false
         }
     }
 
@@ -136,69 +153,82 @@ fun VehicleSelectionPreviewScreen(
                 .zIndex(1f)
         ) {
             // Spacer for the nav bar with extra padding for visual separation
-            Spacer(modifier = Modifier.height(82.dp))
+            Spacer(modifier = Modifier.height(120.dp))
             
-            // Ad Card with animation - positioned at the top below nav bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .graphicsLayer(
-                        alpha = cardAlpha,
-                        translationY = with(density) { cardOffsetY.toPx() }
-                    ),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                adData?.let { ad ->
-                    when {
-                        // For imageWithText template with either imageLeft or imageRight style
-                        AdTemplateMapper.isImageWithTextTemplate(ad) -> {
-                            SearchAdCard(
-                                adData = ad,
-                                onImpressionTracked = {
-                                    // Track the first impression URL
-                                    ad.creatives.firstOrNull()?.tracking?.impressions?.firstOrNull()?.let { impression ->
-                                        onTrackEvent("impression", impression.url)
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
+            // Ad Card with animation
+            if (adData != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .graphicsLayer(
+                            alpha = cardAlpha,
+                            translationY = with(density) { cardOffsetY.toPx() }
+                        ),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    // Check if this is a video ad first
+                    val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
+                        viewModel.isVideoCreative(creative)
+                    } ?: false
+                    
+                    if (isVideoAd) {
+                        // Render video player for video ads
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16f / 9f)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                        ) {
+                            com.admoai.sample.ui.components.VideoPlayerForPlacement(
+                                creative = adData.creatives.first(),
+                                viewModel = viewModel,
+                                modifier = Modifier.fillMaxSize()
                             )
                         }
-                        // For wideImageOnly template 
-                        AdTemplateMapper.isWideImageOnlyTemplate(ad) -> {
-                            // Custom sized card to ensure consistent size with other templates
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(IntrinsicSize.Min)
-                                    .padding(horizontal = 8.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                            ) {
-                                Box(modifier = Modifier.fillMaxWidth()) {
-                                    AdCard(
-                                        adData = ad,
-                                        onAdClick = onAdClick,
-                                        onTrackImpression = { url ->
-                                            onTrackEvent("impression", url)
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(160.dp)  // Fixed height to match other templates
-                                    )
-                                }
+                    } else {
+                        // Render native ad based on template
+                        when {
+                            // For imageWithText template with either imageLeft or imageRight style
+                            AdTemplateMapper.isImageWithTextTemplate(adData) -> {
+                                SearchAdCard(
+                                    adData = adData,
+                                    onImpressionTracked = {
+                                        // Track the first impression URL
+                                        adData.creatives.firstOrNull()?.tracking?.impressions?.firstOrNull()?.let { impression ->
+                                            onTrackEvent("impression", impression.url)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                             }
-                        }
-                        // Default fallback
-                        else -> {
-                            AdCard(
-                                adData = ad,
-                                onAdClick = onAdClick,
-                                onTrackImpression = { url ->
-                                    onTrackEvent("impression", url)
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                            // For wideImageOnly template (any style including "default")
+                            AdTemplateMapper.isWideImageOnlyTemplate(adData) -> {
+                                // Use HorizontalAdCard which properly handles posterImage for wideImageOnly
+                                HorizontalAdCard(
+                                    adData = adData,
+                                    placementKey = "vehicleSelection",
+                                    onAdClick = onAdClick,
+                                    onTrackClick = { url ->
+                                        onTrackEvent("click", url)
+                                    },
+                                    onTrackImpression = { url ->
+                                        onTrackEvent("impression", url)
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            // Default fallback
+                            else -> {
+                                AdCard(
+                                    adData = adData,
+                                    onAdClick = onAdClick,
+                                    onTrackImpression = { url ->
+                                        onTrackEvent("impression", url)
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
                     }
                 }
@@ -308,33 +338,7 @@ fun VehicleSelectionPreviewScreen(
             )
         }
         
-        // Theme toggle circles in top corners
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .padding(top = 56.dp) // Add padding for the TopAppBar
-                .zIndex(5f), // Ensure clickable but below nav
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // White circle (light theme)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .clickable { onThemeToggle() }
-            )
-            
-            // Black circle (dark theme)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black)
-                    .clickable { onThemeToggle() }
-            )
-        }
+        // Theme toggle circles removed to avoid overlaying navigation buttons
     }
 }
 

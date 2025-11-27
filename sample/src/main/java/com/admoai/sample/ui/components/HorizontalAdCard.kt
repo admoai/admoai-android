@@ -218,9 +218,7 @@ fun HorizontalAdCard(
     
     // Use LaunchedEffect to ensure impression is tracked only once per ad instance
     LaunchedEffect(impressionKey) {
-        // Track impression when card is first displayed - will only execute once per unique ad
         firstCreative?.tracking?.impressions?.find { it.key == "default" }?.let { impression ->
-            println("HorizontalAdCard: Tracking impression for placement $adPlacement creative $creativeId")
             onTrackImpression(impression.url)
         }
     }
@@ -242,9 +240,6 @@ fun HorizontalAdCard(
     // Extract string values using the helper
     val headlineText = AdTemplateMapper.getContentValue(firstCreative, "headline")
     val imageUrlText = coverImage?.value?.toString()?.removeSurrounding("\"")
-    
-    // Note: We extract click tracking URLs but don't need to extract these visual elements
-    // since they are only needed in the CreativeDetailScreen, which has its own extraction
     
     // Use different layouts based on the template style
     if (isWideImageOnly) {

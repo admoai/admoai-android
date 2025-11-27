@@ -17,6 +17,7 @@ serialization = "1.6.3"
 composeCompiler = "1.5.8"
 mockk = "1.13.10"
 mockWebServer = "4.12.0"
+robolectric = "4.13"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -57,6 +58,7 @@ ktor-client-logging = { group = "io.ktor", name = "ktor-client-logging", version
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "mockWebServer" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

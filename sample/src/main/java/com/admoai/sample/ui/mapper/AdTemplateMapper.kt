@@ -19,6 +19,8 @@ object AdTemplateMapper {
         const val CAROUSEL_3_SLIDES = "carousel3Slides"
         const val WIDE_IMAGE_ONLY = "wideImageOnly"
         const val STANDARD = "standard"
+        const val NORMAL_VIDEOS = "normal_videos"
+        const val REWARD_VIDEOS = "reward_videos"
     }
     
     /**
@@ -136,6 +138,49 @@ object AdTemplateMapper {
     }
     
     /**
+     * Check if an ad is using the normal_videos template
+     * This checks for either:
+     * 1. Explicit template.key = "normal_videos" in response, OR
+     * 2. Presence of companion content fields (companionHeadline, companionSubtext, companionCta)
+     */
+    fun isNormalVideosTemplate(adData: AdData?): Boolean {
+        // First check explicit template
+        if (hasTemplateKey(adData, TemplateType.NORMAL_VIDEOS)) {
+            return true
+        }
+        
+        // Fall back to checking for companion content presence
+        val creative = adData?.creatives?.firstOrNull() ?: return false
+        val hasCompanionHeadline = creative.contents?.any { it.key == "companionHeadline" } == true
+        val hasCompanionCta = creative.contents?.any { it.key == "companionCta" } == true
+        
+        // If it has companion content, treat it as normal_videos
+        return hasCompanionHeadline || hasCompanionCta
+    }
+    
+    /**
+     * Check if an ad is using the reward_videos template
+     * This checks for either:
+     * 1. Explicit template.key = "reward_videos" in response, OR
+     * 2. Presence of endcard content fields (companionEndcardHeadline, companionEndcardCta, overlayAtPercentage)
+     */
+    fun isRewardVideosTemplate(adData: AdData?): Boolean {
+        // First check explicit template
+        if (hasTemplateKey(adData, TemplateType.REWARD_VIDEOS)) {
+            return true
+        }
+        
+        // Fall back to checking for reward video endcard content presence
+        val creative = adData?.creatives?.firstOrNull() ?: return false
+        val hasEndcardHeadline = creative.contents?.any { it.key == "companionEndcardHeadline" } == true
+        val hasEndcardCta = creative.contents?.any { it.key == "companionEndcardCta" } == true
+        val hasOverlayPercentage = creative.contents?.any { it.key == "overlayAtPercentage" } == true
+        
+        // If it has endcard content, treat it as reward_videos
+        return (hasEndcardHeadline || hasEndcardCta) && hasOverlayPercentage
+    }
+    
+    /**
      * Get the click-through URL for an ad creative
      */
     fun getClickThroughUrl(creative: Creative?): String? {
@@ -155,9 +200,9 @@ object AdTemplateMapper {
     
     /**
      * Determine if this placement supports clickthrough
-     * (Currently only the "home", "vehicleSelection", and "rideSummary" placements support this)
+     * (Currently supports: home, vehicleSelection, rideSummary, promotions, waiting)
      */
     fun supportsClickthrough(placement: String): Boolean {
-        return placement == "home" || placement == "vehicleSelection" || placement == "rideSummary"
+        return placement == "home" || placement == "vehicleSelection" || placement == "rideSummary" || placement == "promotions" || placement == "waiting"
     }
 }
