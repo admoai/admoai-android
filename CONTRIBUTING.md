@@ -2,7 +2,7 @@
 
 Thank you for considering contributing to the AdMoai Android SDK! This document outlines the process and guidelines for contributing.
 
-## 🔀 Development Workflow
+## Development Workflow
 
 1. **Fork the repository** and clone it locally
 2. **Create a feature branch** from `main`:
@@ -14,7 +14,7 @@ Thank you for considering contributing to the AdMoai Android SDK! This document 
 5. **Commit using Conventional Commits** (see below)
 6. **Push to your fork** and create a Pull Request
 
-## 📝 Commit Message Convention
+## Commit Message Convention
 
 We use [Conventional Commits](https://www.conventionalcommits.org/) for automated changelog generation and semantic versioning.
 
@@ -74,7 +74,7 @@ FEAT: Add feature             # Type should be lowercase
 feat: Added new feature.      # Description should be imperative mood
 ```
 
-## 🧪 Testing Requirements
+## Testing Requirements
 
 Before submitting a PR:
 
@@ -96,7 +96,7 @@ Before submitting a PR:
    ./gradlew :sample:installDebug
    ```
 
-## 📋 Pull Request Guidelines
+## Pull Request Guidelines
 
 ### PR Title
 
@@ -129,7 +129,7 @@ Include:
 - [ ] No new warnings or errors
 - [ ] PR title follows Conventional Commits
 
-## 🏗️ Code Style
+## Code Style
 
 We follow [Kotlin Coding Conventions](https://kotlinlang.org/docs/coding-conventions.html) with these additions:
 
@@ -147,7 +147,7 @@ Run the linter before committing:
 ./gradlew ktlintFormat  # Auto-fix issues
 ```
 
-## 🔐 Security
+## Security
 
 If you discover a security vulnerability:
 
@@ -155,11 +155,11 @@ If you discover a security vulnerability:
 2. Email security@admoai.com with details
 3. Wait for acknowledgment before disclosing publicly
 
-## 📄 License
+## License
 
 By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
 
-## 🆘 Need Help?
+## Need Help?
 
 - **Documentation**: [README.md](README.md)
 - **Issues**: [GitHub Issues](https://github.com/admoai/admoai-android/issues)
@@ -167,5 +167,5 @@ By contributing, you agree that your contributions will be licensed under the [M
 
 ---
 
-Thank you for contributing! 🎉
+Thank you for contributing!
 
