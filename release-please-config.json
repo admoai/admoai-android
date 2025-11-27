@@ -14,14 +14,14 @@
   "pull-request-header": "## 🚀 Release ${version}",
   "extra-files": [
     {
-      "type": "json",
+      "type": "generic",
       "path": "sdk/build.gradle.kts",
-      "jsonpath": "$.version"
+      "glob": false
     },
     {
-      "type": "json", 
+      "type": "generic",
       "path": "gradle.properties",
-      "jsonpath": "$.VERSION_NAME"
+      "glob": false
     }
   ],
   "changelog-sections": [
