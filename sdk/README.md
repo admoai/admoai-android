@@ -221,6 +221,78 @@ sdk.fireVideoEvent(creative.tracking, "skip")  // if user skips
 
 ---
 
+## Open Measurement Integration
+
+The AdMoai SDK provides support for Open Measurement (OM) verification data, allowing publishers to integrate with third-party verification SDKs such as IAS (Integral Ad Science) or DoubleVerify.
+
+### Accessing Verification Resources
+
+Each creative may include Open Measurement verification script resources that contain the necessary data for third-party verification:
+
+```kotlin
+val creative = decision.data?.firstOrNull()?.creatives?.firstOrNull()
+
+// Check if the creative has OM verification data
+if (creative?.hasOMVerification() == true) {
+    // Get the verification resources
+    val verificationResources = creative.getVerificationResources()
+    
+    verificationResources?.forEach { resource ->
+        println("Vendor: ${resource.vendorKey}")
+        println("Script URL: ${resource.scriptUrl}")
+        println("Parameters: ${resource.verificationParameters}")
+        
+        // Use these values with your third-party verification SDK
+        // Example: IAS or DoubleVerify integration
+    }
+}
+```
+
+### Verification Script Resource Properties
+
+Each `VerificationScriptResource` contains:
+
+- **vendorKey**: The identifier for the verification vendor (e.g., "ias", "doubleverify")
+- **scriptUrl**: The URL to the verification script that needs to be loaded
+- **verificationParameters**: Additional parameters required for verification setup
+
+### Integration Example
+
+Here's a complete example of how to extract and use OM data:
+
+```kotlin
+fun setupOMVerification(creative: Creative) {
+    if (!creative.hasOMVerification()) return
+    
+    val resources = creative.getVerificationResources() ?: return
+    
+    resources.forEach { resource ->
+        // Extract OM data
+        val vendorKey = resource.vendorKey
+        val scriptUrl = resource.scriptUrl
+        val parameters = resource.verificationParameters
+        
+        // Integrate with your chosen verification SDK
+        // Example pseudocode:
+        // when (vendorKey) {
+        //     "ias" -> {
+        //         IASSDK.setupVerification(scriptUrl, parameters)
+        //     }
+        //     "doubleverify" -> {
+        //         DoubleVerifySDK.setupVerification(scriptUrl, parameters)
+        //     }
+        // }
+    }
+}
+```
+
+### Important Notice
+
+> [!WARNING]
+> **OM Certification Notice**: The AdMoai SDK provides Open Measurement verification data as received from the ad server, but **the SDK itself is not OM certified**. The final integration and certification responsibility lies with the publisher. Publishers must ensure that their implementation with third-party verification SDKs (such as IAS or DoubleVerify) complies with Open Measurement standards and requirements. AdMoai acts as a data provider only; publishers are responsible for the proper implementation and certification of their OM integration.
+
+---
+
 ## Event Tracking
 
 The SDK fires tracking beacons via HTTP requests. All methods return `Flow<Unit>`.
@@ -340,7 +412,8 @@ DecisionResponse
 │               ├── template: TemplateInfo?     // {key, style}
 │               ├── tracking: TrackingInfo      // Tracking URLs
 │               ├── delivery: String?           // "json", "vast_tag", "vast_xml"
-│               └── vast: VastData?             // {tagUrl} or {xmlBase64}
+│               ├── vast: VastData?             // {tagUrl} or {xmlBase64}
+│               └── verificationScriptResources: List<VerificationScriptResource>?  // OM verification data
 ├── errors: List<Error>?
 └── warnings: List<Warning>?
 ```
