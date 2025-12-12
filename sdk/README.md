@@ -401,7 +401,7 @@ fun setupOMVerification(creative: Creative) {
 ### Important Notice
 
 > [!WARNING] 
-> **OM Certification Notice**: The Admoai SDK provides Open Measurement verification data as received from the ad server, but **the SDK itself is not OM certified**. Publishers must ensure that their implementation with third-party verification providers (such as IAS or DoubleVerify) complies with Open Measurement standards and requirements. Admoai acts as a stict ad server only; publishers are responsible for the proper implementation of their OM integration.
+> **OM Certification Notice**: The Admoai SDK provides Open Measurement verification data as received from the ad server, but **the SDK itself is not OM certified**. Publishers must ensure that their implementation with third-party verification providers (such as IAS or DoubleVerify) complies with Open Measurement standards and requirements. Admoai acts as a strict ad server only; publishers are responsible for the proper implementation of their OM integration.
 
 ---
 
