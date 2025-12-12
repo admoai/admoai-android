@@ -468,7 +468,6 @@ If using code shrinking, add these rules:
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/admoai/admoai-android/issues)
 - **Email**: support@admoai.com
 
 ---
