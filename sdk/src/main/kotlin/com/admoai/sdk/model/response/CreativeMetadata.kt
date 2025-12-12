@@ -17,10 +17,15 @@ enum class MetadataPriority {
 data class CreativeMetadata(
     val adId: String,
     val creativeId: String,
-    val advertiserId: String? = null, // Added as per OpenAPI spec
+    val advertiserId: String? = null,
     val placementId: String,
     val templateId: String,
     val priority: MetadataPriority,
-    val language: String? = null, // Added as per OpenAPI spec
-    val style: String? = null // e.g., "default", "verticalComposite"
+    val language: String? = null,
+    val style: String? = null,
+    // Video-specific metadata (2025-11-01+)
+    val format: String? = null,
+    val duration: Int? = null,
+    val aspectRatio: String? = null,
+    val isSkippable: Boolean? = null
 )
