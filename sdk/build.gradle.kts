@@ -8,7 +8,7 @@ plugins {
     signing
 }
 
-val sdkVersion = "1.1.0"
+val sdkVersion = "1.1.1"
 val sdkGroupId = "com.admoai"
 val sdkArtifactId = "admoai-android"
 
@@ -84,76 +84,70 @@ dependencies {
     testImplementation(libs.mockwebserver)
 }
 
-// Task to generate sources JAR
-val androidSourcesJar by tasks.registering(Jar::class) {
-    archiveClassifier.set("sources")
-    from(android.sourceSets["main"].java.srcDirs)
+android {
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+            withJavadocJar()
+        }
+    }
 }
 
-val androidJavadocJar by tasks.registering(Jar::class) {
-    archiveClassifier.set("javadoc")
-    from(tasks.dokkaHtml.flatMap { it.outputDirectory })
-    dependsOn(tasks.dokkaHtml)
-}
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                groupId = sdkGroupId
+                artifactId = sdkArtifactId
+                version = sdkVersion
 
-publishing {
-    publications {
-        create<MavenPublication>("release") {
-            groupId = sdkGroupId
-            artifactId = sdkArtifactId
-            version = sdkVersion
-
-            afterEvaluate {
                 from(components["release"])
-            }
-            
-            artifact(androidSourcesJar)
-            artifact(androidJavadocJar)
 
-            pom {
-                name.set("AdMoai Android SDK")
-                description.set("Android SDK for AdMoai advertising platform with targeting, tracking, and analytics")
-                url.set("https://github.com/admoai/admoai-android")
-                
-                licenses {
-                    license {
-                        name.set("MIT License")
-                        url.set("https://opensource.org/licenses/MIT")
-                    }
-                }
-                
-                developers {
-                    developer {
-                        id.set("admoai")
-                        name.set("AdMoai Team")
-                        url.set("https://github.com/admoai")
-                    }
-                }
-                
-                scm {
-                    connection.set("scm:git:git://github.com/admoai/admoai-android.git")
-                    developerConnection.set("scm:git:ssh://git@github.com/admoai/admoai-android.git")
+                pom {
+                    name.set("AdMoai Android SDK")
+                    description.set("Android SDK for AdMoai advertising platform with targeting, tracking, and analytics")
                     url.set("https://github.com/admoai/admoai-android")
+                    
+                    licenses {
+                        license {
+                            name.set("MIT License")
+                            url.set("https://opensource.org/licenses/MIT")
+                        }
+                    }
+                    
+                    developers {
+                        developer {
+                            id.set("admoai")
+                            name.set("AdMoai Team")
+                            url.set("https://github.com/admoai")
+                        }
+                    }
+                    
+                    scm {
+                        connection.set("scm:git:git://github.com/admoai/admoai-android.git")
+                        developerConnection.set("scm:git:ssh://git@github.com/admoai/admoai-android.git")
+                        url.set("https://github.com/admoai/admoai-android")
+                    }
+                }
+            }
+        }
+
+        repositories {
+            maven {
+                name = "GitHubPackages"
+                url = uri("https://maven.pkg.github.com/admoai/admoai-android")
+                credentials {
+                    username = System.getenv("GITHUB_ACTOR") ?: project.findProperty("gpr.user")?.toString() ?: ""
+                    password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.key")?.toString() ?: ""
                 }
             }
         }
     }
-
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/admoai/admoai-android")
-            credentials {
-                username = System.getenv("GITHUB_ACTOR") ?: project.findProperty("gpr.user")?.toString() ?: ""
-                password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.key")?.toString() ?: ""
-            }
-        }
+    
+    signing {
+        useGpgCmd()
+        sign(publishing.publications)
     }
-}
-
-signing {
-    useGpgCmd()
-    sign(publishing.publications)
 }
 
 val createMavenCentralBundle by tasks.registering(Zip::class) {

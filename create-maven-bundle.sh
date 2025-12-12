@@ -1,16 +1,17 @@
 #!/bin/bash
 
 # Maven Central Bundle Creation Script for AdMoai Android SDK
-# This script manually creates all required artifacts and bundles them for Maven Central upload
+# This script publishes to local Maven repo and bundles for Maven Central upload
 
 set -e
 
-SDK_VERSION="1.0.0"
+SDK_VERSION="1.1.1"
 GROUP_ID="com.admoai"
 ARTIFACT_ID="admoai-android"
 BUILD_DIR="sdk/build"
 BUNDLE_DIR="$BUILD_DIR/maven-central-bundle"
 GROUP_PATH="com/admoai"
+LOCAL_REPO="$HOME/.m2/repository"
 
 echo "🚀 Creating Maven Central bundle for $GROUP_ID:$ARTIFACT_ID:$SDK_VERSION"
 
@@ -18,121 +19,22 @@ echo "🚀 Creating Maven Central bundle for $GROUP_ID:$ARTIFACT_ID:$SDK_VERSION
 echo "🧹 Cleaning previous builds..."
 ./gradlew clean
 
-# Build the AAR
-echo "📦 Building AAR..."
-./gradlew :sdk:assembleRelease
-
-# Generate sources JAR
-echo "📄 Generating sources JAR..."
-./gradlew :sdk:androidSourcesJar
-
-# Generate javadoc JAR
-echo "📚 Generating javadoc JAR..."
-./gradlew :sdk:dokkaHtml
-./gradlew :sdk:androidJavadocJar
+# Publish to local Maven repository (generates AAR, sources JAR, javadoc JAR, and POM)
+echo "📦 Publishing to local Maven repository..."
+./gradlew :sdk:publishReleasePublicationToMavenLocal
 
 # Create bundle directory structure
 echo "📁 Creating bundle directory structure..."
+rm -rf "$BUNDLE_DIR"
 mkdir -p "$BUNDLE_DIR/$GROUP_PATH/$ARTIFACT_ID/$SDK_VERSION"
 
-# Copy main artifacts
-echo "📋 Copying artifacts..."
-cp "$BUILD_DIR/outputs/aar/sdk-release.aar" "$BUNDLE_DIR/$GROUP_PATH/$ARTIFACT_ID/$SDK_VERSION/$ARTIFACT_ID-$SDK_VERSION.aar"
-cp "$BUILD_DIR/libs/sdk-sources.jar" "$BUNDLE_DIR/$GROUP_PATH/$ARTIFACT_ID/$SDK_VERSION/$ARTIFACT_ID-$SDK_VERSION-sources.jar"
-cp "$BUILD_DIR/libs/sdk-javadoc.jar" "$BUNDLE_DIR/$GROUP_PATH/$ARTIFACT_ID/$SDK_VERSION/$ARTIFACT_ID-$SDK_VERSION-javadoc.jar"
-
-# Generate POM file
-echo "📄 Generating POM file..."
-cat > "$BUNDLE_DIR/$GROUP_PATH/$ARTIFACT_ID/$SDK_VERSION/$ARTIFACT_ID-$SDK_VERSION.pom" << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-    
-    <groupId>$GROUP_ID</groupId>
-    <artifactId>$ARTIFACT_ID</artifactId>
-    <version>$SDK_VERSION</version>
-    <packaging>aar</packaging>
-    
-    <name>AdMoai Android SDK</name>
-    <description>Android SDK for AdMoai advertising platform with targeting, tracking, and analytics</description>
-    <url>https://github.com/admoai/admoai-android</url>
-    
-    <licenses>
-        <license>
-            <name>MIT License</name>
-            <url>https://opensource.org/licenses/MIT</url>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
-    
-    <developers>
-        <developer>
-            <id>admoai</id>
-            <name>AdMoai Team</name>
-            <url>https://github.com/admoai</url>
-        </developer>
-    </developers>
-    
-    <scm>
-        <connection>scm:git:git://github.com/admoai/admoai-android.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/admoai/admoai-android.git</developerConnection>
-        <url>https://github.com/admoai/admoai-android</url>
-    </scm>
-    
-    <dependencies>
-        <dependency>
-            <groupId>androidx.core</groupId>
-            <artifactId>core-ktx</artifactId>
-            <version>1.12.0</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.jetbrains.kotlinx</groupId>
-            <artifactId>kotlinx-coroutines-android</artifactId>
-            <version>1.8.0</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.jetbrains.kotlinx</groupId>
-            <artifactId>kotlinx-serialization-json</artifactId>
-            <version>1.6.3</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-client-core</artifactId>
-            <version>2.3.11</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-client-okhttp</artifactId>
-            <version>2.3.11</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-client-content-negotiation</artifactId>
-            <version>2.3.11</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.ktor</groupId>
-            <artifactId>ktor-serialization-kotlinx-json</artifactId>
-            <version>2.3.11</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>androidx.compose.runtime</groupId>
-            <artifactId>runtime</artifactId>
-            <version>1.6.7</version>
-            <scope>compile</scope>
-        </dependency>
-    </dependencies>
-</project>
-EOF
+# Copy artifacts from local Maven repo
+echo "📋 Copying artifacts from local Maven repository..."
+LOCAL_ARTIFACT_DIR="$LOCAL_REPO/$GROUP_PATH/$ARTIFACT_ID/$SDK_VERSION"
+cp "$LOCAL_ARTIFACT_DIR/$ARTIFACT_ID-$SDK_VERSION.aar" "$BUNDLE_DIR/$GROUP_PATH/$ARTIFACT_ID/$SDK_VERSION/"
+cp "$LOCAL_ARTIFACT_DIR/$ARTIFACT_ID-$SDK_VERSION-sources.jar" "$BUNDLE_DIR/$GROUP_PATH/$ARTIFACT_ID/$SDK_VERSION/"
+cp "$LOCAL_ARTIFACT_DIR/$ARTIFACT_ID-$SDK_VERSION-javadoc.jar" "$BUNDLE_DIR/$GROUP_PATH/$ARTIFACT_ID/$SDK_VERSION/"
+cp "$LOCAL_ARTIFACT_DIR/$ARTIFACT_ID-$SDK_VERSION.pom" "$BUNDLE_DIR/$GROUP_PATH/$ARTIFACT_ID/$SDK_VERSION/"
 
 # Sign all files if GPG is available
 if command -v gpg &> /dev/null; then
