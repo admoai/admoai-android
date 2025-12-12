@@ -77,7 +77,7 @@ fun PromotionsCarouselCard(
     
     // Create a stable key for the main impression tracking
     val adPlacement = adData.placement
-    val creativeId = creative.metadata.creativeId
+    val creativeId = creative.metadata?.creativeId ?: "unknown"
     val mainImpressionKey = remember(adPlacement, creativeId) {
         "${adPlacement}_${creativeId}_main"
     }
