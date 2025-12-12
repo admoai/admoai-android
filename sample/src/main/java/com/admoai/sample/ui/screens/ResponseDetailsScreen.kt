@@ -446,7 +446,9 @@ fun InfoTab(decisionResponse: DecisionResponse?) {
                                     }
                                 } else {
                                     // Fallback to metadata template ID if template object isn't available
-                                    InfoRow("Template ID", creative.metadata.templateId)
+                                    creative.metadata?.templateId?.let { templateId ->
+                                        InfoRow("Template ID", templateId)
+                                    }
                                 }
                             }
                         }

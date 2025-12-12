@@ -59,7 +59,7 @@ fun SearchAdCard(
     ) {
         // Create a stable key for impression tracking based on placement and creative ID
         val adPlacement = adData.placement
-        val creativeId = creative.metadata.creativeId
+        val creativeId = creative.metadata?.creativeId ?: "unknown"
         val impressionKey = remember(adPlacement, creativeId) {
             "${adPlacement}_${creativeId}"
         }
