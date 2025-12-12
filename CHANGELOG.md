@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1](https://github.com/admoai/admoai-android/admoai/admoai-android/compare/v1.1.0...v1.1.1) (2025-12-12)
+
+
+### Fixed
+
+* handle missing metadata in creative objects ([#9](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/9)) ([6ec9893](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/6ec98937e6859ac629c4b2f253c94d3da40938d7))
+
 ## [1.1.0](https://github.com/admoai/admoai-android/admoai/admoai-android/compare/v1.0.0...v1.1.0) (2025-11-27)
 
 
