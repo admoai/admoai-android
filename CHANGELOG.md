@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0](https://github.com/admoai/admoai-android/admoai/admoai-android/compare/v1.1.1...v1.2.0) (2025-12-12)
+
+
+### Added
+
+* **android-sdk:** Verification models and helper functions added. Re… ([#8](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/8)) ([23d73e7](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/23d73e7546ad3114b637a899500f2ccbbd1c707c))
+
+
+### Changed
+
+* update version metadata 1.1.1 ([#11](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/11)) ([6bb6cae](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/6bb6caef81bf4be8e185e6739c7d9d8fcc0053e1))
+
 ## [1.1.1](https://github.com/admoai/admoai-android/admoai/admoai-android/compare/v1.1.0...v1.1.1) (2025-12-12)
 
 
