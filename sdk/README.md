@@ -329,79 +329,465 @@ sdk.fireVideoEvent(creative.tracking, "skip")  // if user skips
 - **JSON delivery**: Tracking URLs are in the response—easiest to use with SDK methods
 - **VAST Tag/XML**: Requires fetching the tag URL or decoding Base64 XML to extract tracking URLs, then firing HTTP GET beacons manually
 
-> **Tip**: For VAST-based ads, you may optionally integrate a third-party VAST SDK (e.g., Google IMA) for automatic tracking and Open Measurement (OM) viewability. This is outside the scope of the current Admoai SDK but demonstrated in the [Sample App](../sample/README.md).
+> **Note**: Admoai is OM-compatible and passes verification metadata through VAST `<AdVerifications>` tags. See the [Open Measurement Integration](#open-measurement-integration) section below for implementation guidance. Video player integration examples (including OM) are demonstrated in the [Sample App](../sample/README.md).
 
 ---
 
 ## Open Measurement Integration
 
-The Admoai SDK provides support for Open Measurement (OM) verification data, allowing publishers to integrate with third-party viewability and verification measurement providers, such as Integral Ad Science (IAS), DoubleVerify, Moat, and others.
+Admoai is **OM-compatible** and passes Open Measurement verification metadata through VAST `<AdVerifications>` tags. This section explains how publishers can implement Open Measurement viewability and verification measurement in their apps.
 
-### Accessing Verification Resources
+### Roles and Responsibilities
 
-Each creative may include Open Measurement verification script resources that contain the necessary data for third-party verification:
+**What Admoai does:**
+- Acts as a strict ad server / decision engine
+- Includes `<AdVerifications>` tags in VAST responses
+- Provides verification metadata via SDK helper methods
+- Documents OM integration patterns
+
+**What Admoai does NOT do:**
+- Ship an OM SDK or namespaced OM build
+- Act as the "OM integration partner" in the trust chain
+- Provide IAB OM certification
+
+**What you (the Publisher) must do:**
+- Own the OM integration in your app
+- Obtain and use your own IAB namespace
+- Integrate the IAB OM SDK or OM-compatible video player
+- Manage OM session lifecycle (create, start, track events, finish)
+
+> **Important**: Admoai stays out of the OM trust chain. Your app is the OM integration partner and uses your own IAB namespace for all measurements.
+
+---
+
+### Step 1: Get Your IAB Namespace
+
+Before implementing OM, you need to obtain your own namespaced OM SDK from IAB Tech Lab:
+
+1. **Visit the IAB Tech Lab website**: Go to [https://iabtechlab.com/standards/open-measurement-sdk/](https://iabtechlab.com/standards/open-measurement-sdk/)
+2. **Click "Download OM SDK"**: This will take you to the compliance portal
+3. **Sign in or register**: Create an account if you don't have one already
+4. **Navigate to "Open Measurement SDK" section**: Find the SDK download area in your account dashboard
+5. **Add a namespace**: Create a unique namespace identifier for your organization (e.g., `com.yourcompany-omid`)
+   - Use a simple, recognizable name that represents your organization
+   - This namespace identifies you as the OM integration partner
+6. **Click "Build Android"**: Generate the Android SDK with your namespace
+7. **Download from Android tab**: Download the `.aar` file (e.g., `omsdk-android-1.6.1-YourNamespace.aar`)
+8. **Place in your project**: Add the `.aar` file to your app's `libs/` folder
+
+> **Critical**: Your namespace will follow you throughout the OM trust chain. All verification vendors (IAS, DoubleVerify, Moat, etc.) will see your namespace as the OM integration partner, not Admoai.
+
+---
+
+### Step 2: Choose Your Implementation Path
+
+Admoai is OM-compatible and works with any OM integration approach. We recommend the Native OM SDK for maximum flexibility, but you have multiple options:
+
+| Approach | Pros | Cons | Best For |
+|----------|------|------|----------|
+| **Path A: Native OM SDK** (Recommended) | Full control, better UX, custom UI | More engineering effort | Publishers wanting complete control over video UX |
+| **Path B: ExoPlayer + IMA Extension** | OM handled automatically, less code | Less control, IMA watermarks | Publishers prioritizing speed over customization |
+| **Path C: JW Player** | Commercial support, OM built-in | License cost, vendor lock-in | Publishers wanting commercial-grade video player with support |
+
+---
+
+### Path A: Native OM SDK Integration (Recommended for Best UX)
+
+Use this approach for full control over video playback and custom UI.
+
+#### 1. Add the IAB OM SDK to your project
+
+After downloading the namespaced OM SDK `.aar` from IAB:
+
+```gradle
+// In your app/build.gradle.kts
+dependencies {
+    implementation(files("libs/omsdk-android-1.4.x-YourNamespace.aar"))
+    implementation("androidx.media3:media3-exoplayer:1.2.0")
+    implementation("androidx.media3:media3-ui:1.2.0")
+}
+```
+
+#### 2. Extract verification resources from Admoai
 
 ```kotlin
-val creative = decision.data?.firstOrNull()?.creatives?.firstOrNull()
+import com.admoai.sdk.utils.getVerificationResources
+import com.admoai.sdk.utils.hasOMVerification
+import com.iab.omid.library.yournamespace.* // Your IAB namespace
 
-// Check if the creative has OM verification data
+// Get creative from Admoai SDK
+val creative = response.data?.firstOrNull()?.creatives?.firstOrNull()
+
+// Check if OM verification is available
 if (creative?.hasOMVerification() == true) {
-    // Get the verification resources
     val verificationResources = creative.getVerificationResources()
-    
-    verificationResources?.forEach { resource ->
-        println("Vendor: ${resource.vendorKey}")
-        println("Script URL: ${resource.scriptUrl}")
-        println("Parameters: ${resource.verificationParameters}")
-        
-        // Use these values with your third-party verification SDK
-        // Example: IAS or DoubleVerify integration
-    }
+    // Proceed with OM session creation
 }
 ```
 
-### Verification Script Resource Properties
-
-Each `VerificationScriptResource` contains:
-
-- **vendorKey**: The identifier for the verification vendor (e.g., "ias", "doubleverify")
-- **scriptUrl**: The URL to the verification script that needs to be loaded
-- **verificationParameters**: Additional parameters required for verification setup
-
-### Integration Example
-
-Here's a complete example of how to extract and use OM data:
+#### 3. Create and start OM session
 
 ```kotlin
-fun setupOMVerification(creative: Creative) {
-    if (!creative.hasOMVerification()) return
+import com.iab.omid.library.yournamespace.adsession.*
+import com.iab.omid.library.yournamespace.ScriptInjector
+import android.webkit.WebView
+
+class VideoAdPlayer {
     
-    val resources = creative.getVerificationResources() ?: return
+    private var omAdSession: AdSession? = null
+    private var omAdEvents: AdEvents? = null
+    private var omMediaEvents: MediaEvents? = null
     
-    resources.forEach { resource ->
-        // Extract OM data
-        val vendorKey = resource.vendorKey
-        val scriptUrl = resource.scriptUrl
-        val parameters = resource.verificationParameters
+    fun setupOMSession(creative: Creative, videoView: View) {
+        if (!creative.hasOMVerification()) return
         
-        // Integrate with your chosen verification SDK
-        // Example pseudocode:
-        // when (vendorKey) {
-        //     "ias" -> {
-        //         IASSDK.setupVerification(scriptUrl, parameters)
-        //     }
-        //     "doubleverify" -> {
-        //         DoubleVerifySDK.setupVerification(scriptUrl, parameters)
-        //     }
-        // }
+        // 1. Activate OM SDK (once per app lifecycle)
+        Omid.activate(context)
+        
+        // 2. Create Partner (your company info)
+        val partner = Partner.createPartner(
+            "YourCompany",      // Your company name
+            "1.0.0"             // Your app version
+        )
+        
+        // 3. Extract verification scripts from Admoai
+        val verificationResources = creative.getVerificationResources() ?: return
+        val verificationScripts = verificationResources.map { resource ->
+            // Create VerificationScriptResource for each vendor
+            VerificationScriptResource.createVerificationScriptResourceWithParameters(
+                resource.vendorKey,
+                URL(resource.scriptUrl),
+                resource.verificationParameters ?: ""
+            )
+        }
+        
+        // 4. Create AdSessionContext
+        val adSessionContext = AdSessionContext.createNativeAdSessionContext(
+            partner,
+            ScriptInjector.injectScriptContentIntoHtml(
+                Omid.getJsServiceContent(context),
+                "<html><head></head><body></body></html>"
+            ),
+            verificationScripts,
+            null,   // contentUrl (optional)
+            null    // customReferenceData (optional)
+        )
+        
+        // 5. Create AdSessionConfiguration
+        val config = AdSessionConfiguration.createAdSessionConfiguration(
+            CreativeType.VIDEO,
+            ImpressionType.BEGIN_TO_RENDER,
+            Owner.NATIVE,          // You own OM events
+            Owner.NONE,            // No external video events owner
+            false                  // Not isolated
+        )
+        
+        // 6. Create AdSession
+        omAdSession = AdSession.createAdSession(config, adSessionContext)
+        
+        // 7. Register video view
+        omAdSession?.registerAdView(videoView)
+        
+        // 8. Create event trackers
+        omAdEvents = AdEvents.createAdEvents(omAdSession)
+        omMediaEvents = MediaEvents.createMediaEvents(omAdSession)
+        
+        // 9. Start session
+        omAdSession?.start()
+        
+        // 10. Fire loaded event
+        omAdEvents?.loaded(
+            VastProperties.createVastPropertiesForNonSkippableMedia(
+                isAutoPlay = true,
+                Position.STANDALONE
+            )
+        )
+    }
+    
+    fun onVideoStarted() {
+        omMediaEvents?.start(duration = 30.0f, videoPlayerVolume = 1.0f)
+        omAdEvents?.impressionOccurred()
+    }
+    
+    fun onVideoProgress(currentTime: Float) {
+        // Track quartiles
+        val progress = currentTime / videoDuration
+        when {
+            progress >= 0.25 && !firstQuartileFired -> {
+                omMediaEvents?.firstQuartile()
+                firstQuartileFired = true
+            }
+            progress >= 0.5 && !midpointFired -> {
+                omMediaEvents?.midpoint()
+                midpointFired = true
+            }
+            progress >= 0.75 && !thirdQuartileFired -> {
+                omMediaEvents?.thirdQuartile()
+                thirdQuartileFired = true
+            }
+        }
+    }
+    
+    fun onVideoCompleted() {
+        omMediaEvents?.complete()
+        omAdSession?.finish()
+    }
+    
+    fun onVideoSkipped() {
+        omMediaEvents?.skipped()
+        omAdSession?.finish()
+    }
+    
+    fun cleanup() {
+        omAdSession?.finish()
+        omAdSession = null
+        omAdEvents = null
+        omMediaEvents = null
     }
 }
 ```
 
-### Important Notice
+#### 4. Integrate with ExoPlayer
 
-> [!WARNING] 
-> **OM Certification Notice**: The Admoai SDK provides Open Measurement verification data as received from the ad server, but **the SDK itself is not OM certified**. Publishers must ensure that their implementation with third-party verification providers (such as IAS or DoubleVerify) complies with Open Measurement standards and requirements. Admoai acts as a strict ad server only; publishers are responsible for the proper implementation of their OM integration.
+```kotlin
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
+
+class VideoAdActivity : AppCompatActivity() {
+    
+    private lateinit var player: ExoPlayer
+    private lateinit var playerView: PlayerView
+    private lateinit var videoAdPlayer: VideoAdPlayer
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // Setup ExoPlayer
+        player = ExoPlayer.Builder(this).build()
+        playerView = findViewById(R.id.player_view)
+        playerView.player = player
+        
+        // Get creative from Admoai SDK
+        val creative = getCreativeFromAdmoai()
+        
+        // Setup OM session
+        videoAdPlayer = VideoAdPlayer()
+        videoAdPlayer.setupOMSession(creative, playerView.videoSurfaceView!!)
+        
+        // Setup video URL (VAST or JSON delivery)
+        val videoUrl = when {
+            creative.isVastTagDelivery() -> {
+                // Fetch and parse VAST XML to get MediaFile URL
+                fetchVastAndExtractMediaUrl(creative.vast?.tagUrl)
+            }
+            creative.isVastXmlDelivery() -> {
+                // Decode Base64 VAST XML and extract MediaFile URL
+                parseVastXmlAndExtractMediaUrl(creative.vast?.xmlBase64)
+            }
+            else -> {
+                // JSON delivery: direct video URL
+                creative.contents?.find { it.key == "video_asset" }?.value?.toString()
+            }
+        }
+        
+        // Load video
+        val mediaItem = MediaItem.fromUri(videoUrl!!)
+        player.setMediaItem(mediaItem)
+        player.prepare()
+        
+        // Listen to playback events
+        player.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                when (playbackState) {
+                    Player.STATE_READY -> {
+                        if (player.isPlaying) {
+                            videoAdPlayer.onVideoStarted()
+                        }
+                    }
+                }
+            }
+            
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (isPlaying) {
+                    startProgressTracking()
+                }
+            }
+        })
+        
+        player.play()
+    }
+    
+    private fun startProgressTracking() {
+        // Update OM session with video progress
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                val currentTime = player.currentPosition / 1000f
+                videoAdPlayer.onVideoProgress(currentTime)
+                handler.postDelayed(this, 250) // Check every 250ms
+            }
+        }, 250)
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        videoAdPlayer.cleanup()
+        player.release()
+    }
+}
+```
+
+---
+
+### Path B: ExoPlayer + IMA Extension (Convenience Path)
+
+Use this approach if you want OM handled automatically with less code, at the cost of less UI control.
+
+#### 1. Add dependencies
+
+```gradle
+dependencies {
+    implementation("androidx.media3:media3-exoplayer:1.2.0")
+    implementation("androidx.media3:media3-ui:1.2.0")
+    implementation("androidx.media3:media3-exoplayer-ima:1.2.0")
+}
+```
+
+#### 2. Setup IMA with OM support
+
+```kotlin
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.ima.ImaAdsLoader
+import androidx.media3.ui.PlayerView
+import com.google.ads.interactivemedia.v3.api.ImaSdkSettings
+
+class VideoAdActivity : AppCompatActivity() {
+    
+    private lateinit var player: ExoPlayer
+    private lateinit var adsLoader: ImaAdsLoader
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // Get creative from Admoai SDK
+        val creative = getCreativeFromAdmoai()
+        
+        // Setup IMA with OM enabled
+        val imaSdkSettings = ImaSdkSettings().apply {
+            enableOmid = true  // Enable OM in IMA
+        }
+        
+        adsLoader = ImaAdsLoader.Builder(this)
+            .setImaSdkSettings(imaSdkSettings)
+            .build()
+        
+        // Setup ExoPlayer with IMA
+        player = ExoPlayer.Builder(this)
+            .build()
+            .also { exoPlayer ->
+                exoPlayer.setAdsLoader(adsLoader)
+            }
+        
+        val playerView: PlayerView = findViewById(R.id.player_view)
+        playerView.player = player
+        
+        // Get VAST tag URL from Admoai creative
+        val vastTagUrl = creative.vast?.tagUrl
+        
+        // Create ad tag data source
+        val adTagUri = Uri.parse(vastTagUrl)
+        val adTagDataSpec = DataSpec(adTagUri)
+        
+        // Load VAST ad
+        adsLoader.setAdTagDataSpec(adTagDataSpec)
+        
+        // Prepare player
+        player.prepare()
+        player.play()
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        adsLoader.release()
+        player.release()
+    }
+}
+```
+
+> **Note on IMA**: Google IMA automatically handles OM session creation when `enableOmid = true` and VAST includes `<AdVerifications>` tags. However, you get less control over UI (IMA shows watermarks, "Learn More" buttons, and default skip buttons). For custom video UX, use Path A.
+
+---
+
+### Accessing Admoai's Verification Metadata
+
+Regardless of which path you choose, Admoai provides helper methods to access OM verification data:
+
+```kotlin
+import com.admoai.sdk.utils.hasOMVerification
+import com.admoai.sdk.utils.getVerificationResources
+
+// Check if creative has OM verification
+if (creative.hasOMVerification()) {
+    val resources = creative.getVerificationResources()
+    
+    resources?.forEach { resource ->
+        println("Vendor: ${resource.vendorKey}")           // e.g., "company.com-omid"
+        println("Script URL: ${resource.scriptUrl}")       // e.g., "https://verification.ias.com/..."
+        println("Parameters: ${resource.verificationParameters}")  // e.g., "anId=123&advId=789"
+    }
+}
+```
+
+#### VerificationScriptResource Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `vendorKey` | String | Vendor identifier (e.g., "ias", "doubleverify", "moat") |
+| `scriptUrl` | String | URL to verification JavaScript that OM SDK will load |
+| `verificationParameters` | String? | Query parameters for verification session |
+
+---
+
+### VAST `<AdVerifications>` Handling
+
+When you use VAST Tag or VAST XML delivery, Admoai includes `<AdVerifications>` in the VAST response:
+
+```xml
+<VAST version="4.2">
+  <Ad>
+    <InLine>
+      <AdVerifications>
+        <Verification vendor="company.com-omid">
+          <JavaScriptResource apiFramework="omid" browserOptional="true">
+            <![CDATA[https://verification.ias.com/omid_verification.js]]>
+          </JavaScriptResource>
+          <VerificationParameters>
+            <![CDATA[anId=123&advId=789&creativeId=456]]>
+          </VerificationParameters>
+        </Verification>
+      </AdVerifications>
+      <!-- Linear creative, tracking, media files, etc. -->
+    </InLine>
+  </Ad>
+</VAST>
+```
+
+- **Path A (Native OM SDK)**: Parse VAST yourself, extract `<AdVerifications>`, map to OM SDK `VerificationScriptResource` objects
+- **Path B (IMA Extension)**: IMA automatically parses `<AdVerifications>` and creates OM sessions
+
+---
+
+### Testing Your OM Integration
+
+**Use OM SDK validation**: The IAB OM SDK includes validation modes to verify your integration
+
+---
+
+### Summary
+
+- **Admoai is OM-compatible**: We pass verification metadata via VAST `<AdVerifications>` and SDK helpers
+- **Publishers own OM integration**: Publisher's app is the OM integration partner with your own IAB namespace
+- **Two paths available**: Native OM SDK (full control) or ExoPlayer + IMA (convenience)
+- **Admoai stays out of the trust chain**: We're a strict ad server; you're responsible for OM implementation
 
 ---
 
