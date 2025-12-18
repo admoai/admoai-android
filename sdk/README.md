@@ -329,7 +329,7 @@ sdk.fireVideoEvent(creative.tracking, "skip")  // if user skips
 - **JSON delivery**: Tracking URLs are in the response—easiest to use with SDK methods
 - **VAST Tag/XML**: Requires fetching the tag URL or decoding Base64 XML to extract tracking URLs, then firing HTTP GET beacons manually
 
-> **Note**: Admoai is OM-compatible and passes verification metadata through VAST `<AdVerifications>` tags. See the [Open Measurement Integration](#open-measurement-integration) section below for implementation guidance. Video player integration examples (including OM) are demonstrated in the [Sample App](../sample/README.md).
+> **Note**: Admoai is OM-compatible and passes verification metadata through VAST `<AdVerifications>` tags. See the [Open Measurement Integration](#open-measurement-integration) section below for implementation guidance. 
 
 ---
 
@@ -360,9 +360,28 @@ Admoai is **OM-compatible** and passes Open Measurement verification metadata th
 
 ---
 
-### Step 1: Get Your IAB Namespace
+### Do I Need My Own IAB Namespace?
 
-Before implementing OM, you need to obtain your own namespaced OM SDK from IAB Tech Lab:
+**Short answer:** No namespace = verification still works, but the SDK owns OM. Namespace = you own OM.
+
+**Detailed explanation:**
+
+You do **not** need your own IAB OM namespace if you use an OM-certified SDK like Google IMA (Path B). In that case, verification vendors (IAS, DoubleVerify, Moat, etc.) will still receive all required measurement data, but the OM integration partner will be the SDK provider (e.g., Google), not your app.
+
+Creating your own IAB OM namespace is **only required** if you want to implement Open Measurement directly (e.g., using ExoPlayer as shown in Path A) and retain full control and ownership of the OM session lifecycle. This gives you complete flexibility over the video player UI and behavior.
+
+**In summary:**
+- **Path A (Native OM SDK)**: Requires your own IAB namespace → You own the OM integration
+- **Path B (IMA Extension)**: No namespace needed → Google owns the OM integration
+- **Path C (JW Player)**: No namespace needed → JW Player owns the OM integration
+
+> If you choose Path A and want full control, proceed to Step 1 below. If you choose Path B or C, skip to their respective implementation sections.
+
+---
+
+### Step 1: Get Your IAB Namespace (Path A Only)
+
+If you're implementing Path A (Native OM SDK), you need to obtain your own namespaced OM SDK from IAB Tech Lab:
 
 1. **Visit the IAB Tech Lab website**: Go to [https://iabtechlab.com/standards/open-measurement-sdk/](https://iabtechlab.com/standards/open-measurement-sdk/)
 2. **Click "Download OM SDK"**: This will take you to the compliance portal
