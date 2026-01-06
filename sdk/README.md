@@ -78,7 +78,7 @@ sdk.setAppConfig(AppConfig.systemDefault())
 val request = sdk.createRequestBuilder()
     .addPlacement(key = "home", format = PlacementFormat.NATIVE)
     .addPlacement(key = "promotions", format = PlacementFormat.VIDEO)
-    .addGeoTargeting(geoId = 2643743)  // London
+    .addGeoTarget(geoId = 2643743)  // London
     .addCustomTargeting(key = "category", value = "news")
     .build()
 
@@ -206,8 +206,8 @@ val request = sdk.createRequestBuilder()
     .setUserConsent(Consent(gdpr = true))
     
     // Targeting
-    .addGeoTargeting(geoId = 2643743)
-    .addLocationTargeting(latitude = 37.7749, longitude = -122.4194)
+    .addGeoTarget(geoId = 2643743)
+    .addLocationTarget(latitude = 37.7749, longitude = -122.4194)
     .addCustomTargeting(key = "category", value = "news")
     
     // Data collection
