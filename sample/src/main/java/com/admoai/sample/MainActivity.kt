@@ -45,6 +45,7 @@ import com.admoai.sample.ui.MainViewModel
 import io.ktor.client.engine.okhttp.OkHttp
 import com.admoai.sample.ui.screens.CustomTargetingScreen
 import com.admoai.sample.ui.screens.DecisionRequestScreen
+import com.admoai.sample.ui.screens.DestinationTargetingScreen
 import com.admoai.sample.ui.screens.GeoTargetingScreen
 import com.admoai.sample.ui.screens.LocationTargetingScreen
 import com.admoai.sample.ui.screens.PlacementPickerScreen
@@ -101,6 +102,7 @@ object Routes {
     const val REQUEST_PREVIEW = "request_preview"
     const val RESPONSE_DETAILS = "response_details"
     const val LOCATION_TARGETING = "location_targeting"
+    const val DESTINATION_TARGETING = "destination_targeting"
     const val CUSTOM_TARGETING = "custom_targeting"
     const val TIMEZONE_PICKER = "timezone_picker"
     const val VIDEO_AD_DEMO = "video_ad_demo"
@@ -167,6 +169,9 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 onLocationTargetingClick = {
                     navController.navigate(Routes.LOCATION_TARGETING)
                 },
+                onDestinationTargetingClick = {
+                    navController.navigate(Routes.DESTINATION_TARGETING)
+                },
                 onCustomTargetingClick = {
                     navController.navigate(Routes.CUSTOM_TARGETING)
                 },
@@ -204,6 +209,15 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
         
         composable(Routes.LOCATION_TARGETING) {
             LocationTargetingScreen(
+                viewModel = viewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        
+        composable(Routes.DESTINATION_TARGETING) {
+            DestinationTargetingScreen(
                 viewModel = viewModel,
                 onNavigateBack = {
                     navController.popBackStack()

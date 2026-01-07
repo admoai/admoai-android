@@ -1,5 +1,6 @@
 package com.admoai.sdk.model.request
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -16,5 +17,6 @@ import kotlinx.serialization.Serializable
 data class DestinationTargetingInfo(
     val latitude: Double,
     val longitude: Double,
+    @SerialName("min_confidence")
     val minConfidence: Double
 )

@@ -26,10 +26,12 @@ fun TargetingSection(
     viewModel: MainViewModel,
     onGeoTargetingClick: () -> Unit = {},
     onLocationTargetingClick: () -> Unit = {},
+    onDestinationTargetingClick: () -> Unit = {},
     onCustomTargetingClick: () -> Unit = {}
 ) {
     val geoTargets by viewModel.geoTargets.collectAsState()
     val locationTargets by viewModel.locationTargets.collectAsState()
+    val destinationTargets by viewModel.destinationTargets.collectAsState()
     val customTargets by viewModel.customTargets.collectAsState()
     
     // Count selected geo targets
@@ -83,6 +85,27 @@ fun TargetingSection(
                 }
             },
             onClick = onLocationTargetingClick
+        )
+        
+        // Destination Targeting row
+        SectionRow(
+            icon = Icons.Outlined.LocationOn,
+            label = "Destination Targeting",
+            value = { 
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (destinationTargets.isEmpty()) "None" else "${destinationTargets.size} destinations",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        modifier = Modifier.padding(start = 4.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            onClick = onDestinationTargetingClick
         )
         
         // Custom Targeting row
