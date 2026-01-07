@@ -109,10 +109,11 @@ class Admoai private constructor() {
         val finalCustomTargetingInfo = mutableListOf<CustomTargetingInfo>()
         requestTargeting?.custom?.let { finalCustomTargetingInfo.addAll(it) }
 
-        val mergedTargeting: Targeting? = if (requestTargeting?.geo != null || requestTargeting?.location != null || finalCustomTargetingInfo.isNotEmpty()) {
+        val mergedTargeting: Targeting? = if (requestTargeting?.geo != null || requestTargeting?.location != null || requestTargeting?.destination != null || finalCustomTargetingInfo.isNotEmpty()) {
             Targeting(
                 geo = requestTargeting?.geo,
                 location = requestTargeting?.location,
+                destination = requestTargeting?.destination,
                 custom = if (finalCustomTargetingInfo.isNotEmpty()) finalCustomTargetingInfo.toList() else null
             )
         } else { null }
