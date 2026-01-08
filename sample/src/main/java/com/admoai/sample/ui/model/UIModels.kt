@@ -28,6 +28,16 @@ data class LocationItem(
 )
 
 /**
+ * UI model for a destination in the targeting UI
+ */
+data class DestinationItem(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val latitude: Double,
+    val longitude: Double,
+    val minConfidence: Double
+)
+
+/**
  * UI model for custom targeting key-value pair
  */
 data class CustomTargetItem(

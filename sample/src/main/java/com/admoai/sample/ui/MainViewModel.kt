@@ -15,6 +15,7 @@ import com.admoai.sdk.model.request.Consent
 import com.admoai.sdk.model.request.CustomTargetingInfo
 import com.admoai.sdk.model.request.DecisionRequest
 import com.admoai.sdk.model.request.DecisionRequestBuilder
+import com.admoai.sdk.model.request.DestinationTargetingInfo
 import com.admoai.sdk.model.request.LocationTargetingInfo
 import com.admoai.sdk.model.request.Placement
 import com.admoai.sdk.model.request.PlacementFormat
@@ -25,6 +26,7 @@ import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sdk.model.response.TrackingInfo
 import com.admoai.sample.config.AppConfig
 import com.admoai.sample.ui.model.CustomTargetItem
+import com.admoai.sample.ui.model.DestinationItem
 import com.admoai.sample.ui.model.GeoTargetItem
 import com.admoai.sample.ui.model.LocationItem
 import com.admoai.sample.ui.model.PlacementItem
@@ -93,6 +95,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _locationTargets = MutableStateFlow<List<LocationItem>>(emptyList())
     val locationTargets = _locationTargets.asStateFlow()
+
+    private val _destinationTargets = MutableStateFlow<List<DestinationItem>>(emptyList())
+    val destinationTargets = _destinationTargets.asStateFlow()
 
     private val _customTargets = MutableStateFlow<List<CustomTargetItem>>(emptyList())
     val customTargets = _customTargets.asStateFlow()
@@ -377,6 +382,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Add destination target.
+     */
+    fun addDestinationTarget(latitude: Double, longitude: Double, minConfidence: Double) {
+        val newDestination = DestinationItem(latitude = latitude, longitude = longitude, minConfidence = minConfidence)
+        _destinationTargets.value = _destinationTargets.value + newDestination
+    }
+
+    /**
+     * Update destination targets with a new list.
+     */
+    fun updateDestinationTargets(destinations: List<DestinationItem>) {
+        _destinationTargets.value = destinations
+    }
+
+    /**
+     * Add a random destination for demo purposes.
+     */
+    fun addRandomDestination() {
+        // Generate random coordinates around the world
+        val latitude = (Math.random() * 180.0) - 90.0
+        val longitude = (Math.random() * 360.0) - 180.0
+        val minConfidence = Math.random()
+        addDestinationTarget(latitude, longitude, minConfidence)
+    }
+
+    /**
+     * Clear destination targets.
+     */
+    fun clearDestinationTargets() {
+        _destinationTargets.value = emptyList()
+    }
+
+    /**
      * Add custom targeting key-value pair.
      */
     fun addCustomTarget(key: String, value: String) {
@@ -503,6 +541,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             builder.setLocationTargets(locations)
         }
 
+        // Add destination targeting if any
+        if (_destinationTargets.value.isNotEmpty()) {
+            val destinations = _destinationTargets.value.map {
+                DestinationTargetingInfo(latitude = it.latitude, longitude = it.longitude, minConfidence = it.minConfidence)
+            }
+            builder.setDestinationTargets(destinations)
+        }
+
         if (_customTargets.value.isNotEmpty()) {
             val customTargetList = _customTargets.value.map { 
                 CustomTargetingInfo(it.key, JsonPrimitive(it.value))
@@ -543,6 +589,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         LocationTargetingInfo(it.latitude, it.longitude) 
                     }
                     builder.setLocationTargets(locations)
+                }
+                
+                // Add destination targeting if any
+                if (_destinationTargets.value.isNotEmpty()) {
+                    val destinations = _destinationTargets.value.map {
+                        DestinationTargetingInfo(it.latitude, it.longitude, it.minConfidence)
+                    }
+                    builder.setDestinationTargets(destinations)
                 }
                 
                 if (_customTargets.value.isNotEmpty()) {

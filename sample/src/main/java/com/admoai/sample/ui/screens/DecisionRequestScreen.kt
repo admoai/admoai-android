@@ -49,6 +49,7 @@ fun DecisionRequestScreen(
     onPlacementClick: () -> Unit = {},
     onGeoTargetingClick: () -> Unit = {},
     onLocationTargetingClick: () -> Unit = {},
+    onDestinationTargetingClick: () -> Unit = {},
     onCustomTargetingClick: () -> Unit = {},
     onTimezonePickerClick: () -> Unit = {},
     onVideoAdDemoClick: () -> Unit = {},
@@ -128,6 +129,7 @@ fun DecisionRequestScreen(
                     viewModel = viewModel,
                     onGeoTargetingClick = onGeoTargetingClick,
                     onLocationTargetingClick = onLocationTargetingClick,
+                    onDestinationTargetingClick = onDestinationTargetingClick,
                     onCustomTargetingClick = onCustomTargetingClick
                 )
                 
