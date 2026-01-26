@@ -39,11 +39,11 @@ fun MenuAdCard(
     val advertiserName = creative.advertiser.name ?: "Sponsored"
     
     // Determine if "Sponsored" label should be shown based on priority
-    val showSponsoredLabel = creative.metadata.priority == MetadataPriority.SPONSORSHIP
+    val showSponsoredLabel = creative.metadata?.priority == MetadataPriority.SPONSORSHIP
     
     // Create a stable key for impression tracking based on placement and creative ID
     val adPlacement = adData.placement
-    val creativeId = creative.metadata.creativeId
+    val creativeId = creative.metadata?.creativeId ?: "unknown"
     val impressionKey = remember(adPlacement, creativeId) {
         "${adPlacement}_${creativeId}"
     }

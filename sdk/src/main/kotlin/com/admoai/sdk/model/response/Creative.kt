@@ -20,7 +20,7 @@ data class Creative(
     val advertiser: Advertiser,
     val template: TemplateInfo? = null, 
     val tracking: TrackingInfo,
-    val metadata: CreativeMetadata,
+    val metadata: CreativeMetadata? = null,
     val delivery: String? = null,
     val vast: VastData? = null,
     val verificationScriptResources: List<VerificationScriptResource>? = null

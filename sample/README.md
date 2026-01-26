@@ -240,7 +240,7 @@ Admoai.initialize(sdkConfig = config)
 ```kotlin
 val request = Admoai.getInstance().createRequestBuilder()
     .addPlacement(key = "home", format = PlacementFormat.NATIVE)
-    .addGeoTargeting(geoId = 2643743)
+    .addGeoTarget(geoId = 2643743)
     .setUserId("user_123")
     .setUserConsent(Consent(gdpr = true))
     .build()

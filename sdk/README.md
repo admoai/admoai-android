@@ -78,7 +78,7 @@ sdk.setAppConfig(AppConfig.systemDefault())
 val request = sdk.createRequestBuilder()
     .addPlacement(key = "home", format = PlacementFormat.NATIVE)
     .addPlacement(key = "promotions", format = PlacementFormat.VIDEO)
-    .addGeoTargeting(geoId = 2643743)  // London
+    .addGeoTarget(geoId = 2643743)  // London
     .addCustomTargeting(key = "category", value = "news")
     .build()
 
@@ -807,6 +807,168 @@ When you use VAST Tag or VAST XML delivery, Admoai includes `<AdVerifications>` 
 - **Publishers own OM integration**: Publisher's app is the OM integration partner with your own IAB namespace
 - **Two paths available**: Native OM SDK (full control) or ExoPlayer + IMA (convenience)
 - **Admoai stays out of the trust chain**: We're a strict ad server; you're responsible for OM implementation
+
+---
+
+## Event Tracking
+
+The SDK fires tracking beacons via HTTP requests. All methods return `Flow<Unit>`.
+
+### Available Methods
+
+```kotlin
+// Impressions (fired when ad is displayed)
+sdk.fireImpression(trackingInfo, key = "default")
+
+// Clicks (fired on user tap)
+sdk.fireClick(trackingInfo, key = "default")
+
+// Video events (JSON delivery only)
+sdk.fireVideoEvent(trackingInfo, key = "start")
+
+// Custom events
+sdk.fireCustomEvent(trackingInfo, key = "companionOpened")
+```
+
+### Tracking Keys
+
+Each tracking type supports multiple keys. Use `"default"` for standard events or specify custom keys defined in your campaign configuration.
+
+---
+
+## Video Ad Support
+
+The SDK supports three video delivery methods:
+
+| Delivery | Response Field | Tracking |
+|----------|----------------|----------|
+| **JSON** | `video_asset` content key | SDK methods (`fireVideoEvent`) |
+| **VAST Tag** | `vast.tagUrl` | IMA SDK automatic or manual HTTP |
+| **VAST XML** | `vast.xmlBase64` | Manual HTTP GET |
+
+### Detecting Video Ads
+
+```kotlin
+// Check delivery method
+val isVideo = creative.delivery == "json" || 
+              creative.delivery == "vast_tag" || 
+              creative.delivery == "vast_xml"
+
+// Get video URL (JSON delivery)
+val videoUrl = creative.contents?.find { it.key == "video_asset" }?.value?.toString()
+
+// Get VAST tag URL
+val vastTagUrl = creative.vast?.tagUrl
+
+// Get VAST XML (Base64 encoded)
+val vastXmlBase64 = creative.vast?.xmlBase64
+```
+
+### Video Tracking Events
+
+**Important**: Always fire the **impression** event first when the ad is displayed, then fire video-specific events as playback progresses.
+
+| Event | When to Fire | Key |
+|-------|--------------|-----|
+| **Impression** | Ad displayed (before playback) | `default` |
+| Start | Video begins playing (0%) | `start` |
+| First Quartile | 25% progress | `first_quartile` |
+| Midpoint | 50% progress | `midpoint` |
+| Third Quartile | 75% progress | `third_quartile` |
+| Complete | Video ends (98%) | `complete` |
+| Skip | User skips | `skip` |
+
+**Manual tracking** works with any delivery method:
+
+```kotlin
+// 1. Fire impression first (when ad is displayed)
+sdk.fireImpression(creative.tracking)
+
+// 2. Fire video events as playback progresses
+sdk.fireVideoEvent(creative.tracking, "start")
+sdk.fireVideoEvent(creative.tracking, "first_quartile")
+sdk.fireVideoEvent(creative.tracking, "midpoint")
+sdk.fireVideoEvent(creative.tracking, "third_quartile")
+sdk.fireVideoEvent(creative.tracking, "complete")
+sdk.fireVideoEvent(creative.tracking, "skip")  // if user skips
+```
+
+- **JSON delivery**: Tracking URLs are in the response—easiest to use with SDK methods
+- **VAST Tag/XML**: Requires fetching the tag URL or decoding Base64 XML to extract tracking URLs, then firing HTTP GET beacons manually
+
+> **Tip**: For VAST-based ads, you may optionally integrate a third-party VAST SDK (e.g., Google IMA) for automatic tracking and Open Measurement (OM) viewability. This is outside the scope of the current Admoai SDK but demonstrated in the [Sample App](../sample/README.md).
+
+---
+
+## Open Measurement Integration
+
+The Admoai SDK provides support for Open Measurement (OM) verification data, allowing publishers to integrate with third-party viewability and verification measurement providers, such as Integral Ad Science (IAS), DoubleVerify, Moat, and others.
+
+### Accessing Verification Resources
+
+Each creative may include Open Measurement verification script resources that contain the necessary data for third-party verification:
+
+```kotlin
+val creative = decision.data?.firstOrNull()?.creatives?.firstOrNull()
+
+// Check if the creative has OM verification data
+if (creative?.hasOMVerification() == true) {
+    // Get the verification resources
+    val verificationResources = creative.getVerificationResources()
+    
+    verificationResources?.forEach { resource ->
+        println("Vendor: ${resource.vendorKey}")
+        println("Script URL: ${resource.scriptUrl}")
+        println("Parameters: ${resource.verificationParameters}")
+        
+        // Use these values with your third-party verification SDK
+        // Example: IAS or DoubleVerify integration
+    }
+}
+```
+
+### Verification Script Resource Properties
+
+Each `VerificationScriptResource` contains:
+
+- **vendorKey**: The identifier for the verification vendor (e.g., "ias", "doubleverify")
+- **scriptUrl**: The URL to the verification script that needs to be loaded
+- **verificationParameters**: Additional parameters required for verification setup
+
+### Integration Example
+
+Here's a complete example of how to extract and use OM data:
+
+```kotlin
+fun setupOMVerification(creative: Creative) {
+    if (!creative.hasOMVerification()) return
+    
+    val resources = creative.getVerificationResources() ?: return
+    
+    resources.forEach { resource ->
+        // Extract OM data
+        val vendorKey = resource.vendorKey
+        val scriptUrl = resource.scriptUrl
+        val parameters = resource.verificationParameters
+        
+        // Integrate with your chosen verification SDK
+        // Example pseudocode:
+        // when (vendorKey) {
+        //     "ias" -> {
+        //         IASSDK.setupVerification(scriptUrl, parameters)
+        //     }
+        //     "doubleverify" -> {
+        //         DoubleVerifySDK.setupVerification(scriptUrl, parameters)
+        //     }
+        // }
+    }
+}
+```
+
+### Important Notice
+
+> [!WARNING] 
+> **OM Certification Notice**: The Admoai SDK provides Open Measurement verification data as received from the ad server, but **the SDK itself is not OM certified**. Publishers must ensure that their implementation with third-party verification providers (such as IAS or DoubleVerify) complies with Open Measurement standards and requirements. Admoai acts as a strict ad server only; publishers are responsible for the proper implementation of their OM integration.
 
 ---
 

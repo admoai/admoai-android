@@ -52,6 +52,16 @@ class DecisionRequestBuilder {
         targeting = targeting.copy(location = locations)
     }
 
+    fun addDestinationTarget(latitude: Double, longitude: Double, minConfidence: Double) = apply {
+        val currentDestination = targeting.destination?.toMutableList() ?: mutableListOf()
+        currentDestination.add(DestinationTargetingInfo(latitude, longitude, minConfidence))
+        targeting = targeting.copy(destination = currentDestination)
+    }
+
+    fun setDestinationTargets(destinations: List<DestinationTargetingInfo>) = apply {
+        targeting = targeting.copy(destination = destinations)
+    }
+
     fun addCustomTarget(key: String, value: JsonElement) = apply {
         val currentCustom = targeting.custom?.toMutableList() ?: mutableListOf()
         currentCustom.removeAll { it.key == key }
@@ -85,7 +95,7 @@ class DecisionRequestBuilder {
         }
 
         val finalTargeting = targeting.takeIf {
-            !it.geo.isNullOrEmpty() || !it.location.isNullOrEmpty() || !it.custom.isNullOrEmpty()
+            !it.geo.isNullOrEmpty() || !it.location.isNullOrEmpty() || !it.destination.isNullOrEmpty() || !it.custom.isNullOrEmpty()
         }
 
         val finalUser = user.takeIf {
