@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0](https://github.com/admoai/admoai-android/admoai/admoai-android/compare/v1.2.0...v1.3.0) (2026-02-17)
+
+
+### Added
+
+* om integration ([#16](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/16)) ([4b1557b](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/4b1557b57580747904ccaab958a9045f0b8fddcc))
+* **sdk:** upgrade Ktor from 2.x to 3.x for compatibility with modern Android apps ([#18](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/18)) ([e75806a](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/e75806a596c0c8c9180d5ae90817544aef3b0842))
+
 ## [1.2.0](https://github.com/admoai/admoai-android/admoai/admoai-android/compare/v1.1.1...v1.2.0) (2026-01-08)
 
 
