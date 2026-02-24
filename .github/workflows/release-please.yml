@@ -47,25 +47,19 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Import GPG key
-        run: |
-          echo "$GPG_PRIVATE_KEY_BASE64" | base64 -d | gpg --batch --import
-          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
-          gpgconf --kill gpg-agent
-        env:
-          GPG_PRIVATE_KEY_BASE64: ${{ secrets.GPG_PRIVATE_KEY }}
-
       - name: Publish to GitHub Packages
-        run: ./gradlew :sdk:publishReleasePublicationToGitHubPackagesRepository -Psigning.gnupg.passphrase="$GPG_PASSPHRASE"
+        run: ./gradlew :sdk:publishReleasePublicationToGitHubPackagesRepository
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Publish to Maven Local (signed)
-        run: ./gradlew :sdk:publishReleasePublicationToMavenLocal -Psigning.gnupg.passphrase="$GPG_PASSPHRASE"
+        run: ./gradlew :sdk:publishReleasePublicationToMavenLocal
         env:
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Create Maven Central bundle
         id: bundle

@@ -145,7 +145,13 @@ afterEvaluate {
     }
     
     signing {
-        useGpgCmd()
+        val signingKey: String? = findProperty("signingKey") as String?
+        val signingPassword: String? = findProperty("signingPassword") as String?
+        if (signingKey != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword ?: "")
+        } else {
+            useGpgCmd()
+        }
         sign(publishing.publications)
     }
 }
