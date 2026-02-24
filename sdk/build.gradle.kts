@@ -145,10 +145,10 @@ afterEvaluate {
     }
     
     signing {
-        val signingKey: String? = System.getenv("GPG_PRIVATE_KEY")
-        val signingPassword: String? = System.getenv("GPG_PASSPHRASE")
-        if (!signingKey.isNullOrBlank()) {
-            useInMemoryPgpKeys(signingKey, signingPassword)
+        val signingKey: String? = findProperty("signingKey") as String?
+        val signingPassword: String? = findProperty("signingPassword") as String?
+        if (signingKey != null) {
+            useInMemoryPgpKeys(signingKey, signingPassword ?: "")
         } else {
             useGpgCmd()
         }

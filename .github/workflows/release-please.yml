@@ -47,26 +47,19 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Decode GPG key
-        run: echo "$GPG_PRIVATE_KEY_BASE64" | base64 -d > /tmp/gpg-key.asc
-        env:
-          GPG_PRIVATE_KEY_BASE64: ${{ secrets.GPG_PRIVATE_KEY }}
-
       - name: Publish to GitHub Packages
-        run: |
-          export GPG_PRIVATE_KEY="$(cat /tmp/gpg-key.asc)"
-          ./gradlew :sdk:publishReleasePublicationToGitHubPackagesRepository
+        run: ./gradlew :sdk:publishReleasePublicationToGitHubPackagesRepository
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Publish to Maven Local (signed)
-        run: |
-          export GPG_PRIVATE_KEY="$(cat /tmp/gpg-key.asc)"
-          ./gradlew :sdk:publishReleasePublicationToMavenLocal
+        run: ./gradlew :sdk:publishReleasePublicationToMavenLocal
         env:
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Create Maven Central bundle
         id: bundle
