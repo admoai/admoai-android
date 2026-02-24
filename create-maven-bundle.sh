@@ -5,7 +5,7 @@
 
 set -e
 
-SDK_VERSION="1.1.1"
+SDK_VERSION="1.1.2"
 GROUP_ID="com.admoai"
 ARTIFACT_ID="admoai-android"
 BUILD_DIR="sdk/build"
