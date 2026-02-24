@@ -47,24 +47,23 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Decode GPG key
-        run: echo "$GPG_PRIVATE_KEY_BASE64" | base64 -d > /tmp/gpg-key.asc
+      - name: Import GPG key
+        run: |
+          echo "$GPG_PRIVATE_KEY_BASE64" | base64 -d | gpg --batch --import
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+          gpgconf --kill gpg-agent
         env:
           GPG_PRIVATE_KEY_BASE64: ${{ secrets.GPG_PRIVATE_KEY }}
 
       - name: Publish to GitHub Packages
-        run: |
-          export GPG_PRIVATE_KEY="$(cat /tmp/gpg-key.asc)"
-          ./gradlew :sdk:publishReleasePublicationToGitHubPackagesRepository
+        run: ./gradlew :sdk:publishReleasePublicationToGitHubPackagesRepository -Psigning.gnupg.passphrase="$GPG_PASSPHRASE"
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Publish to Maven Local (signed)
-        run: |
-          export GPG_PRIVATE_KEY="$(cat /tmp/gpg-key.asc)"
-          ./gradlew :sdk:publishReleasePublicationToMavenLocal
+        run: ./gradlew :sdk:publishReleasePublicationToMavenLocal -Psigning.gnupg.passphrase="$GPG_PASSPHRASE"
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
