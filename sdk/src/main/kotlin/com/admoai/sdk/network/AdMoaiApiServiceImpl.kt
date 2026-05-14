@@ -91,7 +91,11 @@ internal class AdMoaiApiServiceImpl(
 
     override fun fireTrackingUrl(url: String): Flow<Unit> = flow {
         try {
-            val response: HttpResponse = httpClient.get(url)
+            val response: HttpResponse = httpClient.get(url) {
+                sdkConfig.apiVersion?.let { version ->
+                    header("X-Decision-Version", version)
+                }
+            }
             if (!response.status.isSuccess()) {
                 throw AdMoaiNetworkException("Tracking request failed with status ${response.status}")
             }
