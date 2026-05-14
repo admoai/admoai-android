@@ -98,6 +98,9 @@ internal class AdMoaiApiServiceImpl(
                 sdkConfig.defaultLanguage?.let { lang ->
                     header(HttpHeaders.AcceptLanguage, lang)
                 }
+                sdkConfig.apiVersion?.let { version ->
+                    header("X-Decision-Version", version)
+                }
             }
             if (!response.status.isSuccess()) {
                 throw AdMoaiNetworkException("Tracking request failed with status ${response.status}")
