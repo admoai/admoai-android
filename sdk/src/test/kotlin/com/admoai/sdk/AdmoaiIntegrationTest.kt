@@ -18,6 +18,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -32,11 +33,10 @@ class AdmoaiIntegrationTest {
     fun setUp() {
         server = MockWebServer()
         server.start()
-        // Explicitly use 127.0.0.1 for the baseUrl
         val baseUrl = "http://127.0.0.1:${server.port}/"
         sdkConfig = SDKConfig(
             baseUrl = baseUrl,
-            enableLogging = true, // Logging is enabled
+            enableLogging = true,
             networkClientEngine = CIO.create()
         )
         Admoai.initialize(sdkConfig)
@@ -94,18 +94,53 @@ class AdmoaiIntegrationTest {
     }
 
     @Test
-    fun `fireImpression fires without requiring collection - true fire-and-forget`() {
-        // Given: SDK initialized and a tracking URL to serve
+    fun `fireTrackingUrl - apiVersion configured - sends X-Decision-Version header`() {
+        Admoai.resetForTesting()
+        val baseUrl = "http://127.0.0.1:${server.port}/"
+        Admoai.initialize(
+            SDKConfig(
+                baseUrl = baseUrl,
+                apiVersion = "1.2.0",
+                enableLogging = true,
+                networkClientEngine = CIO.create()
+            )
+        )
+        server.enqueue(MockResponse().setResponseCode(200))
+        val trackingUrl = "${baseUrl}track/impression"
+        val trackingInfo = TrackingInfo(
+            impressions = listOf(TrackingDetail(key = "default", url = trackingUrl))
+        )
+
+        Admoai.getInstance().fireImpression(trackingInfo)
+
+        val recordedRequest = server.takeRequest(3, TimeUnit.SECONDS)
+        assertEquals("1.2.0", recordedRequest?.getHeader("X-Decision-Version"))
+    }
+
+    @Test
+    fun `fireTrackingUrl - no apiVersion configured - omits X-Decision-Version header`() {
         server.enqueue(MockResponse().setResponseCode(200))
         val trackingUrl = "http://127.0.0.1:${server.port}/track/impression"
         val trackingInfo = TrackingInfo(
             impressions = listOf(TrackingDetail(key = "default", url = trackingUrl))
         )
 
-        // When: fireImpression is called without collecting any result
         Admoai.getInstance().fireImpression(trackingInfo)
 
-        // Then: the HTTP request is still sent (MockWebServer receives it within timeout)
+        val recordedRequest = server.takeRequest(3, TimeUnit.SECONDS)
+        assertNull(recordedRequest?.getHeader("X-Decision-Version"))
+    }
+
+    @Test
+    fun `fireImpression fires without requiring collection - true fire-and-forget`() {
+        server.enqueue(MockResponse().setResponseCode(200))
+        val trackingUrl = "http://127.0.0.1:${server.port}/track/impression"
+        val trackingInfo = TrackingInfo(
+            impressions = listOf(TrackingDetail(key = "default", url = trackingUrl))
+        )
+
+        Admoai.getInstance().fireImpression(trackingInfo)
+
         val recorded = server.takeRequest(3, TimeUnit.SECONDS)
         assertNotNull("HTTP request must be fired even without collection", recorded)
         assertEquals("/track/impression", recorded?.path)
@@ -113,29 +148,24 @@ class AdmoaiIntegrationTest {
 
     @Test
     fun `fireTracking with raw url fires without requiring collection`() {
-        // Given: SDK initialized and a raw tracking URL
         server.enqueue(MockResponse().setResponseCode(200))
         val rawUrl = "http://127.0.0.1:${server.port}/track/raw"
 
-        // When: fireTracking is called with a raw URL
         Admoai.getInstance().fireTracking(rawUrl)
 
-        // Then: the HTTP request is sent
         val recorded = server.takeRequest(3, TimeUnit.SECONDS)
         assertNotNull("Raw tracking URL must be fired", recorded)
     }
 
     @Test
     fun `tracking failure does not throw to caller`() {
-        // Given: SDK initialized but tracking server returns 500
         server.enqueue(MockResponse().setResponseCode(500))
         val trackingInfo = TrackingInfo(
             impressions = listOf(TrackingDetail(key = "default", url = "http://127.0.0.1:${server.port}/track"))
         )
 
-        // When & Then: fireImpression should not throw even on server error
         Admoai.getInstance().fireImpression(trackingInfo)
-        server.takeRequest(3, TimeUnit.SECONDS) // consume the request
+        server.takeRequest(3, TimeUnit.SECONDS)
         // Test passes if no exception propagated
     }
 }
