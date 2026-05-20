@@ -6,6 +6,8 @@ import com.admoai.sdk.model.request.DecisionRequestBuilder
 import com.admoai.sdk.model.response.AdData
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.DecisionResponse
+import com.admoai.sdk.model.response.TrackingDetail
+import com.admoai.sdk.model.response.TrackingInfo
 import io.ktor.client.engine.cio.CIO
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -88,5 +90,46 @@ class AdmoaiIntegrationTest {
             e.printStackTrace()
             throw e
         }
+    }
+
+    @Test
+    fun `fireTrackingUrl - apiVersion configured - sends X-Decision-Version header`() = runTest {
+        Admoai.resetForTesting()
+        val baseUrl = "http://127.0.0.1:${server.port}/"
+        Admoai.initialize(
+            SDKConfig(
+                baseUrl = baseUrl,
+                apiVersion = "1.2.0",
+                enableLogging = true,
+                networkClientEngine = CIO.create()
+            )
+        )
+
+        server.enqueue(MockResponse().setResponseCode(200))
+
+        val trackingUrl = "${baseUrl}track/impression"
+        val trackingInfo = TrackingInfo(
+            impressions = listOf(TrackingDetail(key = "default", url = trackingUrl))
+        )
+
+        Admoai.getInstance().fireImpression(trackingInfo).first()
+
+        val recordedRequest = server.takeRequest()
+        assertEquals("1.2.0", recordedRequest.getHeader("X-Decision-Version"))
+    }
+
+    @Test
+    fun `fireTrackingUrl - no apiVersion configured - omits X-Decision-Version header`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200))
+
+        val trackingUrl = "http://127.0.0.1:${server.port}/track/impression"
+        val trackingInfo = TrackingInfo(
+            impressions = listOf(TrackingDetail(key = "default", url = trackingUrl))
+        )
+
+        Admoai.getInstance().fireImpression(trackingInfo).first()
+
+        val recordedRequest = server.takeRequest()
+        assertEquals(null, recordedRequest.getHeader("X-Decision-Version"))
     }
 }
