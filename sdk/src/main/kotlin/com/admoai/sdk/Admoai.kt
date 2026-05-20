@@ -17,6 +17,7 @@ import com.admoai.sdk.model.response.TrackingInfo
 import com.admoai.sdk.network.AdMoaiApiService
 import com.admoai.sdk.network.AdMoaiApiServiceImpl
 import com.admoai.sdk.network.AdmoaiHttpRequest
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -184,8 +185,10 @@ class Admoai private constructor() {
         sdkScope.launch {
             try {
                 currentApiService.fireTrackingUrl(url).collect {}
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
-                // fire-and-forget: failures never propagate to the caller
+                // fire-and-forget: network failures never propagate to the caller
             }
         }
     }
