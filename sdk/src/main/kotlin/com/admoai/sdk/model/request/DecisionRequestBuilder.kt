@@ -44,22 +44,39 @@ class DecisionRequestBuilder {
 
     fun addLocationTarget(latitude: Double, longitude: Double) = apply {
         val currentLocation = targeting.location?.toMutableList() ?: mutableListOf()
-        currentLocation.add(LocationTargetingInfo(latitude, longitude))
+        val entry = LocationTargetingInfo(latitude, longitude)
+        if (currentLocation.none { it.latitude == latitude && it.longitude == longitude }) {
+            currentLocation.add(entry)
+        }
         targeting = targeting.copy(location = currentLocation)
     }
 
     fun setLocationTargets(locations: List<LocationTargetingInfo>) = apply {
-        targeting = targeting.copy(location = locations)
+        val deduped = locations.distinctBy { Pair(it.latitude, it.longitude) }
+        targeting = targeting.copy(location = deduped)
     }
 
     fun addDestinationTarget(latitude: Double, longitude: Double, minConfidence: Double) = apply {
+        require(minConfidence in 0.0..1.0) {
+            "minConfidence must be in [0.0, 1.0], was $minConfidence"
+        }
         val currentDestination = targeting.destination?.toMutableList() ?: mutableListOf()
-        currentDestination.add(DestinationTargetingInfo(latitude, longitude, minConfidence))
+        if (currentDestination.none {
+                it.latitude == latitude && it.longitude == longitude && it.minConfidence == minConfidence
+            }) {
+            currentDestination.add(DestinationTargetingInfo(latitude, longitude, minConfidence))
+        }
         targeting = targeting.copy(destination = currentDestination)
     }
 
     fun setDestinationTargets(destinations: List<DestinationTargetingInfo>) = apply {
-        targeting = targeting.copy(destination = destinations)
+        destinations.forEach { entry ->
+            require(entry.minConfidence in 0.0..1.0) {
+                "minConfidence must be in [0.0, 1.0], was ${entry.minConfidence}"
+            }
+        }
+        val deduped = destinations.distinctBy { Triple(it.latitude, it.longitude, it.minConfidence) }
+        targeting = targeting.copy(destination = deduped)
     }
 
     fun addCustomTarget(key: String, value: JsonElement) = apply {
