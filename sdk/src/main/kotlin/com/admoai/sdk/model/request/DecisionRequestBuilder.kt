@@ -89,6 +89,40 @@ class DecisionRequestBuilder {
 
     fun setUserConsent(consent: Consent?) = apply { user = user.copy(consent = consent) }
 
+    fun clearGeoTargeting() = apply {
+        targeting = targeting.copy(geo = null)
+    }
+
+    fun clearLocationTargeting() = apply {
+        targeting = targeting.copy(location = null)
+    }
+
+    fun clearDestinationTargeting() = apply {
+        targeting = targeting.copy(destination = null)
+    }
+
+    fun clearCustomTargeting() = apply {
+        targeting = targeting.copy(custom = null)
+    }
+
+    fun clearTargeting() = apply {
+        targeting = Targeting()
+    }
+
+    fun clearPlacements() = apply {
+        placements.clear()
+    }
+
+    fun clearUser() = apply {
+        user = User()
+    }
+
+    fun clearAll() = apply {
+        clearPlacements()
+        clearTargeting()
+        clearUser()
+    }
+
     fun build(): DecisionRequest {
         if (placements.isEmpty()) {
             throw AdMoaiConfigurationException("At least one placement is required")
