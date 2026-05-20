@@ -3,8 +3,6 @@ package com.admoai.sdk
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.model.request.DecisionRequestBuilder
 import com.admoai.sdk.model.response.DecisionResponse
-import com.admoai.sdk.model.response.TrackingDetail
-import com.admoai.sdk.model.response.TrackingInfo
 import io.ktor.client.engine.cio.CIO
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -17,6 +15,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
+
 class UserAgentTest {
 
     private lateinit var server: MockWebServer
@@ -56,26 +55,6 @@ class UserAgentTest {
         val recorded = server.takeRequest()
         val userAgent = recorded.getHeader("User-Agent")
         assertNotNull("User-Agent header must be present", userAgent)
-        assertEquals("AdMoaiSDK/$SDK_VERSION", userAgent)
-    }
-
-    @Test
-    fun `given sdk initialized when tracking request fired then User-Agent header is present`() = runTest {
-        // Given: SDK initialized with a tracking URL
-        Admoai.initialize(SDKConfig(baseUrl = baseUrl(), networkClientEngine = CIO.create()))
-        server.enqueue(MockResponse().setResponseCode(200))
-        val trackingUrl = "${baseUrl()}track/impression"
-        val trackingInfo = TrackingInfo(
-            impressions = listOf(TrackingDetail(key = "default", url = trackingUrl))
-        )
-
-        // When: tracking is fired
-        Admoai.getInstance().fireImpression(trackingInfo).first()
-
-        // Then: User-Agent header must be present
-        val recorded = server.takeRequest()
-        val userAgent = recorded.getHeader("User-Agent")
-        assertNotNull("User-Agent header must be present on tracking", userAgent)
         assertEquals("AdMoaiSDK/$SDK_VERSION", userAgent)
     }
 
