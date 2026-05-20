@@ -1,5 +1,6 @@
 package com.admoai.sdk.network
 
+import com.admoai.sdk.SDK_VERSION
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.exception.AdMoaiNetworkException
 import com.admoai.sdk.model.request.DecisionRequest
@@ -69,6 +70,7 @@ internal class AdMoaiApiServiceImpl(
             val response: DecisionResponse = httpClient.post("v1/decision") {
                 contentType(ContentType.Application.Json)
                 accept(ContentType.Application.Json)
+                header(HttpHeaders.UserAgent, "AdMoaiSDK/$SDK_VERSION")
                 sdkConfig.defaultLanguage?.let { lang ->
                     header(HttpHeaders.AcceptLanguage, lang)
                 }
@@ -91,7 +93,9 @@ internal class AdMoaiApiServiceImpl(
 
     override fun fireTrackingUrl(url: String): Flow<Unit> = flow {
         try {
-            val response: HttpResponse = httpClient.get(url)
+            val response: HttpResponse = httpClient.get(url) {
+                header(HttpHeaders.UserAgent, "AdMoaiSDK/$SDK_VERSION")
+            }
             if (!response.status.isSuccess()) {
                 throw AdMoaiNetworkException("Tracking request failed with status ${response.status}")
             }
@@ -108,6 +112,7 @@ internal class AdMoaiApiServiceImpl(
         val headers = mutableMapOf<String, String>()
         headers["Content-Type"] = ContentType.Application.Json.toString()
         headers["Accept"] = ContentType.Application.Json.toString()
+        headers[HttpHeaders.UserAgent] = "AdMoaiSDK/$SDK_VERSION"
         sdkConfig.defaultLanguage?.let { lang ->
             headers[HttpHeaders.AcceptLanguage] = lang
         }
