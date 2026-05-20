@@ -18,9 +18,11 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class AdmoaiIntegrationTest {
 
@@ -112,14 +114,14 @@ class AdmoaiIntegrationTest {
             impressions = listOf(TrackingDetail(key = "default", url = trackingUrl))
         )
 
-        Admoai.getInstance().fireImpression(trackingInfo).first()
+        Admoai.getInstance().fireImpression(trackingInfo)
 
-        val recordedRequest = server.takeRequest()
-        assertEquals("1.2.0", recordedRequest.getHeader("X-Decision-Version"))
+        val recordedRequest = server.takeRequest(3, TimeUnit.SECONDS)
+        assertEquals("1.2.0", recordedRequest?.getHeader("X-Decision-Version"))
     }
 
     @Test
-    fun `fireTrackingUrl - no apiVersion configured - omits X-Decision-Version header`() = runTest {
+    fun `fireTrackingUrl - no apiVersion configured - omits X-Decision-Version header`() {
         server.enqueue(MockResponse().setResponseCode(200))
 
         val trackingUrl = "http://127.0.0.1:${server.port}/track/impression"
@@ -127,9 +129,9 @@ class AdmoaiIntegrationTest {
             impressions = listOf(TrackingDetail(key = "default", url = trackingUrl))
         )
 
-        Admoai.getInstance().fireImpression(trackingInfo).first()
+        Admoai.getInstance().fireImpression(trackingInfo)
 
-        val recordedRequest = server.takeRequest()
-        assertEquals(null, recordedRequest.getHeader("X-Decision-Version"))
+        val recordedRequest = server.takeRequest(3, TimeUnit.SECONDS)
+        assertNull(recordedRequest?.getHeader("X-Decision-Version"))
     }
 }
