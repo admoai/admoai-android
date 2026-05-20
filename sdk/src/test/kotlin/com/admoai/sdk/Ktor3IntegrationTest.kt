@@ -296,7 +296,7 @@ class Ktor3IntegrationTest {
     // --- Tracking URL tests ---
 
     @Test
-    fun `fireImpression sends GET to tracking URL`() = runTest {
+    fun `fireImpression sends GET to tracking URL`() {
         server.enqueue(MockResponse().setResponseCode(200))
         initSdk()
 
@@ -305,15 +305,15 @@ class Ktor3IntegrationTest {
                 TrackingDetail(key = "default", url = "http://127.0.0.1:${server.port}/track/imp")
             )
         )
-        Admoai.getInstance().fireImpression(trackingInfo).first()
+        Admoai.getInstance().fireImpression(trackingInfo)
 
-        val recorded = server.takeRequest()
-        assertEquals("GET", recorded.method)
-        assertEquals("/track/imp", recorded.path)
+        val recorded = server.takeRequest(3, java.util.concurrent.TimeUnit.SECONDS)
+        assertEquals("GET", recorded?.method)
+        assertEquals("/track/imp", recorded?.path)
     }
 
     @Test
-    fun `fireClick sends GET to tracking URL`() = runTest {
+    fun `fireClick sends GET to tracking URL`() {
         server.enqueue(MockResponse().setResponseCode(200))
         initSdk()
 
@@ -322,11 +322,11 @@ class Ktor3IntegrationTest {
                 TrackingDetail(key = "default", url = "http://127.0.0.1:${server.port}/track/click")
             )
         )
-        Admoai.getInstance().fireClick(trackingInfo).first()
+        Admoai.getInstance().fireClick(trackingInfo)
 
-        val recorded = server.takeRequest()
-        assertEquals("GET", recorded.method)
-        assertEquals("/track/click", recorded.path)
+        val recorded = server.takeRequest(3, java.util.concurrent.TimeUnit.SECONDS)
+        assertEquals("GET", recorded?.method)
+        assertEquals("/track/click", recorded?.path)
     }
 
     // --- Timeout tests ---
