@@ -17,6 +17,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class UserAgentTest {
 
@@ -61,7 +62,7 @@ class UserAgentTest {
     }
 
     @Test
-    fun `given sdk initialized when tracking request fired then User-Agent header is present`() = runTest {
+    fun `given sdk initialized when tracking request fired then User-Agent header is present`() {
         // Given: SDK initialized with a tracking URL
         Admoai.initialize(SDKConfig(baseUrl = baseUrl(), networkClientEngine = CIO.create()))
         server.enqueue(MockResponse().setResponseCode(200))
@@ -70,12 +71,12 @@ class UserAgentTest {
             impressions = listOf(TrackingDetail(key = "default", url = trackingUrl))
         )
 
-        // When: tracking is fired
-        Admoai.getInstance().fireImpression(trackingInfo).first()
+        // When: tracking is fired (fire-and-forget, no collection required)
+        Admoai.getInstance().fireImpression(trackingInfo)
 
         // Then: User-Agent header must be present
-        val recorded = server.takeRequest()
-        val userAgent = recorded.getHeader("User-Agent")
+        val recorded = server.takeRequest(3, TimeUnit.SECONDS)
+        val userAgent = recorded?.getHeader("User-Agent")
         assertNotNull("User-Agent header must be present on tracking", userAgent)
         assertEquals("AdMoaiSDK/$SDK_VERSION", userAgent)
     }
