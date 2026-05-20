@@ -186,6 +186,112 @@ class DecisionRequestBuilderTest {
     }
 
     @Test
+    fun `addLocationTarget deduplicates same coordinates`() {
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addLocationTarget(40.71, -74.00)
+            .addLocationTarget(40.71, -74.00) // duplicate
+            .build()
+
+        assertEquals(1, request.targeting?.location?.size)
+    }
+
+    @Test
+    fun `addLocationTarget keeps different coordinates`() {
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addLocationTarget(40.71, -74.00)
+            .addLocationTarget(51.51, -0.13)
+            .build()
+
+        assertEquals(2, request.targeting?.location?.size)
+    }
+
+    @Test
+    fun `setLocationTargets deduplicates on set`() {
+        val locations = listOf(
+            LocationTargetingInfo(1.0, 2.0),
+            LocationTargetingInfo(1.0, 2.0) // duplicate
+        )
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .setLocationTargets(locations)
+            .build()
+
+        assertEquals(1, request.targeting?.location?.size)
+    }
+
+    @Test
+    fun `addDestinationTarget deduplicates same triple`() {
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addDestinationTarget(51.5, -0.1, 0.8)
+            .addDestinationTarget(51.5, -0.1, 0.8) // exact duplicate
+            .build()
+
+        assertEquals(1, request.targeting?.destination?.size)
+    }
+
+    @Test
+    fun `addDestinationTarget keeps entries with different minConfidence`() {
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addDestinationTarget(51.5, -0.1, 0.8)
+            .addDestinationTarget(51.5, -0.1, 0.9) // different confidence
+            .build()
+
+        assertEquals(2, request.targeting?.destination?.size)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `addDestinationTarget with minConfidence above 1 throws`() {
+        DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addDestinationTarget(51.5, -0.1, 1.1)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `addDestinationTarget with minConfidence below 0 throws`() {
+        DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addDestinationTarget(51.5, -0.1, -0.1)
+    }
+
+    @Test
+    fun `addDestinationTarget with minConfidence at boundary 0 is valid`() {
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addDestinationTarget(51.5, -0.1, 0.0)
+            .build()
+
+        assertEquals(1, request.targeting?.destination?.size)
+    }
+
+    @Test
+    fun `addDestinationTarget with minConfidence at boundary 1 is valid`() {
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addDestinationTarget(51.5, -0.1, 1.0)
+            .build()
+
+        assertEquals(1, request.targeting?.destination?.size)
+    }
+
+    @Test
+    fun `setDestinationTargets deduplicates on set`() {
+        val destinations = listOf(
+            DestinationTargetingInfo(51.5, -0.1, 0.8),
+            DestinationTargetingInfo(51.5, -0.1, 0.8) // duplicate
+        )
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .setDestinationTargets(destinations)
+            .build()
+
+        assertEquals(1, request.targeting?.destination?.size)
+    }
+
+    @Test
     fun `add custom target string`() {
         val request = DecisionRequestBuilder()
             .addPlacement("p1")
