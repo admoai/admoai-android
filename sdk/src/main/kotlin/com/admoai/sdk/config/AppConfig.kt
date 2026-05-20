@@ -3,6 +3,7 @@ package com.admoai.sdk.config
 import com.admoai.sdk.core.Clearable
 import android.content.Context
 import android.content.pm.PackageManager
+import androidx.core.content.pm.PackageInfoCompat
 
 /**
  * Configuration related to the application.
@@ -49,10 +50,16 @@ data class AppConfig(
                 val appVersion = packageInfo.versionName
                 val packageName = context.packageName
                 
+                val buildNumber = PackageInfoCompat.getLongVersionCode(packageInfo).toString()
+                val language = context.resources.configuration.locales
+                    .takeIf { !it.isEmpty }?.get(0)?.toLanguageTag()
+
                 return AppConfig(
                     appName = appName,
                     appVersion = appVersion,
-                    packageName = packageName
+                    packageName = packageName,
+                    buildNumber = buildNumber,
+                    language = language
                 )
             } catch (e: PackageManager.NameNotFoundException) {
                 // Return default values if package info can't be retrieved
