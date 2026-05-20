@@ -376,4 +376,121 @@ class DecisionRequestBuilderTest {
         assertNotNull(request.user?.consent)
         assertTrue(request.user?.consent?.gdpr == true)
     }
+
+    // --- Clear methods ---
+
+    @Test
+    fun `clearGeoTargeting removes geo and preserves other targeting`() {
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addGeoTarget(123)
+            .addLocationTarget(1.0, 2.0)
+            .clearGeoTargeting()
+            .build()
+
+        assertNull(request.targeting?.geo)
+        assertNotNull(request.targeting?.location)
+    }
+
+    @Test
+    fun `clearLocationTargeting removes location and preserves other targeting`() {
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addGeoTarget(123)
+            .addLocationTarget(1.0, 2.0)
+            .clearLocationTargeting()
+            .build()
+
+        assertNotNull(request.targeting?.geo)
+        assertNull(request.targeting?.location)
+    }
+
+    @Test
+    fun `clearDestinationTargeting removes destination and preserves other targeting`() {
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addDestinationTarget(51.5, -0.1, 0.8)
+            .addLocationTarget(1.0, 2.0)
+            .clearDestinationTargeting()
+            .build()
+
+        assertNull(request.targeting?.destination)
+        assertNotNull(request.targeting?.location)
+    }
+
+    @Test
+    fun `clearCustomTargeting removes custom and preserves other targeting`() {
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addGeoTarget(123)
+            .addCustomTarget("key", "value")
+            .clearCustomTargeting()
+            .build()
+
+        assertNotNull(request.targeting?.geo)
+        assertNull(request.targeting?.custom)
+    }
+
+    @Test
+    fun `clearTargeting removes all targeting dimensions`() {
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addGeoTarget(123)
+            .addLocationTarget(1.0, 2.0)
+            .addDestinationTarget(3.0, 4.0, 0.5)
+            .addCustomTarget("k", "v")
+            .clearTargeting()
+            .build()
+
+        assertNull(request.targeting)
+    }
+
+    @Test
+    fun `clearPlacements empties the placements list`() {
+        val builder = DecisionRequestBuilder()
+            .addPlacement("home")
+            .addPlacement("search")
+            .clearPlacements()
+            .addPlacement("feed")
+
+        val request = builder.build()
+        assertEquals(1, request.placements.size)
+        assertEquals("feed", request.placements[0].key)
+    }
+
+    @Test(expected = com.admoai.sdk.exception.AdMoaiConfigurationException::class)
+    fun `clearPlacements followed by build without adding new placement throws`() {
+        DecisionRequestBuilder()
+            .addPlacement("home")
+            .clearPlacements()
+            .build()
+    }
+
+    @Test
+    fun `clearUser removes user data`() {
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .setUserId("user123")
+            .setUserTimezone("America/New_York")
+            .clearUser()
+            .build()
+
+        assertNull(request.user)
+    }
+
+    @Test
+    fun `clearAll resets placements targeting and user`() {
+        val builder = DecisionRequestBuilder()
+            .addPlacement("home")
+            .addGeoTarget(123)
+            .setUserId("user123")
+            .clearAll()
+            .addPlacement("feed")
+
+        val request = builder.build()
+        assertEquals(1, request.placements.size)
+        assertEquals("feed", request.placements[0].key)
+        assertNull(request.targeting)
+        assertNull(request.user)
+    }
 }
