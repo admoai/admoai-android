@@ -60,8 +60,13 @@ enum class ContentType {
 @Serializable
 data class Content(
     val key: String,
-    // Update 'value' to be more flexible, e.g., JsonElement, to accommodate different types
-    // For now, keeping as String based on original, but this is a point of attention for robust typing
-    val value: JsonElement, // Changed from String to JsonElement to handle various types
+    val value: JsonElement,
     val type: ContentType
 )
+
+fun List<Content>.getContent(key: String): Content? = firstOrNull { it.key == key }
+
+fun List<Content>.hasContents(): Boolean = isNotEmpty()
+
+fun List<Content>.isType(key: String, type: ContentType): Boolean =
+    firstOrNull { it.key == key }?.type == type
