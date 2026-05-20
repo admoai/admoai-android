@@ -210,7 +210,7 @@ class Ktor3IntegrationTest {
         assertEquals("Buy Now", (ad.creatives.first().contents[0].value as JsonPrimitive).content)
         assertEquals("default", ad.creatives.first().tracking.impressions?.first()?.key)
         assertEquals("https://track.example.com/imp", ad.creatives.first().tracking.impressions?.first()?.url)
-        assertEquals(MetadataPriority.STANDARD, ad.creatives.first().metadata.priority)
+        assertEquals(MetadataPriority.STANDARD, ad.creatives.first().metadata?.priority)
     }
 
     @Test
