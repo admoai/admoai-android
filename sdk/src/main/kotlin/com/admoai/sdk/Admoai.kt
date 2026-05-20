@@ -22,7 +22,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonPrimitive
@@ -46,7 +46,8 @@ class Admoai private constructor() {
 
     private val coroutineExceptionHandler = CoroutineExceptionHandler { _, _ -> }
 
-    internal val sdkScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + coroutineExceptionHandler)
+    @VisibleForTesting
+    internal var sdkScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + coroutineExceptionHandler)
 
     private fun applyConfiguration(newConfig: SDKConfig) {
         this.sdkConfig = newConfig
@@ -178,22 +179,35 @@ class Admoai private constructor() {
         return currentApiService.getHttpRequestData(finalDecisionRequest)
     }
 
-    fun fireImpression(trackingInfo: TrackingInfo, key: String = "default"): Flow<Unit> =
-        fireTrackingEvent(trackingInfo.impressions, key)
+    fun fireTracking(url: String) {
+        val currentApiService = apiService ?: return
+        sdkScope.launch {
+            try {
+                currentApiService.fireTrackingUrl(url).collect {}
+            } catch (_: Exception) {
+                // fire-and-forget: failures never propagate to the caller
+            }
+        }
+    }
 
-    fun fireClick(trackingInfo: TrackingInfo, key: String = "default"): Flow<Unit> =
-        fireTrackingEvent(trackingInfo.clicks, key)
+    fun fireImpression(trackingInfo: TrackingInfo, key: String = "default") {
+        val url = trackingInfo.impressions?.find { it.key == key }?.url ?: return
+        fireTracking(url)
+    }
 
-    fun fireCustomEvent(trackingInfo: TrackingInfo, key: String): Flow<Unit> =
-        fireTrackingEvent(trackingInfo.custom, key)
+    fun fireClick(trackingInfo: TrackingInfo, key: String = "default") {
+        val url = trackingInfo.clicks?.find { it.key == key }?.url ?: return
+        fireTracking(url)
+    }
 
-    fun fireVideoEvent(trackingInfo: TrackingInfo, key: String): Flow<Unit> =
-        fireTrackingEvent(trackingInfo.videoEvents, key)
+    fun fireCustomEvent(trackingInfo: TrackingInfo, key: String) {
+        val url = trackingInfo.custom?.find { it.key == key }?.url ?: return
+        fireTracking(url)
+    }
 
-    private fun fireTrackingEvent(events: List<com.admoai.sdk.model.response.TrackingDetail>?, key: String): Flow<Unit> {
-        val currentApiService = apiService ?: return flowOf(Unit)
-        val url = events?.find { it.key == key }?.url ?: return flowOf(Unit)
-        return currentApiService.fireTrackingUrl(url)
+    fun fireVideoEvent(trackingInfo: TrackingInfo, key: String) {
+        val url = trackingInfo.videoEvents?.find { it.key == key }?.url ?: return
+        fireTracking(url)
     }
 
     internal fun log(message: String, level: LogLevel = LogLevel.INFO, throwable: Throwable? = null) {

@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.admoai.sdk
 
 import com.admoai.sdk.config.AppConfig
@@ -15,6 +17,7 @@ import io.ktor.client.engine.HttpClientEngine
 import io.mockk.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.After
@@ -395,47 +398,50 @@ class AdmoaiTest {
     )
 
     @Test
-    fun `fireImpression success now uses injected mockApiService`() = runTest {
+    fun `fireImpression success now uses injected mockApiService`() = runTest(UnconfinedTestDispatcher()) {
         Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null, enableLogging = true))
         val admoai = Admoai.getInstance()
-        admoai.apiService = mockApiService // Inject mock
-        
+        admoai.sdkScope = this
+        admoai.apiService = mockApiService
+
         coEvery { mockApiService.fireTrackingUrl("imp_default_url") } returns flowOf(Unit)
 
-        admoai.fireImpression(sampleTrackingInfo, "default").first()
+        admoai.fireImpression(sampleTrackingInfo, "default")
         coVerify { mockApiService.fireTrackingUrl("imp_default_url") }
     }
-    
+
     @Test
-    fun `fireImpression non-default key now uses injected mockApiService`() = runTest {
+    fun `fireImpression non-default key now uses injected mockApiService`() = runTest(UnconfinedTestDispatcher()) {
         Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null))
         val admoai = Admoai.getInstance()
-        admoai.apiService = mockApiService // Inject mock
+        admoai.sdkScope = this
+        admoai.apiService = mockApiService
 
         coEvery { mockApiService.fireTrackingUrl("imp_custom_url") } returns flowOf(Unit)
-        
-        admoai.fireImpression(sampleTrackingInfo, "custom_imp").first()
+
+        admoai.fireImpression(sampleTrackingInfo, "custom_imp")
         coVerify { mockApiService.fireTrackingUrl("imp_custom_url") }
     }
 
     @Test
-    fun `fireImpression with no matching key does not call service`() = runTest {
-         Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null, enableLogging = true))
-         val admoai = Admoai.getInstance()
-         admoai.apiService = mockApiService // Inject mock
+    fun `fireImpression with no matching key does not call service`() = runTest(UnconfinedTestDispatcher()) {
+        Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null, enableLogging = true))
+        val admoai = Admoai.getInstance()
+        admoai.sdkScope = this
+        admoai.apiService = mockApiService
 
-        admoai.fireImpression(sampleTrackingInfo, "non_existent_key").first() 
-        coVerify(exactly = 0) { mockApiService.fireTrackingUrl(any()) } 
+        admoai.fireImpression(sampleTrackingInfo, "non_existent_key")
+        coVerify(exactly = 0) { mockApiService.fireTrackingUrl(any()) }
     }
 
     @Test
-    fun `fireEvent when apiService is null completes without error`() = runTest {
-        Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null, enableLogging = true)) 
+    fun `fireEvent when apiService is null completes without error`() {
+        Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null, enableLogging = true))
         val admoai = Admoai.getInstance()
-        admoai.apiService = null 
-        
-        // Should complete without throwing an exception
-        admoai.fireImpression(sampleTrackingInfo).first()
+        admoai.apiService = null
+
+        // Should complete without throwing an exception (fire-and-forget)
+        admoai.fireImpression(sampleTrackingInfo)
         // Test passes if no exception is thrown
     }
 }
