@@ -14,8 +14,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
-import java.util.concurrent.TimeUnit
-
 class AcceptLanguageTrackingTest {
 
     private lateinit var server: MockWebServer
@@ -40,7 +38,7 @@ class AcceptLanguageTrackingTest {
     )
 
     @Test
-    fun `given defaultLanguage set when tracking request fired then Accept-Language header is present`() {
+    fun `given defaultLanguage set when tracking request fired then Accept-Language header is present`() = runTest {
         // Given: SDK configured with defaultLanguage
         Admoai.initialize(
             SDKConfig(
@@ -51,16 +49,16 @@ class AcceptLanguageTrackingTest {
         )
         server.enqueue(MockResponse().setResponseCode(200))
 
-        // When: a tracking request is fired (fire-and-forget, no collection required)
-        Admoai.getInstance().fireImpression(trackingInfo())
+        // When: a tracking request is fired
+        Admoai.getInstance().fireImpression(trackingInfo()).first()
 
         // Then: Accept-Language must be present on tracking
-        val recorded = server.takeRequest(3, TimeUnit.SECONDS)
-        assertEquals("es", recorded?.getHeader("Accept-Language"))
+        val recorded = server.takeRequest()
+        assertEquals("es", recorded.getHeader("Accept-Language"))
     }
 
     @Test
-    fun `given no defaultLanguage when tracking request fired then Accept-Language header is absent`() {
+    fun `given no defaultLanguage when tracking request fired then Accept-Language header is absent`() = runTest {
         // Given: SDK configured without defaultLanguage
         Admoai.initialize(
             SDKConfig(
@@ -70,12 +68,12 @@ class AcceptLanguageTrackingTest {
         )
         server.enqueue(MockResponse().setResponseCode(200))
 
-        // When: a tracking request is fired (fire-and-forget, no collection required)
-        Admoai.getInstance().fireImpression(trackingInfo())
+        // When: a tracking request is fired
+        Admoai.getInstance().fireImpression(trackingInfo()).first()
 
         // Then: Accept-Language must NOT be present
-        val recorded = server.takeRequest(3, TimeUnit.SECONDS)
-        assertNull(recorded?.getHeader("Accept-Language"))
+        val recorded = server.takeRequest()
+        assertNull(recorded.getHeader("Accept-Language"))
     }
 
     @Test
