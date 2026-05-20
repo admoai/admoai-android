@@ -57,7 +57,9 @@ data class DeviceConfig(
                 osName = "Android",
                 osVersion = Build.VERSION.RELEASE,
                 timezone = TimeZone.getDefault().id,
-                deviceId = androidId
+                deviceId = androidId,
+                manufacturer = Build.MANUFACTURER,
+                language = java.util.Locale.getDefault().toLanguageTag()
             )
         }
     }
