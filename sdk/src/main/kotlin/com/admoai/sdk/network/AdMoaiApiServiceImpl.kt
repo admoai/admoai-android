@@ -95,6 +95,9 @@ internal class AdMoaiApiServiceImpl(
         try {
             val response: HttpResponse = httpClient.get(url) {
                 header(HttpHeaders.UserAgent, "AdMoaiSDK/$SDK_VERSION")
+                sdkConfig.defaultLanguage?.let { lang ->
+                    header(HttpHeaders.AcceptLanguage, lang)
+                }
                 sdkConfig.apiVersion?.let { version ->
                     header("X-Decision-Version", version)
                 }
