@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0](https://github.com/admoai/admoai-android/admoai/admoai-android/compare/v1.3.0...v1.4.0) (2026-05-27)
+
+
+### Added
+
+* **builder:** add clear* methods to DecisionRequestBuilder ([#41](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/41)) ([24fbbc5](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/24fbbc5d52b7f30b29b59ae18877eb7dd79e1017))
+* **builder:** add targeting deduplication and minConfidence validation ([#46](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/46)) ([0422443](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/04224432488f54ffd9be2fe2cd142d7662a05033))
+* **config:** complete systemDefault() for DeviceConfig and AppConfig ([#47](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/47)) ([e882f32](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/e882f32f3f961a7edff01a7bc5df8d88f6c377ba))
+* **network:** send Accept-Language header on tracking requests ([#45](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/45)) ([b9f8d85](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/b9f8d8572e1b7f17bed3ad10b656616c2a5a915c))
+* **network:** send User-Agent: AdMoaiSDK/{version} on all requests ([#40](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/40)) ([2ec1fa5](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/2ec1fa51372203176fa576149e251ab39e41fd14))
+* **response:** add getContent/hasContents/isType helpers to List&lt;Content&gt; ([#43](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/43)) ([8841e7b](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/8841e7b2c6fecad8e8dea9e3d6f10724eb101953))
+* **response:** add TrackingType enum and safe URL helpers to TrackingInfo ([#42](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/42)) ([747353d](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/747353d1c85ee0869fa26d487934b91ac19e1f1d))
+* **sdk:** make tracking fire-and-forget and expose public fireTracking(url) ([#44](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/44)) ([8e890b7](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/8e890b7eb3d68af79a7f7389642ac1a3a45b34e0))
+
+
+### Fixed
+
+* **response:** add UNKNOWN fallback to MetadataPriority — prevent SerializationException on future server values ([#54](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/54)) ([d0aacd7](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/d0aacd775f229f188682c1afb85cc1541c10061f))
+* **response:** make Advertiser.id nullable (String? instead of String = "") ([#39](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/39)) ([655a6c4](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/655a6c49b4997ccce83bb8e8f5d6d6796312e9e5))
+* send X-Decision-Version header on tracking requests ([#27](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/27)) ([ac6fa85](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/ac6fa8573172480eb4b9617ddb8c70095dc8798b)), closes [#26](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/26)
+* **test:** resolve nullable metadata access in Ktor3IntegrationTest ([#48](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/48)) ([c04cdb2](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/c04cdb222c01408c61873d474ff0930d9c8cf248))
+
+
+### Changed
+
+* bump version to 1.4.0 ([#55](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/55)) ([dadd88e](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/dadd88e842d1ab2d0a6eb66435ea3892cb6e4380))
+* release 1.1.2 ([#24](https://github.com/admoai/admoai-android/admoai/admoai-android/issues/24)) ([164aea7](https://github.com/admoai/admoai-android/admoai/admoai-android/commit/164aea7129c86e622d65ce92f44e4f57363e8d32))
+
 ## [1.3.0](https://github.com/admoai/admoai-android/admoai/admoai-android/compare/v1.2.0...v1.3.0) (2026-02-17)
 
 
