@@ -211,7 +211,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 for (impression in creative.tracking.impressions) {
                                     if (impression.url == trackingUrl) {
                                         android.util.Log.d(TAG, "[Tracking] Firing impression (key=${impression.key})")
-                                        sdk.fireImpression(creative.tracking, impression.key).collect {}
+                                        sdk.fireImpression(creative.tracking, impression.key)
                                         android.util.Log.d(TAG, "[Tracking] ✓ Impression fired successfully")
                                     }
                                 }
@@ -224,7 +224,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 for (click in creative.tracking.clicks) {
                                     if (click.url == trackingUrl) {
                                         android.util.Log.d(TAG, "[Tracking] Firing click (key=${click.key})")
-                                        sdk.fireClick(creative.tracking, click.key).collect {}
+                                        sdk.fireClick(creative.tracking, click.key)
                                         android.util.Log.d(TAG, "[Tracking] ✓ Click fired successfully")
                                     }
                                 }
@@ -780,7 +780,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 android.util.Log.d(TAG, "[Tracking] Firing impression (key=$key)")
-                sdk.fireImpression(tracking, key).collect {}
+                sdk.fireImpression(tracking, key)
                 android.util.Log.d(TAG, "[Tracking] ✓ Impression fired successfully")
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "[Tracking] Error firing impression: ${e.message}")
@@ -796,7 +796,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 android.util.Log.d(TAG, "[Tracking] Firing click (key=$key)")
-                sdk.fireClick(tracking, key).collect {}
+                sdk.fireClick(tracking, key)
                 android.util.Log.d(TAG, "[Tracking] ✓ Click fired successfully")
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "[Tracking] Error firing click: ${e.message}")
@@ -812,7 +812,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 android.util.Log.d(TAG, "[Tracking] Firing custom event (key=$key)")
-                sdk.fireCustomEvent(tracking, key).collect {}
+                sdk.fireCustomEvent(tracking, key)
                 android.util.Log.d(TAG, "[Tracking] ✓ Custom event fired successfully")
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "[Tracking] Error firing custom event: ${e.message}")
@@ -828,7 +828,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 android.util.Log.d(TAG, "[Tracking] Firing video event (key=$key)")
-                sdk.fireVideoEvent(tracking, key).collect {}
+                sdk.fireVideoEvent(tracking, key)
                 android.util.Log.d(TAG, "[Tracking] ✓ Video event '$key' fired successfully")
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "[Tracking] Error firing video event '$key': ${e.message}")
