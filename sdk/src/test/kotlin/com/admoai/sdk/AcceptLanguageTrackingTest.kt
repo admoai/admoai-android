@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import java.util.concurrent.TimeUnit
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -50,10 +51,10 @@ class AcceptLanguageTrackingTest {
         server.enqueue(MockResponse().setResponseCode(200))
 
         // When: a tracking request is fired
-        Admoai.getInstance().fireImpression(trackingInfo()).first()
+        Admoai.getInstance().fireImpression(trackingInfo())
 
         // Then: Accept-Language must be present on tracking
-        val recorded = server.takeRequest()
+        val recorded = requireNotNull(server.takeRequest(3, TimeUnit.SECONDS))
         assertEquals("es", recorded.getHeader("Accept-Language"))
     }
 
@@ -69,10 +70,10 @@ class AcceptLanguageTrackingTest {
         server.enqueue(MockResponse().setResponseCode(200))
 
         // When: a tracking request is fired
-        Admoai.getInstance().fireImpression(trackingInfo()).first()
+        Admoai.getInstance().fireImpression(trackingInfo())
 
         // Then: Accept-Language must NOT be present
-        val recorded = server.takeRequest()
+        val recorded = requireNotNull(server.takeRequest(3, TimeUnit.SECONDS))
         assertNull(recorded.getHeader("Accept-Language"))
     }
 
