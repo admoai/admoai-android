@@ -13,15 +13,17 @@ import kotlinx.serialization.Serializable
  * @property delivery Delivery method for video ads ("vast_tag", "vast_xml", "json")
  * @property vast VAST data containing tag URL or XML content for video ads
  * @property verificationScriptResources Open Measurement verification script resources for ad verification
+ * @property journey Read-only Journey Takeover metadata; null for normal (non-Journey) ads
  */
 @Serializable
 data class Creative(
     val contents: List<Content>,
     val advertiser: Advertiser,
-    val template: TemplateInfo? = null, 
+    val template: TemplateInfo? = null,
     val tracking: TrackingInfo,
     val metadata: CreativeMetadata? = null,
     val delivery: String? = null,
     val vast: VastData? = null,
-    val verificationScriptResources: List<VerificationScriptResource>? = null
+    val verificationScriptResources: List<VerificationScriptResource>? = null,
+    val journey: CreativeJourney? = null
 )
