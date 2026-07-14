@@ -28,12 +28,9 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
- * Decodes a JSON array element-by-element, silently dropping any element that fails to decode.
- * A JSON null or a non-array input yields an empty list. Encoding is unchanged.
- *
- * This is the Tolerant Reader "drop malformed list entries" primitive (the analogue of the iOS
- * `SafelyDecodable<T>`): one bad element never aborts the whole response. It requires the [Decoder]
- * to be a [JsonDecoder] (always true on the SDK's JSON transport); otherwise it delegates.
+ * Decodes a JSON array element-by-element, dropping any element that fails to decode; null/non-array
+ * → empty list. The Tolerant Reader "drop malformed list entries" primitive — one bad element never
+ * aborts the whole response.
  */
 internal open class DropMalformedListSerializer<T>(
     private val element: KSerializer<T>
@@ -53,9 +50,8 @@ internal open class DropMalformedListSerializer<T>(
 }
 
 /**
- * Decodes a single object, returning [default] on ANY failure (null, wrong type, malformed).
- * Lets a required sub-object degrade to a safe default instead of taking down its parent — the
- * analogue of iOS's `try?`-per-field. Keeps a renderable creative alive when one nested field is bad.
+ * Decodes a single object, returning [default] on any failure. Lets a required sub-object degrade
+ * to a safe default instead of dropping its parent (keeps a renderable creative alive).
  */
 internal open class DefaultOnErrorSerializer<T>(
     private val delegate: KSerializer<T>,
@@ -74,10 +70,8 @@ internal open class DefaultOnErrorSerializer<T>(
 }
 
 /**
- * Tolerant, non-breaking decode for OM `verificationParameters` (engine type is `any`). A JSON
- * string is used verbatim; a number/bool primitive uses its literal; an object/array is preserved
- * as compact JSON text; null/absent → null. Never throws, never a lossy `[object]` placeholder,
- * and keeps the public field type `String?` (source-compatible for consumers).
+ * Tolerant decode for OM `verificationParameters` (engine type `any`): string verbatim; object/array
+ * preserved as compact JSON text; null → null. Keeps the public `String?` type (non-breaking).
  */
 @OptIn(ExperimentalSerializationApi::class)
 internal object VerificationParametersSerializer : KSerializer<String?> {
@@ -100,9 +94,8 @@ internal object VerificationParametersSerializer : KSerializer<String?> {
 }
 
 /**
- * Decodes an OPTIONAL object, returning null on ANY failure (wrong type, malformed, or JSON null).
- * Lets a malformed optional sub-object degrade to null instead of dropping the whole (renderable)
- * creative — the tolerant counterpart of [DefaultOnErrorSerializer] for nullable fields.
+ * Decodes an optional object, returning null on any failure — a malformed optional field degrades
+ * to null instead of dropping the whole (renderable) creative. Nullable counterpart of [DefaultOnErrorSerializer].
  */
 @OptIn(ExperimentalSerializationApi::class)
 internal open class NullOnErrorSerializer<T : Any>(

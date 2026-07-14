@@ -26,11 +26,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import java.io.Closeable
 
-/**
- * Builds the API-deprecation warning message, or null when the response is not deprecated.
- * Pure and testable in isolation (no network). `deprecated` is the `X-API-Deprecated` header value;
- * `sunset` is the optional `Sunset` / `X-API-Sunset` value.
- */
+/** Builds the API-deprecation warning message, or null when not deprecated. Pure/testable. */
 internal fun deprecationWarningMessage(deprecated: String?, sunset: String?): String? {
     if (!deprecated.equals("true", ignoreCase = true)) return null
     return buildString {
@@ -115,9 +111,8 @@ internal class AdMoaiApiServiceImpl(
                 sdkConfig.defaultLanguage?.let { lang ->
                     header(HttpHeaders.AcceptLanguage, lang)
                 }
-                // GET /v1/tracking version-routes on X-Tracking-Version and IGNORES X-Decision-Version.
-                // Sending the wrong header silently falls back to the legacy handler, breaking Journey
-                // (CPT) completion recording.
+                // Tracking version-routes on X-Tracking-Version, NOT X-Decision-Version; the wrong
+                // header silently falls back to the legacy handler and breaks CPT completion.
                 sdkConfig.apiVersion?.let { version ->
                     header("X-Tracking-Version", version)
                 }

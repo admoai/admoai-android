@@ -10,9 +10,7 @@ import kotlinx.serialization.Serializable
  * and a list of creative objects that represent the actual ads to be displayed.
  *
  * @property placement The placement key this ad data is for, matching the requested placement
- * @property creatives List of creative objects containing the ad content and tracking information.
- *   Stays a non-null list: the engine's ordinary no-fill (`"creatives": null`) and the takeover
- *   `[]` both decode to an empty list (never a crash), and malformed entries are dropped.
+ * @property creatives Non-null list; no-fill (`null`) and takeover (`[]`) both decode to empty.
  */
 @Serializable
 data class AdData(
@@ -24,9 +22,5 @@ data class AdData(
 /** True when this placement returned at least one creative. */
 fun AdData.hasCreative(): Boolean = creatives.isNotEmpty()
 
-/**
- * True when this placement returned no ad. Treats `[]`, `null`, and absent creatives uniformly —
- * the SDK never distinguishes takeover-protected no-ad from ordinary no-fill (the engine emits no
- * reliable signal) and never substitutes a local ad.
- */
+/** True when this placement returned no ad (`[]`, `null`, and absent treated uniformly). */
 fun AdData.isNoAd(): Boolean = creatives.isEmpty()
