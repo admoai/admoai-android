@@ -83,6 +83,67 @@ fun MyAdScreen() {
 }
 ```
 
+## Journey Takeover Ads
+
+Journey Takeover Ads are single-brand, multi-stage experiences that follow a user across trip
+stages. All Journey logic (eligibility, stage progression, takeover protection, completion,
+billing) is owned by the decision engine — the SDK only forwards session context, surfaces
+read-only metadata, and fires the engine's tracking URLs verbatim.
+
+**Requires** `apiVersion = "2025-11-01"` (minimum Journey-capable engine version). Without it,
+Journey is ignored by the engine.
+
+```kotlin
+// 1. Configure with the Journey-capable API version and a stable, publisher-provided session id.
+Admoai.initialize(
+    baseUrl = "https://api.admoai.com",
+    apiVersion = "2025-11-01",
+    sessionId = "your-stable-session-id"
+)
+
+// The sessionId is sticky and seeded into every request builder. Rotate it explicitly per your
+// own rules (the SDK never generates or changes it). It is PII — keep it out of your own logs.
+Admoai.getInstance().setSessionId("new-session-id")
+
+// 2. Optionally opt a session in/out of Journey at serve time.
+val request = Admoai.getInstance().createRequestBuilder()
+    .addPlacement("home_feed")
+    .setJourneyOpt(JourneyOpt.OPT_IN) // or OPT_OUT
+    .build()
+
+// 3. Read the read-only Journey metadata off the served creative.
+if (creative.isJourneyAd()) {
+    val dealId = creative.journeyDealId()
+    val stageKey = creative.journeyStageKey()
+    val optStatus = creative.journeyOptStatus()
+}
+```
+
+### Completion
+
+Completion has two mutually-exclusive, engine-decided modes:
+
+- **`custom_event`** — the creative carries a completion beacon. Fire it once when the mapped
+  action occurs:
+  ```kotlin
+  Admoai.getInstance().fireCompletion(creative.tracking, key = "purchase")
+  ```
+  `fireCompletion` is a no-op when there is no completion beacon, so it is safe to call on any ad.
+- **`final_stage`** — completion is recorded server-side at decision time; there is no URL to fire.
+  Check `creative.isJourneyCompletion()`. Fire only the normal impression.
+
+### No-ad handling
+
+Single-brand takeover may return no ad rather than a competing brand. Treat `creatives` `[]`,
+`null`, and absent uniformly via `adData.isNoAd()` / `adData.hasCreative()`. Do not substitute a
+local ad.
+
+### Tracking notes
+
+- Tracking GETs are sent with the `X-Tracking-Version` header (from `apiVersion`).
+- For VAST delivery (`vast_tag` / `vast_xml`), impression/click beacons live inside the VAST
+  payload — do not also fire `creative.tracking` for VAST, or you will double-count.
+
 ## Documentation
 
 - **[SDK Documentation](./sdk/README.md)** - Complete API reference and integration guide

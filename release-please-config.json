@@ -18,7 +18,8 @@
       "pull-request-header": "## 🚀 Release ${version}",
       "extra-files": [
         "sdk/build.gradle.kts",
-        "gradle.properties"
+        "gradle.properties",
+        "sdk/src/main/kotlin/com/admoai/sdk/Version.kt"
       ],
       "changelog-sections": [
         { "type": "feat", "section": "Added", "hidden": false },

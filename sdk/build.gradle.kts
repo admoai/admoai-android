@@ -8,7 +8,7 @@ plugins {
     signing
 }
 
-val sdkVersion = "1.4.0"
+val sdkVersion = "1.4.0" // x-release-please-version
 val sdkGroupId = "com.admoai"
 val sdkArtifactId = "admoai-android"
 
