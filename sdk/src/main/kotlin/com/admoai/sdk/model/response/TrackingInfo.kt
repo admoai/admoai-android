@@ -9,13 +9,15 @@ import kotlinx.serialization.Serializable
  * @property clicks Click tracking URLs with named keys
  * @property custom Custom event tracking URLs with named keys
  * @property videoEvents Video-specific event tracking URLs with named keys
+ * @property completions Journey completion beacons (populated only for custom_event completion deals)
  */
 @Serializable
 data class TrackingInfo(
     val impressions: List<TrackingDetail>? = null,
     val clicks: List<TrackingDetail>? = null,
     val custom: List<TrackingDetail>? = null,
-    val videoEvents: List<TrackingDetail>? = null
+    val videoEvents: List<TrackingDetail>? = null,
+    val completions: List<TrackingDetail>? = null
 )
 
 fun TrackingInfo.getImpressionUrl(key: String = "default"): String? =
@@ -30,11 +32,15 @@ fun TrackingInfo.getCustomUrl(key: String): String? =
 fun TrackingInfo.getVideoEventUrl(key: String): String? =
     videoEvents?.firstOrNull { it.key == key }?.url
 
+fun TrackingInfo.getCompletionUrl(key: String): String? =
+    completions?.firstOrNull { it.key == key }?.url
+
 fun TrackingInfo.getTrackingUrl(type: TrackingType, key: String): String? = when (type) {
     TrackingType.IMPRESSION -> getImpressionUrl(key)
     TrackingType.CLICK -> getClickUrl(key)
     TrackingType.CUSTOM -> getCustomUrl(key)
     TrackingType.VIDEO_EVENT -> getVideoEventUrl(key)
+    TrackingType.COMPLETION -> getCompletionUrl(key)
 }
 
 fun TrackingInfo.hasTrackingFor(type: TrackingType, key: String): Boolean =

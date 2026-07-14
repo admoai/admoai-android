@@ -94,7 +94,7 @@ class AdmoaiIntegrationTest {
     }
 
     @Test
-    fun `fireTrackingUrl - apiVersion configured - sends X-Decision-Version header`() {
+    fun `fireTrackingUrl - apiVersion configured - sends X-Tracking-Version header`() {
         Admoai.resetForTesting()
         val baseUrl = "http://127.0.0.1:${server.port}/"
         Admoai.initialize(
@@ -115,12 +115,14 @@ class AdmoaiIntegrationTest {
 
         Admoai.getInstance().fireImpression(trackingInfo)
 
+        // GET /v1/tracking version-routes on X-Tracking-Version, never X-Decision-Version.
         val recordedRequest = server.takeRequest(3, TimeUnit.SECONDS)
-        assertEquals("1.2.0", recordedRequest?.getHeader("X-Decision-Version"))
+        assertEquals("1.2.0", recordedRequest?.getHeader("X-Tracking-Version"))
+        assertEquals(null, recordedRequest?.getHeader("X-Decision-Version"))
     }
 
     @Test
-    fun `fireTrackingUrl - no apiVersion configured - omits X-Decision-Version header`() {
+    fun `fireTrackingUrl - no apiVersion configured - omits X-Tracking-Version header`() {
         server.enqueue(MockResponse().setResponseCode(200))
 
         val trackingUrl = "http://127.0.0.1:${server.port}/track/impression"
@@ -131,7 +133,7 @@ class AdmoaiIntegrationTest {
         Admoai.getInstance().fireImpression(trackingInfo)
 
         val recordedRequest = server.takeRequest(3, TimeUnit.SECONDS)
-        assertEquals(null, recordedRequest?.getHeader("X-Decision-Version"))
+        assertEquals(null, recordedRequest?.getHeader("X-Tracking-Version"))
     }
 
     @Test

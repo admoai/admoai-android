@@ -98,8 +98,11 @@ internal class AdMoaiApiServiceImpl(
                 sdkConfig.defaultLanguage?.let { lang ->
                     header(HttpHeaders.AcceptLanguage, lang)
                 }
+                // GET /v1/tracking version-routes on X-Tracking-Version and IGNORES X-Decision-Version.
+                // Sending the wrong header silently falls back to the legacy handler, breaking Journey
+                // (CPT) completion recording.
                 sdkConfig.apiVersion?.let { version ->
-                    header("X-Decision-Version", version)
+                    header("X-Tracking-Version", version)
                 }
             }
             if (!response.status.isSuccess()) {

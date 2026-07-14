@@ -392,9 +392,12 @@ class AdmoaiTest {
     }
 
     private val sampleTrackingInfo = TrackingInfo(
-        impressions = listOf(TrackingDetail("default", "imp_default_url"), TrackingDetail("custom_imp", "imp_custom_url")),
-        clicks = listOf(TrackingDetail("default", "click_default_url")),
-        custom = listOf(TrackingDetail("event1", "custom_event1_url"))
+        impressions = listOf(
+            TrackingDetail("default", "https://track.admoai.com/imp_default"),
+            TrackingDetail("custom_imp", "https://track.admoai.com/imp_custom")
+        ),
+        clicks = listOf(TrackingDetail("default", "https://track.admoai.com/click_default")),
+        custom = listOf(TrackingDetail("event1", "https://track.admoai.com/custom_event1"))
     )
 
     @Test
@@ -404,10 +407,10 @@ class AdmoaiTest {
         admoai.sdkScope = this
         admoai.apiService = mockApiService
 
-        coEvery { mockApiService.fireTrackingUrl("imp_default_url") } returns flowOf(Unit)
+        coEvery { mockApiService.fireTrackingUrl("https://track.admoai.com/imp_default") } returns flowOf(Unit)
 
         admoai.fireImpression(sampleTrackingInfo, "default")
-        coVerify { mockApiService.fireTrackingUrl("imp_default_url") }
+        coVerify { mockApiService.fireTrackingUrl("https://track.admoai.com/imp_default") }
     }
 
     @Test
@@ -417,10 +420,10 @@ class AdmoaiTest {
         admoai.sdkScope = this
         admoai.apiService = mockApiService
 
-        coEvery { mockApiService.fireTrackingUrl("imp_custom_url") } returns flowOf(Unit)
+        coEvery { mockApiService.fireTrackingUrl("https://track.admoai.com/imp_custom") } returns flowOf(Unit)
 
         admoai.fireImpression(sampleTrackingInfo, "custom_imp")
-        coVerify { mockApiService.fireTrackingUrl("imp_custom_url") }
+        coVerify { mockApiService.fireTrackingUrl("https://track.admoai.com/imp_custom") }
     }
 
     @Test

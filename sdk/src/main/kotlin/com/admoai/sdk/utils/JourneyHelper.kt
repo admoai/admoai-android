@@ -22,6 +22,12 @@ fun Creative.isJourneyAd(): Boolean =
 /** Whether this serve completes the Journey (`final_stage` strategy). */
 fun Creative.isJourneyCompletion(): Boolean = journey?.isCompletion == true
 
+/**
+ * Whether this creative carries a completion beacon to fire (custom_event completion deals).
+ * final_stage serves and normal ads carry none.
+ */
+fun Creative.hasCompletionUrl(): Boolean = !tracking.completions.isNullOrEmpty()
+
 fun Creative.journeyDealId(): String? = journey?.dealId
 fun Creative.journeyInstanceId(): String? = journey?.instanceId
 fun Creative.journeyDefinitionKey(): String? = journey?.definitionKey

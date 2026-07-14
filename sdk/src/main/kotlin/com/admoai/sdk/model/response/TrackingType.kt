@@ -4,5 +4,6 @@ enum class TrackingType {
     IMPRESSION,
     CLICK,
     CUSTOM,
-    VIDEO_EVENT
+    VIDEO_EVENT,
+    COMPLETION
 }

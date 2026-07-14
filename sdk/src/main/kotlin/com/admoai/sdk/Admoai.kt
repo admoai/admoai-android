@@ -234,6 +234,11 @@ class Admoai private constructor() {
 
     fun fireTracking(url: String) {
         val currentApiService = apiService ?: return
+        if (!isAbsoluteHttpUrl(url)) {
+            // PII-safe: never log the opaque tracking URL / e= token, only a redacted reason.
+            log("Tracking URL rejected: not an absolute http(s) URL", LogLevel.WARNING)
+            return
+        }
         sdkScope.launch {
             try {
                 currentApiService.fireTrackingUrl(url).collect {}
@@ -243,6 +248,38 @@ class Admoai private constructor() {
                 // fire-and-forget: network failures never propagate to the caller
             }
         }
+    }
+
+    /**
+     * Fires the Journey completion beacon for [key] verbatim (custom_event completion deals).
+     *
+     * Quiet by design: a no-op when there are no completions (normal ads and final_stage Journey
+     * serves carry none). Warns only on a genuine key-miss against a non-empty completions list.
+     * Also warns if `apiVersion` is null when a URL would be fired — the callback would hit the
+     * legacy tracking handler and fail to record the completion (billing-critical).
+     */
+    fun fireCompletion(trackingInfo: TrackingInfo, key: String) {
+        val completions = trackingInfo.completions
+        if (completions.isNullOrEmpty()) return
+        val url = completions.firstOrNull { it.key == key }?.url
+        if (url == null) {
+            log("Journey completion key not found in completions list", LogLevel.WARNING)
+            return
+        }
+        if (sdkConfig?.apiVersion == null) {
+            log(
+                "Firing Journey completion without apiVersion; the callback may not record (legacy handler).",
+                LogLevel.WARNING
+            )
+        }
+        fireTracking(url)
+    }
+
+    private fun isAbsoluteHttpUrl(url: String): Boolean = try {
+        val uri = java.net.URI(url)
+        (uri.scheme == "http" || uri.scheme == "https") && !uri.host.isNullOrEmpty()
+    } catch (_: Exception) {
+        false
     }
 
     fun fireImpression(trackingInfo: TrackingInfo, key: String = "default") {
