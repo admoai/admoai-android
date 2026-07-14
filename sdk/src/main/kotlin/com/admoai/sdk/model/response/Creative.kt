@@ -1,5 +1,9 @@
 package com.admoai.sdk.model.response
 
+import com.admoai.sdk.serialization.AdvertiserOrDefaultSerializer
+import com.admoai.sdk.serialization.ContentListSerializer
+import com.admoai.sdk.serialization.TrackingInfoOrDefaultSerializer
+import com.admoai.sdk.serialization.VerificationResourceListSerializer
 import kotlinx.serialization.Serializable
 
 /**
@@ -17,13 +21,17 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class Creative(
-    val contents: List<Content>,
-    val advertiser: Advertiser,
+    @Serializable(with = ContentListSerializer::class)
+    val contents: List<Content> = emptyList(),
+    @Serializable(with = AdvertiserOrDefaultSerializer::class)
+    val advertiser: Advertiser = Advertiser(),
     val template: TemplateInfo? = null,
-    val tracking: TrackingInfo,
+    @Serializable(with = TrackingInfoOrDefaultSerializer::class)
+    val tracking: TrackingInfo = TrackingInfo(),
     val metadata: CreativeMetadata? = null,
     val delivery: String? = null,
     val vast: VastData? = null,
+    @Serializable(with = VerificationResourceListSerializer::class)
     val verificationScriptResources: List<VerificationScriptResource>? = null,
     val journey: CreativeJourney? = null
 )

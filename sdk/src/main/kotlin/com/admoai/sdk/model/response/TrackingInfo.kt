@@ -1,5 +1,6 @@
 package com.admoai.sdk.model.response
 
+import com.admoai.sdk.serialization.TrackingDetailListSerializer
 import kotlinx.serialization.Serializable
 
 /**
@@ -13,10 +14,15 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class TrackingInfo(
+    @Serializable(with = TrackingDetailListSerializer::class)
     val impressions: List<TrackingDetail>? = null,
+    @Serializable(with = TrackingDetailListSerializer::class)
     val clicks: List<TrackingDetail>? = null,
+    @Serializable(with = TrackingDetailListSerializer::class)
     val custom: List<TrackingDetail>? = null,
+    @Serializable(with = TrackingDetailListSerializer::class)
     val videoEvents: List<TrackingDetail>? = null,
+    @Serializable(with = TrackingDetailListSerializer::class)
     val completions: List<TrackingDetail>? = null
 )
 

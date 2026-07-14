@@ -2,6 +2,7 @@ package com.admoai.sdk.model.response
 
 import com.admoai.sdk.model.common.Error
 import com.admoai.sdk.model.common.Warning
+import com.admoai.sdk.serialization.AdDataListSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
@@ -16,7 +17,8 @@ import kotlinx.serialization.json.JsonElement
  */
 @Serializable
 data class DecisionResponse(
-    val success: Boolean,
+    val success: Boolean = false,
+    @Serializable(with = AdDataListSerializer::class)
     val data: List<AdData>? = null,
     val errors: List<Error>? = null,
     val warnings: List<Warning>? = null,

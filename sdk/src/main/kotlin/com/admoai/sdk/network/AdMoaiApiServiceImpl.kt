@@ -51,6 +51,7 @@ internal class AdMoaiApiServiceImpl(
         isLenient = true
         encodeDefaults = true
         explicitNulls = false
+        coerceInputValues = true // null -> default, invalid-enum -> default (Tolerant Reader)
         prettyPrint = sdkConfig.enableLogging
     }
 

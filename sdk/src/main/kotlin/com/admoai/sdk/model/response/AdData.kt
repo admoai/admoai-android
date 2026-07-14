@@ -16,7 +16,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class AdData(
-    val placement: String, // The placement key this ad data is for
+    val placement: String = "", // The placement key this ad data is for
     @Serializable(with = CreativeListSerializer::class)
     val creatives: List<Creative> = emptyList()
 )
