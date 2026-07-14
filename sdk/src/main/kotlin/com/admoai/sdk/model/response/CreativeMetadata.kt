@@ -64,5 +64,9 @@ data class CreativeMetadata(
     val format: String? = null,
     val duration: Int? = null,
     val aspectRatio: String? = null,
-    val isSkippable: Boolean? = null
+    val isSkippable: Boolean? = null,
+    // Journey / render-attribution metadata (2025-11-01+)
+    val impId: String? = null,
+    val skipOffsetSeconds: Int? = null,
+    val endCardMode: String? = null
 )
