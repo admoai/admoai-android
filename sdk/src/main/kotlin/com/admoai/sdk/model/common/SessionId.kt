@@ -6,8 +6,9 @@ internal const val MAX_SESSION_ID_BYTES = 256
 /**
  * Normalizes a raw `sessionId` to its wire form: trims whitespace, and maps blank → null.
  *
- * Over-length values are returned as-is — the SDK never truncates (a truncated id could collide
- * with a different valid session); the engine treats over-length as absent.
+ * The trimmed value is sent untruncated even when it exceeds the limit — the SDK never truncates
+ * (a truncated id could collide with a different valid session); the engine treats over-length as
+ * absent.
  */
 internal fun normalizeSessionId(raw: String?): String? = raw?.trim()?.takeIf { it.isNotEmpty() }
 

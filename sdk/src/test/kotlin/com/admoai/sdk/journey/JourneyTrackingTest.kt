@@ -20,6 +20,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -102,12 +103,16 @@ class JourneyTrackingTest {
 
     @Test
     fun `fireTracking rejects a non-absolute URL and logs a redacted reason`() = withMockedService { sdk, service, warnings ->
-        sdk.fireTracking("not-a-valid-url")
+        // A scheme-less URL carrying a sensitive-looking token; must be rejected and never logged.
+        sdk.fireTracking("//track.example/v1/tracking?e=SENSITIVE_TOKEN_VALUE")
         coVerify(exactly = 0) { service.fireTrackingUrl(any()) }
         val warn = warnings.firstOrNull { it.second == Admoai.LogLevel.WARNING }
         assertNotNull(warn)
-        // never leak the value
         assertTrue(warn!!.first.contains("Tracking URL rejected"))
+        // Redaction: neither the token nor the raw URL query may appear in the log.
+        assertFalse(warn.first.contains("SENSITIVE_TOKEN_VALUE"))
+        assertFalse(warn.first.contains("e="))
+        assertFalse(warn.first.contains("track.example"))
     }
 
     // --- X-Tracking-Version routing (positive + negative) ---

@@ -202,7 +202,9 @@ class Admoai private constructor() {
             targeting = mergedTargeting,
             app = appObject,
             device = deviceObject,
-            sessionId = initialDecisionRequest.sessionId,
+            // Normalize here too, so a directly-constructed DecisionRequest (bypassing the builder)
+            // still gets trimmed/blank->null wire form.
+            sessionId = normalizeSessionId(initialDecisionRequest.sessionId),
             journeyOpt = initialDecisionRequest.journeyOpt,
             collectAppData = initialDecisionRequest.collectAppData,
             collectDeviceData = initialDecisionRequest.collectDeviceData
@@ -339,6 +341,8 @@ class Admoai private constructor() {
                 defaultLanguage = defaultLanguage
             )
             initialize(config)
+            // Set after config is applied. initialize() is expected to run once at startup before
+            // any request, so the brief window where sessionId is not yet set carries no risk.
             sessionId?.let { getInstance().setSessionId(it) }
         }
         

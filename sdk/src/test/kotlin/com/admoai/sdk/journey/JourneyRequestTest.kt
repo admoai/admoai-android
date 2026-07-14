@@ -237,6 +237,33 @@ class JourneyRequestTest {
         )
     }
 
+    @Test
+    fun `over-length sessionId warning is PII-safe and never contains the value`() {
+        initSdk(apiVersion = "2025-11-01")
+        val sdk = Admoai.getInstance()
+        val captured = mutableListOf<String>()
+        sdk.logSink = { message, _, _ -> captured.add(message) }
+
+        val secret = "SECRET_SESSION_MARKER" + "a".repeat(300)
+        sdk.setSessionId(secret)
+
+        val warn = captured.firstOrNull { it.contains("exceeds_256_bytes") }
+        assertTrue("expected an exceeds_256_bytes reason", warn != null)
+        assertFalse("must not log the sessionId value", captured.any { it.contains("SECRET_SESSION_MARKER") })
+    }
+
+    @Test
+    fun `getHttpRequestData preview includes sessionId and journeyOpt`() {
+        initSdk(sessionId = "preview-sess", apiVersion = "2025-11-01")
+        val request = Admoai.getInstance().createRequestBuilder()
+            .addPlacement("p1")
+            .setJourneyOpt(JourneyOpt.OPT_IN)
+            .build()
+        val body = Admoai.getInstance().getHttpRequestData(request).body.orEmpty()
+        assertTrue(body.contains("\"sessionId\":\"preview-sess\""))
+        assertTrue(body.contains("\"journeyOpt\":\"in\""))
+    }
+
     private fun initSdk(
         sessionId: String? = null,
         apiVersion: String? = null,
