@@ -3,18 +3,11 @@ package com.admoai.sdk.utils
 import com.admoai.sdk.model.common.JourneyOpt
 import com.admoai.sdk.model.response.Creative
 
-/**
- * Read-only accessors for Journey Takeover metadata on a [Creative]. Keeps [Creative] lean and
- * mirrors the [VideoHelper]/[OMHelper] extension pattern. The SDK only surfaces this data — it
- * never runs Journey logic locally.
- */
+/** Read-only accessors for Journey Takeover metadata on a [Creative] (mirrors VideoHelper/OMHelper). */
 
 /**
- * Whether this creative is a Journey Takeover serve.
- *
- * Guards against a false positive from an empty/garbage `journey` object: tolerant decoding turns
- * `"journey": {}` into a non-null all-null [com.admoai.sdk.model.response.CreativeJourney], so a bare
- * null-check is insufficient. A real serve always carries `dealId`/`instanceId`.
+ * Whether this creative is a Journey serve. Checks a real identifier (not just non-null) so a
+ * tolerant `"journey": {}` decoding to an all-null object is not a false positive.
  */
 fun Creative.isJourneyAd(): Boolean =
     !journey?.dealId.isNullOrBlank() || !journey?.instanceId.isNullOrBlank()
@@ -22,10 +15,7 @@ fun Creative.isJourneyAd(): Boolean =
 /** Whether this serve completes the Journey (`final_stage` strategy). */
 fun Creative.isJourneyCompletion(): Boolean = journey?.isCompletion == true
 
-/**
- * Whether this creative carries a completion beacon to fire (custom_event completion deals).
- * final_stage serves and normal ads carry none.
- */
+/** Whether this creative carries a completion beacon to fire (custom_event deals only). */
 fun Creative.hasCompletionUrl(): Boolean = !tracking.completions.isNullOrEmpty()
 
 fun Creative.journeyDealId(): String? = journey?.dealId

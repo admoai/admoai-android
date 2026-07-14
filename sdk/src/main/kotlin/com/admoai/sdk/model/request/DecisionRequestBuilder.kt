@@ -125,9 +125,8 @@ class DecisionRequestBuilder internal constructor(
     fun setUserConsent(consent: Consent?) = apply { user = user.copy(consent = consent) }
 
     /**
-     * Sets the Journey session id for this request, overriding any sticky seed. Stored as the
-     * normalized wire form (trimmed; blank → null). A blank or over-length value triggers a
-     * PII-safe warning but is still forwarded as-is (never truncated); the engine ignores it.
+     * Sets the Journey session id for this request, overriding the sticky seed. Stored normalized
+     * (trimmed; blank → null). Blank/over-length triggers a PII-safe warning but is still sent.
      */
     fun setSessionId(sessionId: String?) = apply {
         sessionIdRejectionReason(sessionId)?.let { onSessionRejected?.invoke(it) }
@@ -172,8 +171,7 @@ class DecisionRequestBuilder internal constructor(
         clearPlacements()
         clearTargeting()
         clearUser()
-        // Asymmetry (matches iOS/Flutter): journeyOpt is a per-request control and must not leak a
-        // stale opt-out into a reused builder; the sticky sessionId is deliberately preserved.
+        // Clear journeyOpt (a stale opt-out would change eligibility) but preserve the sticky sessionId.
         journeyOpt = null
     }
 

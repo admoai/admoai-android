@@ -47,18 +47,11 @@ class Admoai private constructor() {
     private var deviceConfig: DeviceConfig? = null
     private var appConfig: AppConfig? = null
 
-    /**
-     * Sticky, publisher-provided Journey session id (normalized wire form). Seeded into every
-     * builder from [createRequestBuilder]; a per-request setter overrides it. Never auto-generated
-     * or auto-rotated by the SDK. `@Volatile` for safe publication across coroutines/threads.
-     */
+    /** Sticky publisher-provided Journey session id; seeded into each builder, per-request setter wins. */
     @Volatile
     private var stickySessionId: String? = null
 
-    /**
-     * Test seam for log capture. When set, [log] routes here instead of `android.util.Log`
-     * (which is a non-functional stub in JVM unit tests), after applying the visibility gate.
-     */
+    /** Test seam: when set, [log] routes here instead of `android.util.Log` (a stub in JVM unit tests). */
     @VisibleForTesting
     internal var logSink: ((String, LogLevel, Throwable?) -> Unit)? = null
 
@@ -114,10 +107,8 @@ class Admoai private constructor() {
     fun getAppConfig(): AppConfig? = this.appConfig
 
     /**
-     * Sets the sticky, publisher-provided Journey session id, seeded into every subsequently
-     * created request builder. Stored as the normalized wire form (trimmed; blank → null). Rotation
-     * is an explicit publisher action — the SDK never generates or changes it on its own. A blank or
-     * over-length value logs a PII-safe warning (reason token only) and is forwarded as-is.
+     * Sets the sticky Journey session id (seeded into each new builder). Rotation is explicit — the
+     * SDK never generates or changes it. Blank/over-length values log a PII-safe reason token only.
      */
     fun setSessionId(sessionId: String?) {
         sessionIdRejectionReason(sessionId)?.let {
@@ -185,15 +176,10 @@ class Admoai private constructor() {
             )
         } else null
 
-        // Journey context flows straight through — the builder (seeded from the sticky session) is the
-        // source of truth; do NOT re-inject the sticky value here so a per-request clear is honored.
         if ((initialDecisionRequest.sessionId != null || initialDecisionRequest.journeyOpt != null) &&
             sdkConfig?.apiVersion == null
         ) {
-            log(
-                "Journey context set but apiVersion is null; Journey will be ignored by the engine.",
-                LogLevel.WARNING
-            )
+            log("Journey context set but apiVersion is null; Journey will be ignored.", LogLevel.WARNING)
         }
 
         return DecisionRequest(
@@ -202,8 +188,8 @@ class Admoai private constructor() {
             targeting = mergedTargeting,
             app = appObject,
             device = deviceObject,
-            // Normalize here too, so a directly-constructed DecisionRequest (bypassing the builder)
-            // still gets trimmed/blank->null wire form.
+            // Journey context flows through the builder; do not re-inject sticky here (honors a
+            // per-request clear). Normalize so a directly-built DecisionRequest is trimmed too.
             sessionId = normalizeSessionId(initialDecisionRequest.sessionId),
             journeyOpt = initialDecisionRequest.journeyOpt,
             collectAppData = initialDecisionRequest.collectAppData,
@@ -255,12 +241,10 @@ class Admoai private constructor() {
     }
 
     /**
-     * Fires the Journey completion beacon for [key] verbatim (custom_event completion deals).
-     *
-     * Quiet by design: a no-op when there are no completions (normal ads and final_stage Journey
-     * serves carry none). Warns only on a genuine key-miss against a non-empty completions list.
-     * Also warns if `apiVersion` is null when a URL would be fired — the callback would hit the
-     * legacy tracking handler and fail to record the completion (billing-critical).
+     * Fires the custom_event Journey completion beacon for [key] verbatim. Quiet by design: a no-op
+     * when there are no completions (normal ads and final_stage serves carry none); warns only on a
+     * key-miss against a non-empty list, and when firing with a null apiVersion (billing-critical —
+     * the callback would hit the legacy tracking handler and not record).
      */
     fun fireCompletion(trackingInfo: TrackingInfo, key: String) {
         val completions = trackingInfo.completions
@@ -271,10 +255,7 @@ class Admoai private constructor() {
             return
         }
         if (sdkConfig?.apiVersion == null) {
-            log(
-                "Firing Journey completion without apiVersion; the callback may not record (legacy handler).",
-                LogLevel.WARNING
-            )
+            log("Firing Journey completion without apiVersion; it may not record.", LogLevel.WARNING)
         }
         fireTracking(url)
     }
@@ -307,8 +288,7 @@ class Admoai private constructor() {
     }
 
     internal fun log(message: String, level: LogLevel = LogLevel.INFO, throwable: Throwable? = null) {
-        // WARNING and ERROR always emit — they signal SDK misuse the integrator must see even when
-        // debug logging is off (e.g. a null apiVersion that silently disables Journey / breaks CPT).
+        // WARNING/ERROR always emit (misuse must surface even with debug logging off).
         if (sdkConfig?.enableLogging == true || level == LogLevel.WARNING || level == LogLevel.ERROR) {
             logSink?.let { it(message, level, throwable); return }
             val tag = "AdMoaiSDK"
@@ -341,8 +321,7 @@ class Admoai private constructor() {
                 defaultLanguage = defaultLanguage
             )
             initialize(config)
-            // Set after config is applied. initialize() is expected to run once at startup before
-            // any request, so the brief window where sessionId is not yet set carries no risk.
+            // initialize() runs once at startup before any request, so setting sessionId here is safe.
             sessionId?.let { getInstance().setSessionId(it) }
         }
         
