@@ -69,7 +69,9 @@ class Admoai private constructor() {
 
     private fun applyConfiguration(newConfig: SDKConfig) {
         this.sdkConfig = newConfig
-        this.apiService = AdMoaiApiServiceImpl(newConfig, newConfig.networkClientEngine)
+        this.apiService = AdMoaiApiServiceImpl(newConfig, newConfig.networkClientEngine) { message ->
+            log(message, LogLevel.WARNING)
+        }
     }
 
     suspend fun configure(newConfig: SDKConfig) {

@@ -26,10 +26,24 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import java.io.Closeable
 
+/**
+ * Builds the API-deprecation warning message, or null when the response is not deprecated.
+ * Pure and testable in isolation (no network). `deprecated` is the `X-API-Deprecated` header value;
+ * `sunset` is the optional `Sunset` / `X-API-Sunset` value.
+ */
+internal fun deprecationWarningMessage(deprecated: String?, sunset: String?): String? {
+    if (!deprecated.equals("true", ignoreCase = true)) return null
+    return buildString {
+        append("AdMoai API version is deprecated; upgrade the SDK / apiVersion.")
+        if (!sunset.isNullOrBlank()) append(" Sunset: $sunset.")
+    }
+}
+
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 internal class AdMoaiApiServiceImpl(
     private val sdkConfig: SDKConfig,
-    private val engine: HttpClientEngine?
+    private val engine: HttpClientEngine?,
+    private val logWarning: ((String) -> Unit)? = null
 ) : AdMoaiApiService, Closeable {
 
     private val json = Json {
@@ -67,7 +81,7 @@ internal class AdMoaiApiServiceImpl(
 
     override fun requestAds(request: DecisionRequest): Flow<DecisionResponse> = flow {
         try {
-            val response: DecisionResponse = httpClient.post("v1/decision") {
+            val httpResponse = httpClient.post("v1/decision") {
                 contentType(ContentType.Application.Json)
                 accept(ContentType.Application.Json)
                 header(HttpHeaders.UserAgent, "AdMoaiSDK/$SDK_VERSION")
@@ -78,7 +92,9 @@ internal class AdMoaiApiServiceImpl(
                     header("X-Decision-Version", version)
                 }
                 setBody(request)
-            }.body()
+            }
+            warnIfDeprecated(httpResponse)
+            val response: DecisionResponse = httpResponse.body()
 
             emit(response)
         } catch (e: CancellationException) {
@@ -136,6 +152,14 @@ internal class AdMoaiApiServiceImpl(
             headers = headers,
             body = body
         )
+    }
+
+    private fun warnIfDeprecated(response: HttpResponse) {
+        val message = deprecationWarningMessage(
+            deprecated = response.headers["X-API-Deprecated"],
+            sunset = response.headers["Sunset"] ?: response.headers["X-API-Sunset"]
+        ) ?: return
+        logWarning?.invoke(message)
     }
 
     override fun close() {
