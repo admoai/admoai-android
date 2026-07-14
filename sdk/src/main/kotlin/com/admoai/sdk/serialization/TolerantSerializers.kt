@@ -1,11 +1,17 @@
 package com.admoai.sdk.serialization
 
+import com.admoai.sdk.model.common.Error
+import com.admoai.sdk.model.common.Warning
 import com.admoai.sdk.model.response.AdData
 import com.admoai.sdk.model.response.Advertiser
 import com.admoai.sdk.model.response.Content
 import com.admoai.sdk.model.response.Creative
+import com.admoai.sdk.model.response.CreativeJourney
+import com.admoai.sdk.model.response.CreativeMetadata
+import com.admoai.sdk.model.response.TemplateInfo
 import com.admoai.sdk.model.response.TrackingDetail
 import com.admoai.sdk.model.response.TrackingInfo
+import com.admoai.sdk.model.response.VastData
 import com.admoai.sdk.model.response.VerificationScriptResource
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
@@ -93,6 +99,30 @@ internal object VerificationParametersSerializer : KSerializer<String?> {
     }
 }
 
+/**
+ * Decodes an OPTIONAL object, returning null on ANY failure (wrong type, malformed, or JSON null).
+ * Lets a malformed optional sub-object degrade to null instead of dropping the whole (renderable)
+ * creative — the tolerant counterpart of [DefaultOnErrorSerializer] for nullable fields.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+internal open class NullOnErrorSerializer<T : Any>(
+    private val delegate: KSerializer<T>
+) : KSerializer<T?> {
+    override val descriptor: SerialDescriptor = delegate.descriptor.nullable
+
+    override fun serialize(encoder: Encoder, value: T?) {
+        if (value == null) encoder.encodeNull() else delegate.serialize(encoder, value)
+    }
+
+    override fun deserialize(decoder: Decoder): T? {
+        val jsonDecoder = decoder as? JsonDecoder
+            ?: return runCatching { delegate.deserialize(decoder) }.getOrNull()
+        val element = jsonDecoder.decodeJsonElement()
+        if (element is JsonNull) return null
+        return runCatching { jsonDecoder.json.decodeFromJsonElement(delegate, element) }.getOrNull()
+    }
+}
+
 // Concrete drop-malformed list serializers (one no-arg type per element, for @Serializable(with=)).
 internal object AdDataListSerializer : DropMalformedListSerializer<AdData>(AdData.serializer())
 internal object ContentListSerializer : DropMalformedListSerializer<Content>(Content.serializer())
@@ -101,9 +131,20 @@ internal object TrackingDetailListSerializer :
     DropMalformedListSerializer<TrackingDetail>(TrackingDetail.serializer())
 internal object VerificationResourceListSerializer :
     DropMalformedListSerializer<VerificationScriptResource>(VerificationScriptResource.serializer())
+internal object ErrorListSerializer : DropMalformedListSerializer<Error>(Error.serializer())
+internal object WarningListSerializer : DropMalformedListSerializer<Warning>(Warning.serializer())
 
 // Required sub-objects that degrade to an empty default instead of dropping the whole creative.
 internal object AdvertiserOrDefaultSerializer :
     DefaultOnErrorSerializer<Advertiser>(Advertiser.serializer(), Advertiser())
 internal object TrackingInfoOrDefaultSerializer :
     DefaultOnErrorSerializer<TrackingInfo>(TrackingInfo.serializer(), TrackingInfo())
+
+// Optional sub-objects that degrade to null (never drop the creative) on a malformed value.
+internal object CreativeMetadataOrNullSerializer :
+    NullOnErrorSerializer<CreativeMetadata>(CreativeMetadata.serializer())
+internal object TemplateInfoOrNullSerializer :
+    NullOnErrorSerializer<TemplateInfo>(TemplateInfo.serializer())
+internal object VastDataOrNullSerializer : NullOnErrorSerializer<VastData>(VastData.serializer())
+internal object CreativeJourneyOrNullSerializer :
+    NullOnErrorSerializer<CreativeJourney>(CreativeJourney.serializer())
