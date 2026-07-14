@@ -1,15 +1,33 @@
 package com.admoai.sdk.model.request
 
 import com.admoai.sdk.exception.AdMoaiConfigurationException
+import com.admoai.sdk.model.common.JourneyOpt
+import com.admoai.sdk.model.common.normalizeSessionId
+import com.admoai.sdk.model.common.sessionIdRejectionReason
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 
-class DecisionRequestBuilder {
+/**
+ * Fluent builder for a [DecisionRequest].
+ *
+ * @param initialSessionId sticky session seed from the SDK instance (already publisher-provided).
+ * @param onSessionRejected PII-safe callback invoked with a rejection-reason token (never the value)
+ *   when [setSessionId] receives a blank or over-length id.
+ */
+class DecisionRequestBuilder internal constructor(
+    initialSessionId: String?,
+    private val onSessionRejected: ((String) -> Unit)?
+) {
+    /** Public constructor for direct/manual use (no config seeding, no logging callback). */
+    constructor() : this(null, null)
+
     private val placements: MutableList<Placement> = mutableListOf()
     private var targeting: Targeting = Targeting()
     private var user: User = User()
+    private var sessionId: String? = normalizeSessionId(initialSessionId)
+    private var journeyOpt: JourneyOpt? = null
     private var collectAppData: Boolean = true
-    private var collectDeviceData: Boolean = true 
+    private var collectDeviceData: Boolean = true
 
     fun disableAppCollection() = apply { collectAppData = false }
 
@@ -106,6 +124,22 @@ class DecisionRequestBuilder {
 
     fun setUserConsent(consent: Consent?) = apply { user = user.copy(consent = consent) }
 
+    /**
+     * Sets the Journey session id for this request, overriding any sticky seed. Stored as the
+     * normalized wire form (trimmed; blank → null). A blank or over-length value triggers a
+     * PII-safe warning but is still forwarded as-is (never truncated); the engine ignores it.
+     */
+    fun setSessionId(sessionId: String?) = apply {
+        sessionIdRejectionReason(sessionId)?.let { onSessionRejected?.invoke(it) }
+        this.sessionId = normalizeSessionId(sessionId)
+    }
+
+    fun clearSessionId() = apply { this.sessionId = null }
+
+    fun setJourneyOpt(journeyOpt: JourneyOpt?) = apply { this.journeyOpt = journeyOpt }
+
+    fun clearJourneyOpt() = apply { this.journeyOpt = null }
+
     fun clearGeoTargeting() = apply {
         targeting = targeting.copy(geo = null)
     }
@@ -138,6 +172,9 @@ class DecisionRequestBuilder {
         clearPlacements()
         clearTargeting()
         clearUser()
+        // Asymmetry (matches iOS/Flutter): journeyOpt is a per-request control and must not leak a
+        // stale opt-out into a reused builder; the sticky sessionId is deliberately preserved.
+        journeyOpt = null
     }
 
     fun build(): DecisionRequest {
@@ -157,6 +194,8 @@ class DecisionRequestBuilder {
             placements = placements.toList(),
             targeting = finalTargeting,
             user = finalUser,
+            sessionId = sessionId,
+            journeyOpt = journeyOpt,
             collectAppData = collectAppData,
             collectDeviceData = collectDeviceData
         )
