@@ -93,6 +93,26 @@ android {
     }
 }
 
+// Journey SDK-driven E2E runner (adhub#2360). A non-JUnit command runner: it drives the real SDK against
+// a locally-running decision-engine and asserts SDK-observable Journey business rules. NOT part of
+// `:sdk:test` (which stays hermetic). Boot the engine per the plan's recipe, then:
+//   ADMOAI_JOURNEY_E2E_BASE_URL=http://127.0.0.1:8080/ ./gradlew :sdk:journeyE2e
+// It runs on the unit-test runtime classpath (carries android.jar stubs + MockWebServer + Ktor CIO),
+// which is why the runner lives in src/test and can reach the SDK's internal test seams (logSink, etc.).
+afterEvaluate {
+    val unitTest = tasks.named<Test>("testDebugUnitTest").get()
+    tasks.register<JavaExec>("journeyE2e") {
+        group = "verification"
+        description = "Runs the Journey SDK-driven E2E runner against ADMOAI_JOURNEY_E2E_BASE_URL."
+        // Assigning the unit-test classpath (a task-output FileCollection) wires the compile dependencies
+        // automatically, so the runner's classes are built without executing the JUnit suite.
+        classpath = unitTest.classpath
+        mainClass.set("com.admoai.sdk.e2e.JourneyE2eRunnerKt")
+        environment("ADMOAI_JOURNEY_E2E_BASE_URL", System.getenv("ADMOAI_JOURNEY_E2E_BASE_URL") ?: "http://127.0.0.1:8080/")
+        environment("ADMOAI_JOURNEY_E2E_VERSION", System.getenv("ADMOAI_JOURNEY_E2E_VERSION") ?: "2025-11-01")
+    }
+}
+
 afterEvaluate {
     publishing {
         publications {
