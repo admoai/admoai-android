@@ -143,26 +143,46 @@ private const val PLACEMENT_TARGET_GEO = "sdk_e2e_target_geo"
 private const val PLACEMENT_CPT_COMPLETION = "sdk_e2e_cpt_completion"
 private const val PLACEMENT_FREQ_CAP = "sdk_e2e_frequency_cap"
 
+// Targeting match/no-match constants — MUST mirror the adhub#2361 seed
+// fixtures (apps/decision-engine/seed/mock/journeys.go). The seeded
+// deals centre on New York City with a 5 km radius and dest_min_confidence
+// 0.7, and the geo deal targets NYC's geoname id. A "pass" request lands
+// in-target; a "fail" request is deliberately out-of-target so the no-ad
+// is attributable to targeting alone (a competing normal ad still serves).
+private const val NYC_LAT = 40.7128
+private const val NYC_LON = -74.006
+private const val FAR_LAT = 0.0
+private const val FAR_LON = 0.0
+private const val DEST_CONFIDENCE_PASS = 0.9 // ≥ seed dest_min_confidence 0.7
+private const val DEST_CONFIDENCE_FAIL = 0.5 // < seed dest_min_confidence 0.7
+private const val GEONAME_MATCH = 5128581 // New York City — the seed's geo target
+private const val GEONAME_NO_MATCH = 2643743 // London — a real geoname (in the engine CSV) that is NOT the target
+
 /** Fresh, greppable session id per scenario group so Redis runtime state never bleeds across runs. */
 private fun freshSession(tag: String): String = "e2e-$tag-${System.nanoTime()}"
 
 private fun sdk() = Admoai.getInstance()
 
-private fun decide(build: DecisionRequestBuilder.() -> Unit): DecisionResponse {
-    val request = sdk().createRequestBuilder().apply(build).build()
+private fun decide(configure: DecisionRequestBuilder.() -> Unit): DecisionResponse {
+    val request = sdk().createRequestBuilder().apply(configure).build()
     return runBlocking { sdk().requestAds(request).first() }
 }
 
+// NOTE: the extra-config parameter is deliberately NOT named `build` — inside the `decide { }`
+// receiver lambda (receiver = DecisionRequestBuilder) an unqualified `build()` binds to the builder's
+// own `build(): DecisionRequest` member, not to the lambda parameter, so the caller's targeting/user
+// config would be silently dropped (the request would go out with no `targeting`/`user`). Naming it
+// `extra` removes the collision so `extra()` unambiguously applies the caller's config.
 private fun decideOn(
     placement: String,
     sessionId: String?,
     opt: JourneyOpt? = null,
-    build: DecisionRequestBuilder.() -> Unit = {},
+    extra: DecisionRequestBuilder.() -> Unit = {},
 ): DecisionResponse = decide {
     addPlacement(placement)
     sessionId?.let { setSessionId(it) }
     opt?.let { setJourneyOpt(it) }
-    build()
+    extra()
 }
 
 private fun DecisionResponse.adFor(placement: String): AdData? = data?.firstOrNull { it.placement == placement }
@@ -448,42 +468,49 @@ private fun groupJ(h: Harness) {
         // Request a later optional stage while the mandatory early stage is unserved.
         val blocked = decideOn(PLACEMENT_MANDATORY_LATER, sid, JourneyOpt.OPT_IN)
         expect(blocked.isNoAdFor(PLACEMENT_MANDATORY_LATER), "mandatory blocker must hold: no Journey ad on the later stage")
-        // Positive control: the competing normal ad should serve there when no Journey is active.
-        val control = decideOn(PLACEMENT_MANDATORY_LATER, freshSession("J1ctl")).creativeFor(PLACEMENT_MANDATORY_LATER)
+        // Positive control: with NO session (so no Journey can start), the competing normal ad must serve on
+        // the same placement — proving the blocked result above is takeover *suppression*, not an empty
+        // placement. A session with journeyOpt omitted would itself start (and hold) the Journey, so the
+        // control deliberately sends no session at all.
+        val control = decideOn(PLACEMENT_MANDATORY_LATER, sessionId = null).creativeFor(PLACEMENT_MANDATORY_LATER)
         expect(control != null, "control: the placement has inventory when no Journey holds it")
     }
 
     h.scenario("J2", "location targeting: inside serves, outside does not", "262") {
-        requireFixture(PLACEMENT_TARGET_LOCATION, "adhub#2361")
-        // The fixture's target circle is probed by requireFixture with default coords; here we send an
-        // explicitly-outside coordinate and expect no Journey (targeting excludes it).
-        val outside = decide {
-            addPlacement(PLACEMENT_TARGET_LOCATION)
-            setSessionId(freshSession("J2-out"))
-            setJourneyOpt(JourneyOpt.OPT_IN)
-            addLocationTarget(latitude = 0.0, longitude = 0.0)
+        // Presence + match in one: an in-target request must serve the Journey. If it does not, the fixture
+        // isn't seeded (a no-coord probe can't detect a location-gated deal — the engine drops it), so SKIP.
+        val inside = decideOn(PLACEMENT_TARGET_LOCATION, freshSession("J2-in"), JourneyOpt.OPT_IN) {
+            addLocationTarget(latitude = NYC_LAT, longitude = NYC_LON)
+        }.creativeFor(PLACEMENT_TARGET_LOCATION)
+        if (inside == null || !inside.isJourneyAd()) skip("fixture '$PLACEMENT_TARGET_LOCATION' not seeded (see adhub#2361)")
+        // Out-of-target coordinate → no Journey (a competing normal ad may serve instead).
+        val outside = decideOn(PLACEMENT_TARGET_LOCATION, freshSession("J2-out"), JourneyOpt.OPT_IN) {
+            addLocationTarget(latitude = FAR_LAT, longitude = FAR_LON)
         }.creativeFor(PLACEMENT_TARGET_LOCATION)
         expect(outside == null || !outside.isJourneyAd(), "an out-of-target location must not start the Journey")
     }
 
-    h.scenario("J3", "destination targeting: below-confidence / outside does not serve", "263-264") {
-        requireFixture(PLACEMENT_TARGET_DESTINATION, "adhub#2361")
-        val outside = decide {
-            addPlacement(PLACEMENT_TARGET_DESTINATION)
-            setSessionId(freshSession("J3-out"))
-            setJourneyOpt(JourneyOpt.OPT_IN)
-            addDestinationTarget(latitude = 0.0, longitude = 0.0, minConfidence = 0.0)
+    h.scenario("J3", "destination targeting: in-radius + confidence serves, below-confidence does not", "263-264") {
+        val inside = decideOn(PLACEMENT_TARGET_DESTINATION, freshSession("J3-in"), JourneyOpt.OPT_IN) {
+            addDestinationTarget(latitude = NYC_LAT, longitude = NYC_LON, minConfidence = DEST_CONFIDENCE_PASS)
         }.creativeFor(PLACEMENT_TARGET_DESTINATION)
-        expect(outside == null || !outside.isJourneyAd(), "an out-of-target destination must not start the Journey")
+        if (inside == null || !inside.isJourneyAd()) skip("fixture '$PLACEMENT_TARGET_DESTINATION' not seeded (see adhub#2361)")
+        // Same in-radius coordinate but a confidence below the deal's threshold → excluded by the confidence gate.
+        val below = decideOn(PLACEMENT_TARGET_DESTINATION, freshSession("J3-low"), JourneyOpt.OPT_IN) {
+            addDestinationTarget(latitude = NYC_LAT, longitude = NYC_LON, minConfidence = DEST_CONFIDENCE_FAIL)
+        }.creativeFor(PLACEMENT_TARGET_DESTINATION)
+        expect(below == null || !below.isJourneyAd(), "a below-confidence destination must not start the Journey")
     }
 
-    h.scenario("J4", "geo targeting: non-matching geoname does not serve", "261") {
-        requireFixture(PLACEMENT_TARGET_GEO, "adhub#2361")
-        val nonMatching = decide {
-            addPlacement(PLACEMENT_TARGET_GEO)
-            setSessionId(freshSession("J4-no"))
-            setJourneyOpt(JourneyOpt.OPT_IN)
-            addGeoTarget(id = 1) // deliberately non-matching geoname id
+    h.scenario("J4", "geo targeting: matching geoname serves, non-matching does not", "261") {
+        val match = decideOn(PLACEMENT_TARGET_GEO, freshSession("J4-yes"), JourneyOpt.OPT_IN) {
+            addGeoTarget(id = GEONAME_MATCH)
+        }.creativeFor(PLACEMENT_TARGET_GEO)
+        if (match == null || !match.isJourneyAd()) skip("fixture '$PLACEMENT_TARGET_GEO' not seeded (see adhub#2361)")
+        // A real, valid geoname that is NOT the target → no Journey. (Using an id absent from the engine's
+        // geoname set would 400 instead of cleanly not-matching, so the no-match id must be a real geoname.)
+        val nonMatching = decideOn(PLACEMENT_TARGET_GEO, freshSession("J4-no"), JourneyOpt.OPT_IN) {
+            addGeoTarget(id = GEONAME_NO_MATCH)
         }.creativeFor(PLACEMENT_TARGET_GEO)
         expect(nonMatching == null || !nonMatching.isJourneyAd(), "a non-matching geo target must not start the Journey")
     }
