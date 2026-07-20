@@ -13,8 +13,13 @@ import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sdk.model.response.TrackingDetail
 import com.admoai.sdk.model.response.TrackingInfo
 import com.admoai.sdk.model.response.isNoAd
+import com.admoai.sdk.utils.getVastTagUrl
+import com.admoai.sdk.utils.getVastXmlBase64
 import com.admoai.sdk.utils.isJourneyAd
 import com.admoai.sdk.utils.isJourneyCompletion
+import com.admoai.sdk.utils.isJsonDelivery
+import com.admoai.sdk.utils.isVastTagDelivery
+import com.admoai.sdk.utils.isVastXmlDelivery
 import com.admoai.sdk.utils.journeyDefinitionKey
 import com.admoai.sdk.utils.journeyFallbackBillingMode
 import com.admoai.sdk.utils.journeyInstanceId
@@ -142,6 +147,29 @@ private const val PLACEMENT_TARGET_DESTINATION = "sdk_e2e_target_destination"
 private const val PLACEMENT_TARGET_GEO = "sdk_e2e_target_geo"
 private const val PLACEMENT_CPT_COMPLETION = "sdk_e2e_cpt_completion"
 private const val PLACEMENT_FREQ_CAP = "sdk_e2e_frequency_cap"
+
+// Phase-2 dedicated placements (adhub#2362). Absent until Phase-2 seeds land → SKIP.
+private const val PLACEMENT_SHORT_TTL = "sdk_e2e_short_ttl"
+private const val PLACEMENT_VIDEO_JSON = "sdk_e2e_video_json"
+private const val PLACEMENT_VIDEO_VAST_TAG = "sdk_e2e_video_vast_tag"
+private const val PLACEMENT_VIDEO_VAST_XML = "sdk_e2e_video_vast_xml"
+
+// Phase-2 "deeper coverage" placements (adhub#2362): 3-node stage + TTL refresh, freq-cap continuation,
+// optional-stage skip, and final_stage CPT completion / completed-journey behaviour.
+private const val PLACEMENT_MULTINODE_A = "sdk_e2e_multinode_a"
+private const val PLACEMENT_MULTINODE_B = "sdk_e2e_multinode_b"
+private const val PLACEMENT_MULTINODE_C = "sdk_e2e_multinode_c"
+private const val PLACEMENT_FREQ_CAP_LATER = "sdk_e2e_frequency_cap_later"
+private const val PLACEMENT_OPTSKIP_EARLY = "sdk_e2e_optskip_early"
+private const val PLACEMENT_OPTSKIP_LATER = "sdk_e2e_optskip_later"
+private const val PLACEMENT_CPT_FINAL_EARLY = "sdk_e2e_cpt_final_early"
+private const val PLACEMENT_CPT_FINAL_COMPLETE = "sdk_e2e_cpt_final_complete"
+// The short-TTL fixtures seed runtime_state_ttl_seconds = 5s (journeys.go). For §F1 (expiry) wait
+// comfortably PAST the TTL with no activity. For §F2 (refresh) use a gap SHORTER than the TTL so the
+// mid serve lands inside the window and refreshes it; two such gaps total > TTL, proving the instance
+// did not expire on its original creation time. Both must stay consistent with the seeded 5s TTL.
+private const val SHORT_TTL_WAIT_MS = 8_000L
+private const val TTL_REFRESH_GAP_MS = 3_000L
 
 // Targeting match/no-match constants — MUST mirror the adhub#2361 seed
 // fixtures (apps/decision-engine/seed/mock/journeys.go). The seeded
@@ -328,6 +356,27 @@ private fun groupB(h: Harness) {
         // rather than over-assert. isJourneyCompletion() is only asserted true where a CPT completion fixture
         // guarantees it (§H2).
     }
+
+    h.scenario("B6", "three nodes in one stage each serve once (multi-node)", "5") {
+        requireFixture(PLACEMENT_MULTINODE_A, "adhub#2362")
+        val sid = freshSession("B6")
+        val a = decideOn(PLACEMENT_MULTINODE_A, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_MULTINODE_A)
+        expect(a != null && a.isJourneyAd(), "node A serves and starts the instance")
+        val instance = a!!.journeyInstanceId()
+        val stage = a.journeyStageKey()
+        val nodeA = a.journeyStageNodeId()
+        val b = decideOn(PLACEMENT_MULTINODE_B, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_MULTINODE_B)
+        expect(b != null && b.isJourneyAd(), "node B serves within the same stage")
+        expect(b!!.journeyStageKey() == stage && b.journeyInstanceId() == instance, "B: same stage + same instance")
+        expect(b.journeyStageNodeId() != nodeA, "B is a different node than A")
+        val c = decideOn(PLACEMENT_MULTINODE_C, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_MULTINODE_C)
+        expect(c != null && c.isJourneyAd(), "node C serves within the same stage")
+        expect(
+            c!!.journeyInstanceId() == instance &&
+                c.journeyStageNodeId() != nodeA && c.journeyStageNodeId() != b.journeyStageNodeId(),
+            "C: distinct node, same instance (stage never regresses)",
+        )
+    }
 }
 
 /** §C Opt-in / opt-out + new-instance. */
@@ -434,6 +483,26 @@ private fun groupE(h: Harness) {
             .creativeFor(PLACEMENT_FREQ_CAP)
         expect(capped == null || !capped.isJourneyAd(), "entry ${cap + 1} must be blocked by the frequency cap")
     }
+
+    h.scenario("E2", "frequency cap never blocks an already-active instance's continuation", "13") {
+        // Gate on the Phase-2 continuation node (adhub#2362); the base freq-cap fixture alone is not enough.
+        requireFixture(PLACEMENT_FREQ_CAP_LATER, "adhub#2362")
+        val user = "e2e-freq-cont-${System.nanoTime()}"
+        // Exhaust the per-user cap (2) with two fresh sessions.
+        val s1 = freshSession("E2-1")
+        val c1 = decideOn(PLACEMENT_FREQ_CAP, s1, JourneyOpt.OPT_IN) { setUserId(user) }.creativeFor(PLACEMENT_FREQ_CAP)
+        expect(c1 != null && c1.isJourneyAd(), "instance 1 starts")
+        val instance1 = c1!!.journeyInstanceId()
+        val c2 = decideOn(PLACEMENT_FREQ_CAP, freshSession("E2-2"), JourneyOpt.OPT_IN) { setUserId(user) }.creativeFor(PLACEMENT_FREQ_CAP)
+        expect(c2 != null && c2.isJourneyAd(), "instance 2 starts (cap = 2)")
+        // A 3rd NEW instance is capped...
+        val blocked = decideOn(PLACEMENT_FREQ_CAP, freshSession("E2-3"), JourneyOpt.OPT_IN) { setUserId(user) }.creativeFor(PLACEMENT_FREQ_CAP)
+        expect(blocked == null || !blocked.isJourneyAd(), "a 3rd NEW instance is blocked by the cap")
+        // ...but instance 1 CONTINUES on its later node despite the cap being full.
+        val cont = decideOn(PLACEMENT_FREQ_CAP_LATER, s1, JourneyOpt.OPT_IN) { setUserId(user) }.creativeFor(PLACEMENT_FREQ_CAP_LATER)
+        expect(cont != null && cont.isJourneyAd(), "the active instance continues past the cap")
+        expect(cont!!.journeyInstanceId() == instance1, "continuation stays on the same (already-active) instance")
+    }
 }
 
 /** §H CPT / fallback SDK-observable surfaces — needs the CPT completion fixture (adhub#2361). */
@@ -447,6 +516,32 @@ private fun groupH(h: Harness) {
         expect(!c.journeyFallbackBillingMode().isNullOrBlank(), "fallbackBillingMode should be surfaced")
         // Completion beacon + isCompletion are asserted where the fixture serves the completion node; the
         // runner records the observed value here to avoid over-asserting stage geometry it doesn't control.
+    }
+
+    h.scenario("H3", "final-stage CPT serve flips isCompletion=true", "17") {
+        requireFixture(PLACEMENT_CPT_FINAL_EARLY, "adhub#2362")
+        val sid = freshSession("H3")
+        val early = decideOn(PLACEMENT_CPT_FINAL_EARLY, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_CPT_FINAL_EARLY)
+        expect(early != null && early.isJourneyAd(), "pre-completion stage serves")
+        expect(early!!.journey?.isCompletion != true, "pre-completion serve is not a completion") // != true (nullable)
+        val complete = decideOn(PLACEMENT_CPT_FINAL_COMPLETE, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_CPT_FINAL_COMPLETE)
+        expect(complete != null && complete.isJourneyAd(), "completion stage serves")
+        expect(complete!!.isJourneyCompletion(), "serving the final stage flips isCompletion=true")
+        expect(complete.journeyPricingModel() == "cpt", "CPT pricing surfaced on the completion serve")
+    }
+
+    h.scenario("H4", "after completion, takeover protection ends (a normal ad can serve)", "20") {
+        requireFixture(PLACEMENT_CPT_FINAL_EARLY, "adhub#2362")
+        val sid = freshSession("H4")
+        // Drive the instance to completion: early stage, then the completion stage.
+        decideOn(PLACEMENT_CPT_FINAL_EARLY, sid, JourneyOpt.OPT_IN)
+        val complete = decideOn(PLACEMENT_CPT_FINAL_COMPLETE, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_CPT_FINAL_COMPLETE)
+        expect(complete != null && complete.isJourneyCompletion(), "journey completes on the completion stage")
+        // Takeover protection ended with completion: the completed instance no longer holds the surface, so a
+        // request that does not ask for a fresh Journey (opt-out) falls through to the competing normal ad.
+        // (A continued opt-in instead mints a NEW instance — either way the completed instance never resumes.)
+        val after = decideOn(PLACEMENT_CPT_FINAL_COMPLETE, sid, JourneyOpt.OPT_OUT).creativeFor(PLACEMENT_CPT_FINAL_COMPLETE)
+        expect(after != null && !after.isJourneyAd(), "after completion + opt-out, the competing normal ad serves (takeover ended)")
     }
 }
 
@@ -514,16 +609,88 @@ private fun groupJ(h: Harness) {
         }.creativeFor(PLACEMENT_TARGET_GEO)
         expect(nonMatching == null || !nonMatching.isJourneyAd(), "a non-matching geo target must not start the Journey")
     }
+
+    h.scenario("J5", "optional stage is skipped; a skipped stage cannot serve later", "7") {
+        requireFixture(PLACEMENT_OPTSKIP_LATER, "adhub#2362")
+        val sid = freshSession("J5")
+        // Request the LATER placement: the earlier optional stage has no node here, so it is skipped
+        // (optional), and the later stage serves. (Contrast the mandatory blocker §J1, which HOLDS.)
+        val later = decideOn(PLACEMENT_OPTSKIP_LATER, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_OPTSKIP_LATER)
+        expect(later != null && later.isJourneyAd(), "later optional stage serves after the earlier one is skipped")
+        expect(later!!.journeyStageKey() == "later", "the served stage is the later one")
+        // The skipped earlier stage cannot serve afterward on its own placement (next_stage_order advanced past it).
+        val early = decideOn(PLACEMENT_OPTSKIP_EARLY, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_OPTSKIP_EARLY)
+        expect(early == null || !early.isJourneyAd(), "a skipped stage cannot serve later")
+    }
 }
 
 /** §F/§G Phase-2 groups (short-TTL, video) — always SKIP until adhub#2362 seeds land. */
 private fun groupPhase2(h: Harness) {
     println("§F/§G Phase-2 (TTL, video)")
     h.scenario("F1", "runtime TTL expiry restarts the Journey", "104", "107", "110") {
-        skip("Phase-2 short-TTL fixture not seeded (see adhub#2362)")
+        requireFixture(PLACEMENT_SHORT_TTL, "adhub#2362")
+        val sid = freshSession("F1")
+        val first = decideOn(PLACEMENT_SHORT_TTL, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_SHORT_TTL)
+        expect(first != null && first.isJourneyAd(), "short-TTL stage should serve on a fresh session")
+        val firstInstance = first!!.journeyInstanceId()
+        expect(!firstInstance.isNullOrBlank(), "first serve must carry an instanceId")
+        expect(!first.isJourneyCompletion(), "first serve is not a completion")
+        // Wait past the fixture's runtime_state_ttl_seconds so the runtime-state key expires in Redis.
+        Thread.sleep(SHORT_TTL_WAIT_MS)
+        val second = decideOn(PLACEMENT_SHORT_TTL, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_SHORT_TTL)
+        expect(second != null && second.isJourneyAd(), "re-request on the same session after TTL should serve again")
+        expect(
+            !second!!.journeyInstanceId().isNullOrBlank() && second.journeyInstanceId() != firstInstance,
+            "a NEW journey_instance_id must be issued after runtime-state TTL expiry",
+        )
+        expect(!second.isJourneyCompletion(), "no completion was emitted across the TTL restart")
     }
-    h.scenario("G2", "SDK does not duplicate VAST tracking", "222-224", "P0#14") {
-        skip("Phase-2 video fixtures not seeded (see adhub#2362)")
+
+    h.scenario("F2", "qualifying activity refreshes the runtime TTL (no expiry on creation time)", "15") {
+        requireFixture(PLACEMENT_MULTINODE_A, "adhub#2362")
+        val sid = freshSession("F2")
+        val a = decideOn(PLACEMENT_MULTINODE_A, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_MULTINODE_A)
+        expect(a != null && a.isJourneyAd(), "node A serves and starts the instance")
+        val instance = a!!.journeyInstanceId()
+        // Mid-window activity (gap < TTL): serving a NEW node refreshes the runtime-state key's EX ttl.
+        Thread.sleep(TTL_REFRESH_GAP_MS)
+        val b = decideOn(PLACEMENT_MULTINODE_B, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_MULTINODE_B)
+        expect(b != null && b.isJourneyAd() && b.journeyInstanceId() == instance, "node B: same instance, and its serve refreshes the TTL")
+        // Another sub-TTL gap. Total elapsed (2 gaps) now exceeds the original TTL; without the refresh the
+        // instance would already have expired on its creation-time deadline.
+        Thread.sleep(TTL_REFRESH_GAP_MS)
+        val c = decideOn(PLACEMENT_MULTINODE_C, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_MULTINODE_C)
+        expect(c != null && c.isJourneyAd(), "node C serves past the original TTL window")
+        expect(c!!.journeyInstanceId() == instance, "same instance — the mid activity refreshed the TTL (no expiry on original creation time)")
+    }
+    h.scenario("G1", "JSON video node exposes video delivery + fires JSON tracking", "283", "221") {
+        requireFixture(PLACEMENT_VIDEO_JSON, "adhub#2362")
+        val c = decideOn(PLACEMENT_VIDEO_JSON, freshSession("G1"), JourneyOpt.OPT_IN).creativeFor(PLACEMENT_VIDEO_JSON)
+        expect(c != null && c.isJourneyAd(), "JSON video journey should serve")
+        expect(c!!.isJsonDelivery(), "delivery mode should be json")
+        // JSON video is served with SDK-fired JSON tracking (the SDK owns these, unlike VAST-embedded beacons).
+        expect(!c.tracking.impressions?.firstOrNull()?.url.isNullOrBlank(), "JSON video exposes an impression tracking URL")
+    }
+
+    h.scenario("G2", "VAST tag/xml returned; SDK fires no VAST-owned beacons", "284-285", "222-224", "P0#14") {
+        requireFixture(PLACEMENT_VIDEO_VAST_TAG, "adhub#2362")
+        val tag = decideOn(PLACEMENT_VIDEO_VAST_TAG, freshSession("G2-tag"), JourneyOpt.OPT_IN).creativeFor(PLACEMENT_VIDEO_VAST_TAG)
+        expect(tag != null && tag.isJourneyAd(), "VAST-tag video journey should serve")
+        expect(tag!!.isVastTagDelivery(), "delivery mode should be vast_tag")
+        // getVastTagUrl() with no args returns the raw signed tag URL and never touches android.util.
+        expect(!tag.getVastTagUrl().isNullOrBlank(), "a VAST tag URL must be returned for the player")
+        // P0 #14: VAST-owned impression/quartile/click beacons live INSIDE the VAST document (the player's
+        // job). The SDK must not surface them as its own fireable video-event beacons, and it never
+        // auto-fires anything (all firing is an explicit fireX call, which this scenario never makes).
+        expect(tag.tracking.videoEvents.isNullOrEmpty(), "SDK must not surface VAST-owned video-event beacons (player owns them)")
+
+        requireFixture(PLACEMENT_VIDEO_VAST_XML, "adhub#2362")
+        val xml = decideOn(PLACEMENT_VIDEO_VAST_XML, freshSession("G2-xml"), JourneyOpt.OPT_IN).creativeFor(PLACEMENT_VIDEO_VAST_XML)
+        expect(xml != null && xml.isJourneyAd(), "VAST-xml video journey should serve")
+        expect(xml!!.isVastXmlDelivery(), "delivery mode should be vast_xml")
+        // getVastXmlBase64() with no args returns the raw base64 without touching android.util.Base64.
+        expect(!xml.getVastXmlBase64().isNullOrBlank(), "inline VAST XML (base64) must be returned for the player")
+        expect(xml.tracking.videoEvents.isNullOrEmpty(), "SDK must not surface VAST-owned video-event beacons (player owns them)")
     }
 }
 
