@@ -261,6 +261,24 @@ private fun preflight(baseUrl: String) {
                 "is_journey_ads_enabled is OFF, Redis is down, or the mock seeds are not loaded. Check the boot recipe.",
         )
     }
+
+    // 4. Demo-fixture ownership. §B drives the SHIPPED `ride_hailing_journey` across the shared demo
+    // placements (vehicleSelection/search/journey/rideSummary) — the only fixture in the suite NOT on a
+    // dedicated e2e placement, and therefore the only one another Journey Deal can take over. Any locally
+    // created deal on those placements (platform-UI QA work), or a demo deal left inactive/draft, silently
+    // owns the surface; §B then reports four opaque assertion failures that read like SDK/engine
+    // regressions but are pure environment drift. Diagnose it here as what it is: an unusable environment
+    // (exit 2), not a test failure.
+    val servedDefinition = creative.journeyDefinitionKey()
+    if (servedDefinition != RIDE_HAILING_DEF) {
+        abort(
+            "'$PLACEMENT_PRE_RIDE_A' is served by Journey definition '${servedDefinition ?: "<none>"}', not the " +
+                "expected demo '$RIDE_HAILING_DEF' — this DB is not a clean mock seed. Either a locally created " +
+                "Journey Deal outranks the demo deal, or the demo deal is no longer active. Reset it: " +
+                "`make db-reset` in apps/decision-engine, then restart the engine with the gate on " +
+                "(seeds load only into an empty DB). NOTE: db-reset destroys locally created platform data.",
+        )
+    }
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -419,9 +437,25 @@ private fun groupD(h: Harness) {
         expect(c != null && c.isJourneyAd(), "need a Journey serve to inspect tracking")
         val url = c!!.tracking.impressions?.firstOrNull()?.url
         expect(url != null, "a served Journey creative must carry an impression tracking URL")
-        expect(url!!.startsWith("http://") || url.startsWith("https://"), "tracking URL must be absolute")
-        expect(url.contains("/v1/tracking"), "tracking path must be /v1/tracking")
-        expect(url.contains("e="), "tracking URL must carry the opaque ?e= token")
+        expectTrackingTransport(url, "impression tracking URL")
+    }
+
+    // Regression guard for adhub#2483: `tracking.clicks` was [] on EVERY Journey serve for weeks — the
+    // resolver derived the click destination by matching content rows against snake_case keys (cta_url,
+    // click_url, …) while every template field the platform creates is camelCase (destinationUrl,
+    // clickThroughUrl, …), so nothing ever matched and the resolver correctly dropped the click URL.
+    // This suite stayed green throughout, because §D asserted impressions only and never claimed that a
+    // Journey creative with a destination exposes a click URL at all. It does now.
+    // Driven from a dedicated e2e placement (its `standard` template carries `destinationUrl`), so the
+    // guard cannot be masked by demo-fixture drift.
+    h.scenario("D5", "served Journey creative exposes a click tracking URL", "adhub#2483") {
+        requireFixture(PLACEMENT_CPT_COMPLETION, "adhub#2361")
+        val c = decideOn(PLACEMENT_CPT_COMPLETION, freshSession("D5"), JourneyOpt.OPT_IN)
+            .creativeFor(PLACEMENT_CPT_COMPLETION)
+        expect(c != null && c.isJourneyAd(), "need a Journey serve to inspect click tracking")
+        val clicks = c!!.tracking.clicks
+        expect(!clicks.isNullOrEmpty(), "a served Journey creative with a destination must expose a click tracking URL")
+        expectTrackingTransport(clicks!!.first().url, "click tracking URL")
     }
 
     h.scenario("D2", "SDK fires the impression URL verbatim and is retry-safe", "214", "200") {
@@ -437,6 +471,18 @@ private fun groupD(h: Harness) {
         val creative = repeat.creativeFor(PLACEMENT_PRE_RIDE_A)
         expect(creative == null, "no-ad must expose no creative (and therefore no tracking URLs)")
     }
+}
+
+/**
+ * The transport contract every SDK-surfaced Journey tracking URL must satisfy: absolute, `/v1/tracking`,
+ * and carrying the opaque `?e=` token. Identity lives inside the encrypted token (engine-owned), so the
+ * shape is all a black-box client can — and should — assert.
+ */
+private fun expectTrackingTransport(url: String?, label: String) {
+    expect(url != null, "$label must be present")
+    expect(url!!.startsWith("http://") || url.startsWith("https://"), "$label must be absolute")
+    expect(url.contains("/v1/tracking"), "$label path must be /v1/tracking")
+    expect(url.contains("e="), "$label must carry the opaque ?e= token")
 }
 
 /**
