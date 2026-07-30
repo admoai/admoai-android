@@ -242,6 +242,15 @@ Every setter has a matching clear: `clearGeoTargeting()`, `clearLocationTargetin
 (`setGeoTargets`, `setLocationTargets`, `setDestinationTargets`, `setCustomTargets`, `setPlacements`)
 replace the whole list instead of appending.
 
+`clearAll()` resets a builder for reuse: it drops placements, targeting and user, stops automatic
+app and device collection, and clears `journeyOpt`. It deliberately **keeps** the sticky
+`sessionId` — that is session-scoped state, not per-request state, so a journey survives a builder
+reset. Call `clearSessionId()` to drop it explicitly. Re-enable collection with a fresh builder from
+`createRequestBuilder()`.
+
+> Matches the iOS and Flutter SDKs exactly, so the same call puts the same request on the wire on
+> every platform.
+
 ---
 
 ## Response Structure
@@ -300,7 +309,7 @@ So the one new obligation is: **every decision request during a user's session m
 - Send a *different* value and the engine sees a new visitor — the journey restarts at stage 1.
 - Send *none* and journeys never activate — you get normal ads. That is a safe, valid default.
 
-### Requirements
+### What Journey Ads require
 
 `apiVersion = "2025-11-01"` or later. Without it the engine ignores the journey fields completely and serves
 normal ads — silently, with no error.
@@ -389,6 +398,12 @@ Read-only extensions on `Creative`, all in `com.admoai.sdk.utils`. On a normal a
 
 These are for logging, debugging, and your own analytics. **Do not** drive rendering decisions off stage keys
 or node ids — the engine owns progression, and hard-coding its shape will break when the journey is edited.
+
+`creative.metadata?.impId` carries the **render-level attribution key**, minted per served creative
+and present on every journey serve (`null` on normal ads). Use it to reconcile a specific render
+against reporting. It is not a substitute for the tracking token — the encrypted `e=` token stays
+authoritative server-side — and the SDK derives nothing from it. `metadata` also carries
+`skipOffsetSeconds` and `endCardMode` for video creatives.
 
 ### Completion
 
@@ -596,6 +611,27 @@ val vastTagUrl = creative.vast?.tagUrl
 // Get VAST XML (Base64 encoded)
 val vastXmlBase64 = creative.vast?.xmlBase64
 ```
+
+Helpers in `com.admoai.sdk.utils` read the same data more safely:
+
+```kotlin
+creative.isJsonDelivery()      // delivery == "json"
+creative.isVastTagDelivery()   // delivery == "vast_tag"
+creative.isVastXmlDelivery()   // delivery == "vast_xml"
+
+creative.getVastTagUrl()       // optional mediaType / mediaDelivery filters
+creative.getVastXmlBase64()
+
+creative.isSkippable()         // Boolean
+creative.getSkipOffset()       // String?, e.g. "5"
+```
+
+`isSkippable()` and `getSkipOffset()` read the engine-owned `creative.metadata` first
+(`metadata?.isSkippable`, `metadata?.skipOffsetSeconds`), then fall back to the creative's content
+fields — accepting either `is_skippable`/`skip_offset` or the camelCase spellings, because the
+template field names are author-controlled. For a typed value read
+`creative.metadata?.skipOffsetSeconds` (`Int?`) directly; `getSkipOffset()` returns a `String?` for
+backwards compatibility.
 
 ### Video Tracking Events
 
