@@ -15,15 +15,20 @@ import com.admoai.sdk.model.response.TrackingInfo
 import com.admoai.sdk.model.response.isNoAd
 import com.admoai.sdk.utils.getVastTagUrl
 import com.admoai.sdk.utils.getVastXmlBase64
+import com.admoai.sdk.utils.hasCompletionUrl
 import com.admoai.sdk.utils.isJourneyAd
 import com.admoai.sdk.utils.isJourneyCompletion
 import com.admoai.sdk.utils.isJsonDelivery
 import com.admoai.sdk.utils.isVastTagDelivery
 import com.admoai.sdk.utils.isVastXmlDelivery
+import com.admoai.sdk.utils.journeyDealId
 import com.admoai.sdk.utils.journeyDefinitionKey
 import com.admoai.sdk.utils.journeyFallbackBillingMode
 import com.admoai.sdk.utils.journeyInstanceId
+import com.admoai.sdk.utils.journeyOptStatus
 import com.admoai.sdk.utils.journeyPricingModel
+import com.admoai.sdk.utils.journeySessionId
+import com.admoai.sdk.utils.journeyStageId
 import com.admoai.sdk.utils.journeyStageKey
 import com.admoai.sdk.utils.journeyStageNodeId
 import io.ktor.client.engine.cio.CIO
@@ -164,6 +169,22 @@ private const val PLACEMENT_OPTSKIP_EARLY = "sdk_e2e_optskip_early"
 private const val PLACEMENT_OPTSKIP_LATER = "sdk_e2e_optskip_later"
 private const val PLACEMENT_CPT_FINAL_EARLY = "sdk_e2e_cpt_final_early"
 private const val PLACEMENT_CPT_FINAL_COMPLETE = "sdk_e2e_cpt_final_complete"
+
+// §K wizard-parity fixture — deliberately NOT seeded. Built by hand in the platform ad manager
+// (deal `jad_01KYSSB2ND61HZFP3KRG9NET3X`, definition `scooter_journey`: CPT / bill_per_stage / completion
+// strategy `final_stage` on the last stage, all four targeting toggles off, freq-cap and parting off,
+// locale `en` only, one active node per stage).
+//
+// Every other fixture is written by the Go mock seed, which *imitates* the shapes the platform persists.
+// This group is the only place the suite reads what the platform ACTUALLY writes — and that seam is exactly
+// where both live bugs of the 2026-07-29 round lived (#2459 wizard targeting envelopes, #2483 camelCase
+// template-field keys). In both cases the seeds wrote what the engine expected, so the suite stayed green.
+// Hand-built data does not survive `make db-reset`, so absence is a SKIP, never a FAIL.
+private const val WIZARD_DEF = "scooter_journey"
+private const val PLACEMENT_WIZARD_S1 = "promotions" // stage pre_ride     — carousel3Slides
+private const val PLACEMENT_WIZARD_S2 = "waiting"    // stage post_ride    — carousel3Slides
+private const val PLACEMENT_WIZARD_S3 = "poi"        // stage summary_ride — imageWithText, the completion stage
+private const val WIZARD_MISSING = "hand-built in the platform ad manager; recreate it after a db-reset"
 // The short-TTL fixtures seed runtime_state_ttl_seconds = 5s (journeys.go). For §F1 (expiry) wait
 // comfortably PAST the TTL with no activity. For §F2 (refresh) use a gap SHORTER than the TTL so the
 // mid serve lands inside the window and refreshes it; two such gaps total > TTL, proving the instance
@@ -188,6 +209,8 @@ private const val GEONAME_NO_MATCH = 2643743 // London — a real geoname (in th
 
 /** Fresh, greppable session id per scenario group so Redis runtime state never bleeds across runs. */
 private fun freshSession(tag: String): String = "e2e-$tag-${System.nanoTime()}"
+
+private val E2E_BASE_URL: String = System.getenv("ADMOAI_JOURNEY_E2E_BASE_URL") ?: "http://127.0.0.1:8080/"
 
 private fun sdk() = Admoai.getInstance()
 
@@ -397,6 +420,28 @@ private fun groupB(h: Harness) {
     }
 }
 
+/**
+ * §B7 Journey-metadata coherence. Cheap guard on the tolerant-reader mapping: every field the SDK exposes
+ * must be the one the engine sent. A field silently mapping to null (or to the wrong sibling) would leave
+ * most other scenarios passing, since they assert only the two or three fields they care about.
+ */
+private fun groupBMetadata(h: Harness) {
+    h.scenario("B7", "journey metadata is internally coherent and echoes the request", "204-206") {
+        val sid = freshSession("B7")
+        val first = decideOn(PLACEMENT_PRE_RIDE_A, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_PRE_RIDE_A)
+        expect(first != null && first.isJourneyAd(), "need a Journey serve to inspect metadata")
+        expect(first!!.journeySessionId() == sid, "the engine must echo the sessionId the SDK sent")
+        expect(first.journeyOptStatus() == JourneyOpt.OPT_IN, "optStatus must echo the requested opt-in")
+        expect(!first.journeyDealId().isNullOrBlank(), "dealId must be surfaced")
+        expect(!first.journeyStageId().isNullOrBlank(), "stageId must be surfaced alongside stageKey")
+        // Same advertiser owns the whole journey: the deal id cannot change as stages advance.
+        val next = decideOn(PLACEMENT_IN_RIDE, sid).creativeFor(PLACEMENT_IN_RIDE)
+        expect(next != null && next.isJourneyAd(), "the next stage serves")
+        expect(next!!.journeyDealId() == first.journeyDealId(), "dealId is stable across stages")
+        expect(next.journeySessionId() == sid, "sessionId keeps echoing across stages")
+    }
+}
+
 /** §C Opt-in / opt-out + new-instance. */
 private fun groupC(h: Harness) {
     println("§C Opt-in / opt-out")
@@ -462,6 +507,15 @@ private fun groupD(h: Harness) {
         verbatimFireCheck(h) { info -> sdk().fireImpression(info) }
     }
 
+    h.scenario("D6", "the engine accepts a tracking token it minted itself", "adhub#2499", "adhub#2506") {
+        val c = decideOn(PLACEMENT_PRE_RIDE_A, freshSession("D6"), JourneyOpt.OPT_IN).creativeFor(PLACEMENT_PRE_RIDE_A)
+        expect(c != null && c.isJourneyAd(), "need a Journey serve to obtain a real tracking token")
+        val url = c!!.tracking.impressions?.firstOrNull()?.url
+        expect(url != null, "a served Journey creative must carry an impression tracking URL")
+        sdk().fireImpression(c.tracking) // the SDK path — dispatches, but reports no status by design
+        expectIngestionAccepted(url!!) // the engine path — the observable half
+    }
+
     h.scenario("D4", "no-ad response exposes no tracking and fires nothing", "201", "220") {
         // A repeated node on an active Journey yields a takeover no-ad.
         val sid = freshSession("D4")
@@ -483,6 +537,40 @@ private fun expectTrackingTransport(url: String?, label: String) {
     expect(url!!.startsWith("http://") || url.startsWith("https://"), "$label must be absolute")
     expect(url.contains("/v1/tracking"), "$label path must be /v1/tracking")
     expect(url.contains("e="), "$label must carry the opaque ?e= token")
+}
+
+/**
+ * Asserts the OTHER half of the tracking loop: the engine's own `/v1/tracking` must accept a token it just
+ * minted. Everything else in §D stops at the response payload or at a MockWebServer, so nothing in this
+ * suite ever proved ingestion works end-to-end — the exact path adhub #2499/#2506 reworked (deriving
+ * `journey_event_meaning` from the callback, and holding it through a snapshot miss).
+ *
+ * The SDK's own fire is fire-and-forget and returns no status, so acceptance cannot be observed through it;
+ * this issues the GET directly, using the URL the SDK surfaced.
+ *
+ * Scheme note: locally the engine mints production-shaped `https://` tracking URLs while serving plaintext
+ * on `:8080`, so a verbatim GET fails the TLS handshake for environmental reasons alone. §D1 asserts the
+ * minted shape separately, so scheme/host/port are normalized to the configured base URL here — the opaque
+ * `?e=` token, which is what ingestion actually validates, is passed through untouched.
+ */
+private fun expectIngestionAccepted(url: String) {
+    val base = java.net.URI(E2E_BASE_URL)
+    val minted = java.net.URI(url)
+    val target = java.net.URI(base.scheme, null, base.host, base.port, minted.path, minted.query, null).toURL()
+    val conn = (target.openConnection() as java.net.HttpURLConnection).apply {
+        requestMethod = "GET"
+        connectTimeout = 5_000
+        readTimeout = 5_000
+    }
+    val code = try {
+        conn.responseCode
+    } finally {
+        conn.disconnect()
+    }
+    expect(
+        code in 200..299,
+        "the engine must accept a tracking token it minted itself; /v1/tracking returned $code",
+    )
 }
 
 /**
@@ -559,9 +647,36 @@ private fun groupH(h: Harness) {
         val c = decideOn(PLACEMENT_CPT_COMPLETION, freshSession("H"), JourneyOpt.OPT_IN).creativeFor(PLACEMENT_CPT_COMPLETION)
         expect(c != null && c.isJourneyAd(), "CPT fixture should serve a Journey")
         expect(c!!.journeyPricingModel() == "cpt", "pricingModel should be cpt")
-        expect(!c.journeyFallbackBillingMode().isNullOrBlank(), "fallbackBillingMode should be surfaced")
-        // Completion beacon + isCompletion are asserted where the fixture serves the completion node; the
-        // runner records the observed value here to avoid over-asserting stage geometry it doesn't control.
+        // Exact value, not merely non-blank: this fixture is seeded `no_charge` (adhub#2361), and a
+        // non-blank check passes even when the engine surfaces the wrong billing mode — which is the one
+        // thing this assertion exists to catch. Whether no_charge actually charges nothing is billing, i.e.
+        // engine-internal and unobservable from the SDK (§8); what the SDK owns is surfacing it faithfully.
+        expect(
+            c.journeyFallbackBillingMode() == "no_charge",
+            "the no_charge fixture must surface exactly 'no_charge', got '${c.journeyFallbackBillingMode()}'",
+        )
+    }
+
+    // The CPT billing trigger, and the last SDK-observable surface with no coverage at all. On a
+    // `custom_event` completion deal the engine hands the app a `completions[]` beacon that the PUBLISHER
+    // must fire — firing it is what books CPT revenue. `isCompletion` deliberately stays false here: the two
+    // completion strategies are mutually exclusive (`final_stage` marks inline and emits no beacon — see the
+    // tail of §H3 and §K3). The SDK ships `hasCompletionUrl()` and `fireCompletion()` as public API and
+    // nothing exercised either, so a regression here would have been silent all the way to lost revenue.
+    h.scenario("H5", "custom_event CPT deal exposes a fireable completion beacon", "adhub#2361") {
+        requireFixture(PLACEMENT_CPT_COMPLETION, "adhub#2361")
+        val c = decideOn(PLACEMENT_CPT_COMPLETION, freshSession("H5"), JourneyOpt.OPT_IN)
+            .creativeFor(PLACEMENT_CPT_COMPLETION)
+        expect(c != null && c.isJourneyAd(), "CPT fixture should serve a Journey")
+        expect(c!!.hasCompletionUrl(), "a custom_event completion deal must expose a completion beacon")
+        val beacon = c.tracking.completions!!.first()
+        expect(beacon.key == "journey_complete", "beacon key should be 'journey_complete', got '${beacon.key}'")
+        expectTrackingTransport(beacon.url, "completion beacon URL")
+        expect(!c.isJourneyCompletion(), "custom_event completion must not mark isCompletion inline")
+        // Fire-and-forget, so there is no status to assert — this proves the public API dispatches the
+        // beacon without throwing. That the engine accepts such a token is proved in §D6.
+        sdk().fireCompletion(c.tracking, beacon.key)
+        expectIngestionAccepted(beacon.url)
     }
 
     h.scenario("H3", "final-stage CPT serve flips isCompletion=true", "17") {
@@ -574,6 +689,14 @@ private fun groupH(h: Harness) {
         expect(complete != null && complete.isJourneyAd(), "completion stage serves")
         expect(complete!!.isJourneyCompletion(), "serving the final stage flips isCompletion=true")
         expect(complete.journeyPricingModel() == "cpt", "CPT pricing surfaced on the completion serve")
+        expect(
+            complete.journeyFallbackBillingMode() == "bill_per_stage",
+            "this fixture is seeded bill_per_stage, got '${complete.journeyFallbackBillingMode()}'",
+        )
+        // Mutual exclusivity, asserted on the SEEDED fixture so the guarantee survives a db-reset (§K3
+        // asserts the same rule on the platform-authored journey): a `final_stage` deal marks completion
+        // inline and must expose NO completion beacon.
+        expect(!complete.hasCompletionUrl(), "a final_stage deal must not expose a completion beacon")
     }
 
     h.scenario("H4", "after completion, takeover protection ends (a normal ad can serve)", "20") {
@@ -740,12 +863,75 @@ private fun groupPhase2(h: Harness) {
     }
 }
 
+/**
+ * §K Wizard parity — the only group driven by a journey the PLATFORM authored rather than the Go mock seed.
+ * See the `WIZARD_*` constants for the fixture's configuration and for why this seam matters more than any
+ * other: seeded fixtures encode what the engine expects, so they cannot catch a platform/engine shape
+ * mismatch. #2459 and #2483 were both exactly that, and both survived a fully green suite.
+ */
+private fun groupK(h: Harness) {
+    println("§K Wizard parity (platform-authored journey)")
+
+    h.scenario("K1", "platform-authored journey serves stage 1 with the config the wizard wrote", "wizard-parity") {
+        requireFixture(PLACEMENT_WIZARD_S1, WIZARD_MISSING)
+        val c = decideOn(PLACEMENT_WIZARD_S1, freshSession("K1"), JourneyOpt.OPT_IN).creativeFor(PLACEMENT_WIZARD_S1)
+        expect(c != null && c.isJourneyAd(), "the platform-authored journey must serve on $PLACEMENT_WIZARD_S1")
+        expect(c!!.journeyDefinitionKey() == WIZARD_DEF, "definitionKey should be $WIZARD_DEF")
+        expect(c.journeyStageKey() == "pre_ride", "the first stage should be pre_ride")
+        expect(!c.journeyInstanceId().isNullOrBlank(), "instanceId must be present")
+        expect(c.journeyPricingModel() == "cpt", "the wizard wrote CPT pricing")
+        expect(c.journeyFallbackBillingMode() == "bill_per_stage", "the wizard wrote a bill_per_stage fallback")
+        expect(c.journey?.isCompletion != true, "stage 1 is not the completion stage")
+        // #2483 in the shape that actually broke it: the wizard persists camelCase url fields (urlSlide1..3
+        // on carousel3Slides), which is precisely what the resolver used to fail to match.
+        expectTrackingTransport(c.tracking.clicks?.firstOrNull()?.url, "wizard click tracking URL")
+    }
+
+    h.scenario("K2", "progression across platform-authored stages holds one instance", "wizard-parity") {
+        requireFixture(PLACEMENT_WIZARD_S1, WIZARD_MISSING)
+        val sid = freshSession("K2")
+        val s1 = decideOn(PLACEMENT_WIZARD_S1, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_WIZARD_S1)
+        expect(s1 != null && s1.isJourneyAd(), "stage 1 serves and starts the instance")
+        val s2 = decideOn(PLACEMENT_WIZARD_S2, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_WIZARD_S2)
+        expect(s2 != null && s2.isJourneyAd(), "stage 2 serves on $PLACEMENT_WIZARD_S2")
+        expect(s2!!.journeyStageKey() == "post_ride", "the second stage should be post_ride")
+        expect(s2.journeyInstanceId() == s1!!.journeyInstanceId(), "the instance is stable across stages")
+        expect(s2.journeyStageNodeId() != s1.journeyStageNodeId(), "a different node served")
+        expect(s2.journey?.isCompletion != true, "stage 2 is not the completion stage")
+    }
+
+    h.scenario("K3", "the wizard's final_stage completes the journey and emits no beacon", "wizard-parity") {
+        requireFixture(PLACEMENT_WIZARD_S1, WIZARD_MISSING)
+        val sid = freshSession("K3")
+        val s1 = decideOn(PLACEMENT_WIZARD_S1, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_WIZARD_S1)
+        expect(s1 != null && s1.isJourneyAd(), "stage 1 serves")
+        decideOn(PLACEMENT_WIZARD_S2, sid, JourneyOpt.OPT_IN)
+        val s3 = decideOn(PLACEMENT_WIZARD_S3, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_WIZARD_S3)
+        expect(s3 != null && s3.isJourneyAd(), "the completion stage serves on $PLACEMENT_WIZARD_S3")
+        expect(s3!!.journeyStageKey() == "summary_ride", "the third stage should be summary_ride")
+        expect(s3.journeyInstanceId() == s1!!.journeyInstanceId(), "the same instance runs through completion")
+        expect(s3.isJourneyCompletion(), "the wizard's final_stage completion stage flips isCompletion=true")
+        expect(!s3.hasCompletionUrl(), "a final_stage deal must not expose a completion beacon")
+    }
+
+    h.scenario("K4", "an already-served wizard node does not serve twice", "wizard-parity") {
+        requireFixture(PLACEMENT_WIZARD_S1, WIZARD_MISSING)
+        val sid = freshSession("K4")
+        val first = decideOn(PLACEMENT_WIZARD_S1, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_WIZARD_S1)
+        expect(first != null && first.isJourneyAd(), "the node serves once")
+        // `promotions` also carries competing published normal ads, so this doubles as its own positive
+        // control: a journey ad here would be a one-serve-max violation, a normal ad or no-ad is correct.
+        val again = decideOn(PLACEMENT_WIZARD_S1, sid).creativeFor(PLACEMENT_WIZARD_S1)
+        expect(again == null || !again.isJourneyAd(), "the same node must not serve twice in one instance")
+    }
+}
+
 // ------------------------------------------------------------------------------------------------
 // main
 // ------------------------------------------------------------------------------------------------
 
 fun main() {
-    val baseUrl = System.getenv("ADMOAI_JOURNEY_E2E_BASE_URL") ?: "http://127.0.0.1:8080/"
+    val baseUrl = E2E_BASE_URL
     val version = System.getenv("ADMOAI_JOURNEY_E2E_VERSION") ?: "2025-11-01"
 
     println("Journey SDK E2E runner → $baseUrl (X-Decision-Version: $version)")
@@ -772,6 +958,7 @@ fun main() {
         val h = Harness()
         groupA(h)
         groupB(h)
+        groupBMetadata(h)
         groupC(h)
         groupD(h)
         groupE(h)
@@ -779,6 +966,7 @@ fun main() {
         groupI(h)
         groupJ(h)
         groupPhase2(h)
+        groupK(h)
         h.finish()
     } finally {
         Admoai.resetForTesting()
