@@ -1,9 +1,11 @@
 package com.admoai.sdk.utils
 
 import com.admoai.sdk.model.response.Creative
+import com.admoai.sdk.model.response.CreativeMetadata
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import android.util.Base64
 
 fun Creative.isVastTagDelivery(): Boolean = delivery == "vast_tag"
@@ -66,12 +68,47 @@ fun Creative.getVastXmlBase64(mediaType: String? = null, mediaDelivery: String? 
     }
 }
 
-fun Creative.isSkippable(): Boolean = 
-    contents.find { it.key == "isSkippable" }?.value?.let { jsonElement ->
-        (jsonElement as? JsonPrimitive)?.booleanOrNull
-    } ?: false
+/**
+ * Whether the video may be skipped.
+ *
+ * Prefers [CreativeMetadata.isSkippable] — the engine-owned field, and the only source the iOS SDK
+ * reads — then falls back to the creative's content fields.
+ *
+ * The fallback matches **both** `isSkippable` and `is_skippable`. It previously matched camelCase
+ * only, while the platform creates template fields in snake_case (`is_skippable`), so it could never
+ * hit and this function always returned `false`. Same class of defect as #2483, where the journey
+ * click resolver matched a hand-maintained snake_case list while the platform wrote camelCase — the
+ * same seam, the opposite direction.
+ */
+fun Creative.isSkippable(): Boolean {
+    metadata?.isSkippable?.let { return it }
 
-fun Creative.getSkipOffset(): String? = 
-    contents.find { it.key == "skipOffset" }?.value?.let { jsonElement ->
-        (jsonElement as? JsonPrimitive)?.contentOrNull
-    }
+    val value = contents
+        .find { it.key == "isSkippable" || it.key == "is_skippable" }
+        ?.value as? JsonPrimitive
+        ?: return false
+
+    // The template field backing skippability is typed `integer`, so the value can arrive as a
+    // boolean, a number, or a string depending on the template and the producer.
+    value.booleanOrNull?.let { return it }
+    value.intOrNull?.let { return it != 0 }
+    return value.contentOrNull?.trim()?.lowercase() in setOf("true", "1")
+}
+
+/**
+ * Seconds before a skippable video may be skipped, as a string.
+ *
+ * Prefers [CreativeMetadata.skipOffsetSeconds], then falls back to the creative's content fields,
+ * matching both `skipOffset` and `skip_offset` for the reason above.
+ *
+ * Returns a `String?` to stay source-compatible; read `creative.metadata?.skipOffsetSeconds` for a
+ * typed `Int?`.
+ */
+fun Creative.getSkipOffset(): String? {
+    metadata?.skipOffsetSeconds?.let { return it.toString() }
+
+    return contents
+        .find { it.key == "skipOffset" || it.key == "skip_offset" }
+        ?.value
+        ?.let { (it as? JsonPrimitive)?.contentOrNull }
+}
