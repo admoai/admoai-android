@@ -171,6 +171,11 @@ class DecisionRequestBuilder internal constructor(
         clearPlacements()
         clearTargeting()
         clearUser()
+        // Also stop automatic app/device collection, matching the iOS and Flutter SDKs. Without
+        // these, `clearAll()` put a different request on the wire per platform: the same call left
+        // Android still sending `app` and `device` while the other two sent neither.
+        disableAppCollection()
+        disableDeviceCollection()
         // Clear journeyOpt (a stale opt-out would change eligibility) but preserve the sticky sessionId.
         journeyOpt = null
     }

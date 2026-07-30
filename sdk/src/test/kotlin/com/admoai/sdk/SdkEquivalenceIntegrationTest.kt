@@ -317,6 +317,11 @@ class SdkEquivalenceIntegrationTest {
         assertEquals("feed", request.placements[0].key)
         assertNull("Targeting must be null after clearAll", request.targeting)
         assertNull("User must be null after clearAll", request.user)
+        // Cross-SDK parity: iOS and Flutter both disable app/device collection inside clearAll(),
+        // so the same call has to put the same request on the wire here. Android previously kept
+        // collecting both, which meant `clearAll()` meant something different per platform.
+        assertFalse("clearAll must stop app collection", request.collectAppData)
+        assertFalse("clearAll must stop device collection", request.collectDeviceData)
     }
 
     @Test
