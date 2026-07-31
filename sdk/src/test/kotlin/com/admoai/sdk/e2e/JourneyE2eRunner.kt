@@ -88,13 +88,13 @@ private val reportJson = Json { prettyPrint = true }
 /** Thrown by [skip] to record a SKIP (fixture absent / not applicable) rather than a FAIL. */
 private class SkipException(message: String) : RuntimeException(message)
 
-private fun skip(reason: String): Nothing = throw SkipException(reason)
+internal fun skip(reason: String): Nothing = throw SkipException(reason)
 
-private fun expect(condition: Boolean, message: String) {
+internal fun expect(condition: Boolean, message: String) {
     if (!condition) throw AssertionError(message)
 }
 
-private class Harness {
+internal class Harness {
     private val entries = mutableListOf<ReportEntry>()
 
     fun scenario(id: String, title: String, vararg cases: String, block: () -> Unit) {
@@ -208,7 +208,7 @@ private const val GEONAME_MATCH = 5128581 // New York City — the seed's geo ta
 private const val GEONAME_NO_MATCH = 2643743 // London — a real geoname (in the engine CSV) that is NOT the target
 
 /** Fresh, greppable session id per scenario group so Redis runtime state never bleeds across runs. */
-private fun freshSession(tag: String): String = "e2e-$tag-${System.nanoTime()}"
+internal fun freshSession(tag: String): String = "e2e-$tag-${System.nanoTime()}"
 
 private val E2E_BASE_URL: String = System.getenv("ADMOAI_JOURNEY_E2E_BASE_URL") ?: "http://127.0.0.1:8080/"
 
@@ -967,6 +967,11 @@ fun main() {
         groupJ(h)
         groupPhase2(h)
         groupK(h)
+        // Shared cross-SDK manifest: normal ads, placement options, video delivery, the error
+        // contract and API-version regression. Defined once in e2e-scenarios.json and executed
+        // identically by all three SDKs — see ManifestRunner.kt.
+        manifestGroup(h, baseUrl, version)
+        wireShapeGroup(h, version)
         h.finish()
     } finally {
         Admoai.resetForTesting()
