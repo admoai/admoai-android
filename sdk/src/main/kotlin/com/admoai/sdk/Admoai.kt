@@ -325,6 +325,18 @@ class Admoai private constructor() {
             sessionId?.let { getInstance().setSessionId(it) }
         }
         
+        /**
+         * Initializes (or re-initializes) the SDK.
+         *
+         * Re-initializing resets the sticky Journey [setSessionId] value. Because this class is a
+         * process singleton, `initialize()` used to reuse the existing instance and only reapply
+         * config, leaving a previous session id in place — so a publisher calling `initialize()` at
+         * logout, account switch or environment switch silently carried the old Journey session
+         * into the next user's requests. On iOS and Flutter initialization produces a fresh SDK
+         * value/instance, so the session never survived there.
+         *
+         * Use [configure] to change configuration on a running SDK without touching session state.
+         */
         @JvmStatic
         fun initialize(sdkConfig: SDKConfig) {
             val immutableSdkConfig = sdkConfig.copy()
@@ -333,6 +345,7 @@ class Admoai private constructor() {
                     INSTANCE = Admoai()
                 }
                 INSTANCE!!.applyConfiguration(immutableSdkConfig)
+                INSTANCE!!.clearSessionId()
                 isSdkInitialized = true
             }
         }

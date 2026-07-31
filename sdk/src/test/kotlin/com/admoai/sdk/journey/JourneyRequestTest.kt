@@ -181,6 +181,44 @@ class JourneyRequestTest {
         assertNull(Admoai.getInstance().getSessionId())
     }
 
+    // Scenario: the publisher re-initializes the SDK, e.g. at logout or an account switch.
+    @Test
+    fun `re-initializing clears the sticky session`() {
+        // Contract: initialization is a lifecycle boundary and must not carry a Journey session
+        // across it. Because Admoai is a process singleton, initialize() reused the existing
+        // instance and only reapplied config, so the previous session id survived into the next
+        // user's requests. iOS and Flutter produce a fresh SDK value/instance on init, so the
+        // session never survived there. Note this is WITHOUT resetForTesting() — that is the whole
+        // point; a publisher has no equivalent.
+        initSdk(sessionId = "user-a-session")
+        assertEquals("user-a-session", Admoai.getInstance().getSessionId())
+
+        initSdk() // re-initialize, no sessionId supplied
+
+        assertNull(Admoai.getInstance().getSessionId())
+        assertNull(Admoai.getInstance().createRequestBuilder().addPlacement("p").build().sessionId)
+    }
+
+    // Scenario: the publisher re-initializes and immediately supplies the new user's session.
+    @Test
+    fun `re-initializing with a sessionId adopts the new one`() {
+        initSdk(sessionId = "user-a-session")
+        initSdk(sessionId = "user-b-session")
+        assertEquals("user-b-session", Admoai.getInstance().getSessionId())
+    }
+
+    // Scenario: configuration changes on a running SDK, mid-journey.
+    @Test
+    fun `configure does not clear the sticky session`() = runTest {
+        // Contract: configure() updates config on a running SDK and is not a lifecycle boundary.
+        // Clearing here would break a journey whenever a publisher flips a setting mid-trip.
+        initSdk(sessionId = "sticky-1")
+        Admoai.getInstance().configure(
+            SDKConfig(baseUrl = "https://example.test/", apiVersion = "2025-11-01")
+        )
+        assertEquals("sticky-1", Admoai.getInstance().getSessionId())
+    }
+
     // --- prepareFinalDecisionRequest carries Journey context to the wire ---
 
     @Test
