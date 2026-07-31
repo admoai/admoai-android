@@ -363,6 +363,30 @@ class DecisionRequestBuilderTest {
         assertEquals(customTargets, request.targeting?.custom)
     }
 
+    // Scenario: the bulk setter is handed a list that repeats a key.
+    @Test
+    fun `set custom targets deduplicates by key, keeping the last entry`() {
+        // Contract: the engine rejects a duplicate custom key with ErrDuplicateCustomKey and
+        // returns immediately from validation, failing the ENTIRE decision request — every
+        // placement in it. `addCustomTarget` has always deduped; this bulk setter did not, so
+        // only this path could produce that 422. iOS and Flutter both fold-dedupe here.
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .setCustomTargets(
+                listOf(
+                    CustomTargetingInfo("tier", JsonPrimitive("gold")),
+                    CustomTargetingInfo("city", JsonPrimitive("santiago")),
+                    CustomTargetingInfo("tier", JsonPrimitive("platinum"))
+                )
+            )
+            .build()
+
+        val custom = request.targeting?.custom
+        assertEquals(2, custom?.size)
+        assertEquals(JsonPrimitive("platinum"), custom?.find { it.key == "tier" }?.value)
+        assertEquals(JsonPrimitive("santiago"), custom?.find { it.key == "city" }?.value)
+    }
+
     @Test
     fun `disable app data collection`() {
         val request = DecisionRequestBuilder()

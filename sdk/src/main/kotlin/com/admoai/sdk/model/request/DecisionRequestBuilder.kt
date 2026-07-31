@@ -110,8 +110,22 @@ class DecisionRequestBuilder internal constructor(
 
     fun addCustomTarget(key: String, value: Boolean) = addCustomTarget(key, JsonPrimitive(value))
 
+    /**
+     * Replaces the custom-targeting list, keeping the LAST entry for any repeated key.
+     *
+     * The dedupe is not cosmetic. The engine rejects a duplicate custom key with
+     * `ErrDuplicateCustomKey` and returns immediately from validation, so a single repeated key
+     * fails the ENTIRE decision request — every placement in it, not just the offending target.
+     * `addCustomTarget` has always deduped; this bulk setter did not, so the two paths disagreed
+     * and only the bulk one could produce that 422. iOS and Flutter both fold-dedupe here.
+     */
     fun setCustomTargets(customTargets: List<CustomTargetingInfo>) = apply {
-        targeting = targeting.copy(custom = customTargets)
+        val deduped = customTargets.fold(mutableListOf<CustomTargetingInfo>()) { acc, entry ->
+            acc.removeAll { it.key == entry.key }
+            acc.add(entry)
+            acc
+        }
+        targeting = targeting.copy(custom = deduped)
     }
 
     fun setUserId(id: String?) = apply { user = user.copy(id = id) }
