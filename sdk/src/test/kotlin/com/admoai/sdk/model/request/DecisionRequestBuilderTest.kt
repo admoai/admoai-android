@@ -14,6 +14,24 @@ import org.junit.Test
 
 class DecisionRequestBuilderTest {
 
+    // Scenario: consent is set without an explicit GDPR value.
+    @Test
+    fun `consent with a null gdpr value serializes as false, not an empty object`() {
+        // The engine types gdpr as a non-nullable bool defaulting to false, so there is no
+        // "unspecified" state. This model was nullable, so the same call emitted `{}` here while
+        // iOS and Flutter emitted `{"gdpr":false}` — a different body per platform for identical
+        // engine behaviour.
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .setUserConsent(null as Boolean?)
+            .build()
+
+        assertEquals(false, request.user?.consent?.gdpr)
+
+        val body = Json { encodeDefaults = true; explicitNulls = false }.encodeToString(request)
+        assertTrue(body.contains("\"gdpr\":false"))
+    }
+
     // Scenario: a destination target is serialized for the wire.
     @Test
     fun `destination targeting serializes minConfidence in camelCase`() {

@@ -134,7 +134,13 @@ class DecisionRequestBuilder internal constructor(
 
     fun setUserTimezone(timezone: String?) = apply { user = user.copy(timezone = timezone) }
 
-    fun setUserConsent(gdpr: Boolean?) = apply { user = user.copy(consent = Consent(gdpr = gdpr)) }
+    /**
+     * Sets GDPR consent. A null argument means "not granted" (`false`) rather than "unspecified" —
+     * the engine has no unspecified state and treats an absent flag as false, so this makes the
+     * wire body identical to iOS and Flutter for the same call.
+     */
+    fun setUserConsent(gdpr: Boolean?) =
+        apply { user = user.copy(consent = Consent(gdpr = gdpr ?: false)) }
 
     fun setUserConsent(consent: Consent?) = apply { user = user.copy(consent = consent) }
 

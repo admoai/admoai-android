@@ -107,6 +107,9 @@ fun Creative.isSkippable(): Boolean {
 fun Creative.getSkipOffset(): String? {
     metadata?.skipOffsetSeconds?.let { return it.toString() }
 
+    // Only a scalar can be a skip offset. A JSON null, object or array yields null rather than a
+    // string a publisher would parse as a duration — `contentOrNull` already returns null for
+    // JsonNull, and the `as?` drops objects and arrays. Matches iOS and Flutter.
     return contents
         .find { it.key == "skipOffset" || it.key == "skip_offset" }
         ?.value
