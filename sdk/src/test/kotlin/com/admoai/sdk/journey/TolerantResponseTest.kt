@@ -2,12 +2,14 @@ package com.admoai.sdk.journey
 
 import com.admoai.sdk.model.response.ContentType
 import com.admoai.sdk.model.response.DecisionResponse
+import com.admoai.sdk.model.response.MetadataPriority
 import com.admoai.sdk.model.response.hasCreative
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -102,11 +104,41 @@ class TolerantResponseTest {
     }
 
     @Test
-    fun `metadata missing required fields degrades to null, creative kept`() {
+    fun `metadata missing fields degrades per-field, not to null`() {
+        // Scenario: the metadata block arrives with none of the fields this SDK expects.
+        //
+        // Contract: degrade each field to its default and KEEP the block. It used to null the
+        // whole object, which took impId, isSkippable, skipOffsetSeconds and endCardMode with it —
+        // so a single missing id could make isSkippable() fall through to the content fields and
+        // contradict what the engine explicitly marked. iOS and Flutter both default ids to "".
         val body = """{"success":true,"data":[{"placement":"p","creatives":[
             {"contents":[],"advertiser":{},"tracking":{},"metadata":{"onlyUnknown":"x"}}]}]}"""
-        val creative = decode(body).data!!.first().creatives.first()
-        assertNull(creative.metadata)
+        val metadata = decode(body).data!!.first().creatives.first().metadata
+
+        assertNotNull(metadata)
+        assertEquals("", metadata!!.adId)
+        assertEquals(MetadataPriority.UNKNOWN, metadata.priority)
+    }
+
+    @Test
+    fun `video metadata survives a partially malformed metadata block`() {
+        // Scenario: the ids are missing but the video fields are present and valid.
+        //
+        // Contract: the video fields must survive. This is the case that actually cost something —
+        // losing metadata.isSkippable silently changes which video the publisher lets a user skip.
+        val body = """{"success":true,"data":[{"placement":"p","creatives":[
+            {"contents":[],"advertiser":{},"tracking":{},
+             "metadata":{"impId":"imp_1","isSkippable":true,"skipOffsetSeconds":5,
+                         "endCardMode":"native_endcard","priority":42}}]}]}"""
+        val metadata = decode(body).data!!.first().creatives.first().metadata
+
+        assertNotNull(metadata)
+        assertEquals("imp_1", metadata!!.impId)
+        assertEquals(true, metadata.isSkippable)
+        assertEquals(5, metadata.skipOffsetSeconds)
+        assertEquals("native_endcard", metadata.endCardMode)
+        // A retyped `priority` degrades on its own rather than taking the block down.
+        assertEquals(MetadataPriority.UNKNOWN, metadata.priority)
     }
 
     @Test
