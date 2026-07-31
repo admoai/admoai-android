@@ -171,7 +171,7 @@ private const val PLACEMENT_CPT_FINAL_EARLY = "sdk_e2e_cpt_final_early"
 private const val PLACEMENT_CPT_FINAL_COMPLETE = "sdk_e2e_cpt_final_complete"
 
 // §K wizard-parity fixture — deliberately NOT seeded. Built by hand in the platform ad manager
-// (deal `jad_01KYSSB2ND61HZFP3KRG9NET3X`, definition `scooter_journey`: CPT / bill_per_stage / completion
+// (definition `scooter_journey`, any `jad_…` deal on it: CPT / bill_per_stage / completion
 // strategy `final_stage` on the last stage, all four targeting toggles off, freq-cap and parting off,
 // locale `en` only, one active node per stage).
 //
