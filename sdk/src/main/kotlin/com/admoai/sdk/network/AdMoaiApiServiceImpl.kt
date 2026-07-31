@@ -2,7 +2,9 @@ package com.admoai.sdk.network
 
 import com.admoai.sdk.SDK_VERSION
 import com.admoai.sdk.config.SDKConfig
+import com.admoai.sdk.exception.AdMoaiException
 import com.admoai.sdk.exception.AdMoaiNetworkException
+import com.admoai.sdk.exception.AdMoaiValidationException
 import com.admoai.sdk.model.request.DecisionRequest
 import com.admoai.sdk.model.response.DecisionResponse
 import io.ktor.client.*
@@ -91,10 +93,25 @@ internal class AdMoaiApiServiceImpl(
                 setBody(request)
             }
             warnIfDeprecated(httpResponse)
+
+            // Gate on status BEFORE decoding. Ktor's `expectSuccess` defaults to false and no
+            // HttpResponseValidator is installed, so without this the engine's JSON error envelope
+            // — which is shape-identical to a success envelope — deserializes cleanly into
+            // DecisionResponse(success=false, data=null, errors=[...]) and is emitted as a normal
+            // Flow item. A publisher checking `data.isEmpty()` then reads a rejected request as
+            // no-fill. iOS and Flutter both branch on status and raise; this makes the three agree.
+            if (!httpResponse.status.isSuccess()) {
+                throw errorForStatus(httpResponse)
+            }
+
             val response: DecisionResponse = httpResponse.body()
 
             emit(response)
         } catch (e: CancellationException) {
+            throw e
+        } catch (e: AdMoaiException) {
+            // Already a typed SDK failure (e.g. the validation error raised just above) — rethrow
+            // rather than re-wrapping it as a generic network error and losing `errors[]`.
             throw e
         } catch (e: Exception) {
             throw AdMoaiNetworkException(
@@ -103,6 +120,33 @@ internal class AdMoaiApiServiceImpl(
             )
         }
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * Maps a non-2xx decision response to a typed SDK exception.
+     *
+     * 422 is the engine's validation rejection and is the one status whose body is worth parsing:
+     * its `errors[]` tells the publisher which placement key, custom-targeting key or journeyOpt
+     * value was refused. Everything else surfaces as [AdMoaiNetworkException] carrying the status
+     * code, matching the pre-existing contract asserted by Ktor3IntegrationTest.
+     *
+     * A 422 whose body is absent or unparseable still raises a validation exception, just with an
+     * empty `errors` list — the status alone is enough to know the request was rejected, and
+     * degrading to "network error" here would lose that.
+     */
+    private suspend fun errorForStatus(response: HttpResponse): AdMoaiException {
+        val status = response.status
+        if (status == HttpStatusCode.UnprocessableEntity) {
+            val errors = runCatching { response.body<DecisionResponse>().errors }
+                .getOrNull()
+                .orEmpty()
+            return AdMoaiValidationException(errors)
+        }
+        val kind = if (status.value in 500..599) "Server" else "Client"
+        return AdMoaiNetworkException(
+            message = "$kind error: ${status.value} ${status.description}",
+            statusCode = status.value
+        )
+    }
 
     override fun fireTrackingUrl(url: String): Flow<Unit> = flow {
         try {
