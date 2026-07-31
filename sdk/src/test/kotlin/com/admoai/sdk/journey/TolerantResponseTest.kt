@@ -1,8 +1,11 @@
 package com.admoai.sdk.journey
 
+import com.admoai.sdk.model.response.ContentType
 import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sdk.model.response.hasCreative
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -118,10 +121,18 @@ class TolerantResponseTest {
     }
 
     @Test
-    fun `malformed and unknown-type content entries are dropped, valid ones kept`() {
-        // Contract: an unknown content `type` drops that ONE content entry (matches iOS/Flutter),
-        // never coerced to another type and never aborting the response. Guards against a silent
-        // kotlinx behavior change (a size of 2 here would mean the unknown entry survived).
+    fun `structurally malformed content entries are dropped, unknown types are kept`() {
+        // Scenario: a creative mixes a known type, a non-object entry, and a type newer than
+        // this SDK version.
+        //
+        // Contract: only the structurally broken entry is dropped. An unknown `type` degrades to
+        // ContentType.UNKNOWN with the wire value preserved in `rawType` — it must NOT drop the
+        // entry, which is what iOS and Flutter do (both keep `type` as an open string).
+        //
+        // The previous version of this test asserted the opposite and claimed in a comment that
+        // dropping "matches iOS/Flutter". It never did. That drop was a real data-loss bug: the
+        // engine's `template_fields_valid_type` CHECK allows `dropdown`, which was missing from
+        // ContentType, so Android silently discarded every dropdown field a publisher configured.
         val body = """{"success":true,"data":[{"placement":"p","creatives":[
             {"contents":[
                {"key":"title","value":"Hi","type":"text"},
@@ -129,8 +140,49 @@ class TolerantResponseTest {
                {"key":"weird","value":"x","type":"hologram"}
             ],"advertiser":{},"tracking":{}}]}]}"""
         val creative = decode(body).data!!.first().creatives.first()
-        assertEquals(1, creative.contents.size)
-        assertEquals("title", creative.contents.first().key)
+
+        assertEquals(2, creative.contents.size)
+        assertEquals("title", creative.contents[0].key)
+        assertEquals(ContentType.TEXT, creative.contents[0].type)
+
+        val unknown = creative.contents[1]
+        assertEquals("weird", unknown.key)
+        assertEquals(ContentType.UNKNOWN, unknown.type)
+        assertEquals("hologram", unknown.rawType)
+        assertEquals("x", (unknown.value as JsonPrimitive).content)
+    }
+
+    @Test
+    fun `dropdown content is decoded, not dropped`() {
+        // Scenario: the engine serves a `dropdown` template field.
+        //
+        // Contract: `dropdown` is in the engine's template_fields_valid_type CHECK, so it is a
+        // first-class type and must decode to ContentType.DROPDOWN. This is the exact field type
+        // that regressed — pinned separately from the open-set case above so a future edit cannot
+        // quietly demote it back to UNKNOWN.
+        val body = """{"success":true,"data":[{"placement":"p","creatives":[
+            {"contents":[{"key":"size","value":"large","type":"dropdown"}],
+             "advertiser":{},"tracking":{}}]}]}"""
+        val content = decode(body).data!!.first().creatives.first().contents.single()
+
+        assertEquals(ContentType.DROPDOWN, content.type)
+        assertEquals("dropdown", content.rawType)
+    }
+
+    @Test
+    fun `content with an absent value is kept`() {
+        // Scenario: a content entry omits `value` entirely.
+        //
+        // Contract: keep the entry with a JsonNull value. iOS degrades to a null AnyCodable and
+        // Flutter passes null through; Android used to require the field and drop the entry, the
+        // same data-loss shape as the unknown-type case.
+        val body = """{"success":true,"data":[{"placement":"p","creatives":[
+            {"contents":[{"key":"headline","type":"text"}],
+             "advertiser":{},"tracking":{}}]}]}"""
+        val content = decode(body).data!!.first().creatives.first().contents.single()
+
+        assertEquals("headline", content.key)
+        assertEquals(JsonNull, content.value)
     }
 
     @Test

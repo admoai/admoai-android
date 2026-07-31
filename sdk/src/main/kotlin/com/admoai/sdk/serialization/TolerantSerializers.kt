@@ -5,7 +5,9 @@ import com.admoai.sdk.model.common.Warning
 import com.admoai.sdk.model.response.AdData
 import com.admoai.sdk.model.response.Advertiser
 import com.admoai.sdk.model.response.Content
+import com.admoai.sdk.model.response.ContentType
 import com.admoai.sdk.model.response.Creative
+import com.admoai.sdk.model.response.contentTypeFromWire
 import com.admoai.sdk.model.response.CreativeJourney
 import com.admoai.sdk.model.response.CreativeMetadata
 import com.admoai.sdk.model.response.TemplateInfo
@@ -22,8 +24,10 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.nullable
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -91,6 +95,51 @@ internal object VerificationParametersSerializer : KSerializer<String?> {
             else -> el.toString() // object/array → compact JSON text, data preserved
         }
     }
+}
+
+/**
+ * Decodes a `contents[]` entry, keeping the raw wire `type` alongside the parsed enum.
+ *
+ * `type` used to deserialize straight into the closed [ContentType] enum. `coerceInputValues` does
+ * NOT rescue an unknown enum string (it only maps null to a declared default), so an unrecognised
+ * type threw and [DropMalformedListSerializer] discarded the whole entry — the content field simply
+ * vanished from the creative. That was live, not theoretical: `dropdown` is allowed by the engine's
+ * `template_fields_valid_type` CHECK and was absent from the enum, so Android lost every dropdown
+ * field while iOS and Flutter rendered it.
+ *
+ * Unknown types now decode to [ContentType.UNKNOWN] with the real string preserved in
+ * `rawType`, so the entry survives and a publisher can still handle a type newer than the SDK.
+ *
+ * `value` also defaults to [JsonNull] rather than being required — the same drop-the-entry failure
+ * mode, and iOS and Flutter both tolerate an absent value.
+ */
+internal object ContentSerializer : KSerializer<Content> {
+    override val descriptor: SerialDescriptor = ContentSurrogate.serializer().descriptor
+
+    override fun serialize(encoder: Encoder, value: Content) {
+        ContentSurrogate.serializer().serialize(
+            encoder,
+            ContentSurrogate(key = value.key, value = value.value, type = value.rawType)
+        )
+    }
+
+    override fun deserialize(decoder: Decoder): Content {
+        val surrogate = ContentSurrogate.serializer().deserialize(decoder)
+        return Content(
+            key = surrogate.key,
+            value = surrogate.value,
+            type = contentTypeFromWire(surrogate.type),
+            rawType = surrogate.type
+        )
+    }
+
+    /** Wire shape of a content entry: `type` stays a String so an unknown value cannot throw. */
+    @Serializable
+    private data class ContentSurrogate(
+        val key: String,
+        val value: JsonElement = JsonNull,
+        val type: String
+    )
 }
 
 /**
