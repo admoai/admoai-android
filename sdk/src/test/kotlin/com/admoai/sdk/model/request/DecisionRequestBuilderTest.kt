@@ -1,6 +1,8 @@
 package com.admoai.sdk.model.request
 
 import com.admoai.sdk.exception.AdMoaiConfigurationException
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
@@ -11,6 +13,23 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DecisionRequestBuilderTest {
+
+    // Scenario: a destination target is serialized for the wire.
+    @Test
+    fun `destination targeting serializes minConfidence in camelCase`() {
+        // Contract: the engine's canonical key is `minConfidence`, matching every other field on
+        // the request contract. `min_confidence` survives only as a back-compat alias for already
+        // fielded SDKs, and camelCase wins when both are present. This SDK emitted the alias.
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addDestinationTarget(40.7, -74.0, 0.8)
+            .build()
+
+        val body = Json { encodeDefaults = true; explicitNulls = false }.encodeToString(request)
+
+        assertTrue(body.contains("\"minConfidence\":0.8"))
+        assertFalse(body.contains("min_confidence"))
+    }
 
     @Test
     fun `build with minimal placement`() {
