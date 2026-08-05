@@ -13,6 +13,8 @@ import com.admoai.sdk.utils.getSkipOffset
 import com.admoai.sdk.utils.getVastTagUrl
 import com.admoai.sdk.utils.getVastXmlBase64
 import com.admoai.sdk.utils.isJourneyAd
+import com.admoai.sdk.utils.isJourneyCompletion
+import com.admoai.sdk.utils.journeyInstanceId
 import com.admoai.sdk.utils.isSkippable
 import com.admoai.sdk.utils.isVastTagDelivery
 import com.admoai.sdk.utils.isVastXmlDelivery
@@ -372,5 +374,102 @@ internal fun wireShapeGroup(h: Harness, defaultVersion: String) {
 
         expect(body.contains("\"sessionId\":\"$session\""), "sessionId is top-level camelCase")
         expect(body.contains("\"journeyOpt\":\"in\""), "journeyOpt serializes to the wire literal \"in\"")
+    }
+}
+
+// §Y metric-emission scenarios (procedural: they FIRE tracking, not just assert exposure)
+//
+// Why these exist: every Journey Ad KPI in the Ad Manager is computed by Tinybird pipes from
+// emitted tracking rows, and until now the suite emitted almost none of them. It asserted that a
+// click URL was *exposed* and never fired it, so no `event='click'` row ever existed — leaving
+// BOTH CTR and Journey CTR structurally unverifiable end to end. Scenarios completed in
+// milliseconds, so Avg Duration was ~0 and Avg Attention Time (avgDuration x pct) was 0 with it.
+//
+// These emit the patterns those metrics need. They deliberately assert only what the SDK can
+// observe — HTTP 202 from the tracking endpoint. The metric arithmetic is verified separately by
+// the Go pipe tests in adhub (tests/decision-engine/tinybird/journey_reporting_pipes_test.go),
+// which can read the computed values; an SDK runner cannot.
+//
+// Y2's pattern is the acceptance case for adhub#2580: one journey clicked three times, another
+// not clicked at all. Impression CTR and Journey CTR must diverge from it.
+
+internal fun metricEmissionGroup(h: Harness) {
+    h.scenario("Y1", "a fired click is accepted by the engine, so CTR has data to compute from") {
+        val sid = freshSession("y1")
+        val creative = decideOn(PLACEMENT_PRE_RIDE_A, sid, JourneyOpt.OPT_IN)
+            .creativeFor(PLACEMENT_PRE_RIDE_A)
+            ?: skip("no journey served on $PLACEMENT_PRE_RIDE_A")
+
+        val impression = creative.tracking.impressions?.firstOrNull()?.url
+        expect(impression != null, "a served creative exposes an impression URL")
+        expectIngestionAccepted(impression!!)
+
+        val click = creative.tracking.clicks?.firstOrNull()?.url
+            ?: skip("this creative exposes no click URL (no destination field configured)")
+        // The gap this closes: previously only the URL's presence was asserted, never fired.
+        expectIngestionAccepted(click)
+    }
+
+    h.scenario(
+        "Y2",
+        "one journey clicked 3x and another not clicked at all — the Journey CTR case (adhub#2580)",
+    ) {
+        // Journey A: three clicks in ONE instance. Journey CTR must count it ONCE.
+        val sidA = freshSession("y2a")
+        val a = decideOn(PLACEMENT_PRE_RIDE_A, sidA, JourneyOpt.OPT_IN)
+            .creativeFor(PLACEMENT_PRE_RIDE_A)
+            ?: skip("no journey served on $PLACEMENT_PRE_RIDE_A")
+        val aImpression = a.tracking.impressions?.firstOrNull()?.url
+        val aClick = a.tracking.clicks?.firstOrNull()?.url
+            ?: skip("this creative exposes no click URL")
+        expectIngestionAccepted(aImpression!!)
+        repeat(3) { expectIngestionAccepted(aClick) }
+
+        // Journey B: impression only, never clicked.
+        val sidB = freshSession("y2b")
+        val b = decideOn(PLACEMENT_PRE_RIDE_A, sidB, JourneyOpt.OPT_IN)
+            .creativeFor(PLACEMENT_PRE_RIDE_A)
+            ?: skip("no journey served for the unclicked arm")
+        expectIngestionAccepted(b.tracking.impressions!!.first().url)
+
+        // The SDK cannot read the computed metric, so the claim here is only that the pattern was
+        // emitted. Expected downstream, over this window:
+        //   impression CTR = 3 clicks / 2 impressions  (clicks are not capped per journey)
+        //   Journey CTR    = 1 clicked journey / 2 started  = 50%
+        // Those must differ. They do not today — that is adhub#2580.
+        expect(
+            a.journeyInstanceId() != b.journeyInstanceId(),
+            "the two arms are separate journey instances, so per-journey reach is measurable",
+        )
+    }
+
+    h.scenario(
+        "Y3",
+        "a completed journey spans real wall-clock, so Avg Duration and Avg Attention Time are non-zero",
+    ) {
+        requireFixture(PLACEMENT_CPT_FINAL_EARLY, "adhub#2362")
+        val sid = freshSession("y3")
+
+        val early = decideOn(PLACEMENT_CPT_FINAL_EARLY, sid, JourneyOpt.OPT_IN)
+            .creativeFor(PLACEMENT_CPT_FINAL_EARLY)
+            ?: skip("no journey served on $PLACEMENT_CPT_FINAL_EARLY")
+        expectIngestionAccepted(early.tracking.impressions!!.first().url)
+
+        // Avg Duration is measured completion_ts - first_event_ts. Every other scenario completes
+        // in milliseconds, so the metric floored at ~0 and "0 because fast" was indistinguishable
+        // from "0 because broken". This gap makes the value assertable downstream.
+        Thread.sleep(3_000)
+
+        val complete = decideOn(PLACEMENT_CPT_FINAL_COMPLETE, sid, JourneyOpt.OPT_IN)
+            .creativeFor(PLACEMENT_CPT_FINAL_COMPLETE)
+            ?: skip("final stage did not serve")
+        expect(
+            complete.isJourneyCompletion(),
+            "the final stage of a final_stage deal flips isCompletion, which is what closes the instance",
+        )
+        expectIngestionAccepted(complete.tracking.impressions!!.first().url)
+
+        // Downstream, over this window: avg_duration_seconds >= 3, and Avg Attention Time =
+        // avg_duration x 30/100 (the pct now seeded on e2e_cpt_final_journey).
     }
 }

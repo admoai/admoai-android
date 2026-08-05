@@ -138,7 +138,7 @@ internal class Harness {
 // SDK helpers
 // ------------------------------------------------------------------------------------------------
 
-private const val PLACEMENT_PRE_RIDE_A = "vehicleSelection" // ride_hailing_journey pre_ride node A
+internal const val PLACEMENT_PRE_RIDE_A = "vehicleSelection" // ride_hailing_journey pre_ride node A
 private const val PLACEMENT_PRE_RIDE_B = "search"           // ride_hailing_journey pre_ride node B
 private const val PLACEMENT_IN_RIDE = "journey"             // ride_hailing_journey in_ride
 private const val PLACEMENT_POST_RIDE = "rideSummary"       // ride_hailing_journey post_ride
@@ -167,8 +167,8 @@ private const val PLACEMENT_MULTINODE_C = "sdk_e2e_multinode_c"
 private const val PLACEMENT_FREQ_CAP_LATER = "sdk_e2e_frequency_cap_later"
 private const val PLACEMENT_OPTSKIP_EARLY = "sdk_e2e_optskip_early"
 private const val PLACEMENT_OPTSKIP_LATER = "sdk_e2e_optskip_later"
-private const val PLACEMENT_CPT_FINAL_EARLY = "sdk_e2e_cpt_final_early"
-private const val PLACEMENT_CPT_FINAL_COMPLETE = "sdk_e2e_cpt_final_complete"
+internal const val PLACEMENT_CPT_FINAL_EARLY = "sdk_e2e_cpt_final_early"
+internal const val PLACEMENT_CPT_FINAL_COMPLETE = "sdk_e2e_cpt_final_complete"
 
 // §K wizard-parity fixture — deliberately NOT seeded. Built by hand in the platform ad manager
 // (definition `scooter_journey`, any `jad_…` deal on it: CPT / bill_per_stage / completion
@@ -224,7 +224,7 @@ private fun decide(configure: DecisionRequestBuilder.() -> Unit): DecisionRespon
 // own `build(): DecisionRequest` member, not to the lambda parameter, so the caller's targeting/user
 // config would be silently dropped (the request would go out with no `targeting`/`user`). Naming it
 // `extra` removes the collision so `extra()` unambiguously applies the caller's config.
-private fun decideOn(
+internal fun decideOn(
     placement: String,
     sessionId: String?,
     opt: JourneyOpt? = null,
@@ -236,12 +236,12 @@ private fun decideOn(
     extra()
 }
 
-private fun DecisionResponse.adFor(placement: String): AdData? = data?.firstOrNull { it.placement == placement }
-private fun DecisionResponse.creativeFor(placement: String): Creative? = adFor(placement)?.creatives?.firstOrNull()
+internal fun DecisionResponse.adFor(placement: String): AdData? = data?.firstOrNull { it.placement == placement }
+internal fun DecisionResponse.creativeFor(placement: String): Creative? = adFor(placement)?.creatives?.firstOrNull()
 private fun DecisionResponse.isNoAdFor(placement: String): Boolean = adFor(placement)?.isNoAd() ?: true
 
 /** Probe a dedicated fixture placement; if it does not serve a Journey, the fixture isn't seeded. */
-private fun requireFixture(placement: String, seedIssue: String) {
+internal fun requireFixture(placement: String, seedIssue: String) {
     val serves = try {
         decideOn(placement, freshSession("probe"), JourneyOpt.OPT_IN).creativeFor(placement)?.isJourneyAd() == true
     } catch (_: AdMoaiNetworkException) {
@@ -553,7 +553,7 @@ private fun expectTrackingTransport(url: String?, label: String) {
  * minted shape separately, so scheme/host/port are normalized to the configured base URL here — the opaque
  * `?e=` token, which is what ingestion actually validates, is passed through untouched.
  */
-private fun expectIngestionAccepted(url: String) {
+internal fun expectIngestionAccepted(url: String) {
     val base = java.net.URI(E2E_BASE_URL)
     val minted = java.net.URI(url)
     val target = java.net.URI(base.scheme, null, base.host, base.port, minted.path, minted.query, null).toURL()
@@ -972,6 +972,9 @@ fun main() {
         // identically by all three SDKs — see ManifestRunner.kt.
         manifestGroup(h, baseUrl, version)
         wireShapeGroup(h, version)
+        // Emits the tracking patterns the Ad Manager KPIs are computed from (clicks, a
+        // timed completion). Last, because Y3 spends 3s of real wall-clock.
+        metricEmissionGroup(h)
         h.finish()
     } finally {
         Admoai.resetForTesting()
