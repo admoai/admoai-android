@@ -553,7 +553,18 @@ private fun expectTrackingTransport(url: String?, label: String) {
  * minted shape separately, so scheme/host/port are normalized to the configured base URL here — the opaque
  * `?e=` token, which is what ingestion actually validates, is passed through untouched.
  */
-internal fun expectIngestionAccepted(url: String) {
+internal fun expectIngestionAccepted(url: String) = expectIngestion(url, allowRedirect = false)
+
+/**
+ * Ingestion check for a CLICK tracking URL.
+ *
+ * `GET /v1/tracking` answers 202 for a pixel but **302 for a click**: the engine records the event
+ * and then redirects the user to the creative's destination. A 302 is therefore the success signal
+ * for a click, not a failure — asserting `2xx` here rejects a correctly-working click.
+ */
+internal fun expectClickIngestionAccepted(url: String) = expectIngestion(url, allowRedirect = true)
+
+private fun expectIngestion(url: String, allowRedirect: Boolean) {
     val base = java.net.URI(E2E_BASE_URL)
     val minted = java.net.URI(url)
     val target = java.net.URI(base.scheme, null, base.host, base.port, minted.path, minted.query, null).toURL()
@@ -561,15 +572,21 @@ internal fun expectIngestionAccepted(url: String) {
         requestMethod = "GET"
         connectTimeout = 5_000
         readTimeout = 5_000
+        // Do not chase the click redirect: the destination is an advertiser URL that may be
+        // unreachable from a test machine, and following it would turn a correct 302 into a
+        // network error. The 302 itself is the proof the engine accepted the token.
+        instanceFollowRedirects = false
     }
     val code = try {
         conn.responseCode
     } finally {
         conn.disconnect()
     }
+    val accepted = code in 200..299 || (allowRedirect && code == 302)
     expect(
-        code in 200..299,
-        "the engine must accept a tracking token it minted itself; /v1/tracking returned $code",
+        accepted,
+        "the engine must accept a tracking token it minted itself; /v1/tracking returned $code" +
+            if (allowRedirect) " (202 or 302 expected for a click)" else " (2xx expected)",
     )
 }
 

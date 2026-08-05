@@ -407,7 +407,7 @@ internal fun metricEmissionGroup(h: Harness) {
         val click = creative.tracking.clicks?.firstOrNull()?.url
             ?: skip("this creative exposes no click URL (no destination field configured)")
         // The gap this closes: previously only the URL's presence was asserted, never fired.
-        expectIngestionAccepted(click)
+        expectClickIngestionAccepted(click)
     }
 
     h.scenario(
@@ -423,7 +423,7 @@ internal fun metricEmissionGroup(h: Harness) {
         val aClick = a.tracking.clicks?.firstOrNull()?.url
             ?: skip("this creative exposes no click URL")
         expectIngestionAccepted(aImpression!!)
-        repeat(3) { expectIngestionAccepted(aClick) }
+        repeat(3) { expectClickIngestionAccepted(aClick) }
 
         // Journey B: impression only, never clicked.
         val sidB = freshSession("y2b")
