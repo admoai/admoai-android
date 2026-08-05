@@ -1,5 +1,6 @@
 package com.admoai.sdk.model.request
 
+import com.admoai.sdk.model.common.JourneyOpt
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
@@ -11,6 +12,9 @@ import kotlinx.serialization.Transient
  * @property user User information for personalization
  * @property app Application information
  * @property device Device information
+ * @property sessionId Publisher-provided Journey session identifier (top-level, camelCase). Store the
+ *   normalized wire form (trimmed; blank → null). Requires `apiVersion` to be set to take effect.
+ * @property journeyOpt Journey opt-in/opt-out for this session; emitted only as `"in"`/`"out"`.
  * @property collectAppData Controls automatic collection of app data (not serialized)
  * @property collectDeviceData Controls automatic collection of device data (not serialized)
  *
@@ -23,6 +27,8 @@ data class DecisionRequest(
     val user: User? = null,
     val app: App? = null,
     val device: Device? = null,
+    val sessionId: String? = null,
+    val journeyOpt: JourneyOpt? = null,
     @Transient
     val collectAppData: Boolean = true,
     @Transient

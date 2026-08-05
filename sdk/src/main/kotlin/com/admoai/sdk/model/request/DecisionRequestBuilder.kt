@@ -1,15 +1,33 @@
 package com.admoai.sdk.model.request
 
 import com.admoai.sdk.exception.AdMoaiConfigurationException
+import com.admoai.sdk.model.common.JourneyOpt
+import com.admoai.sdk.model.common.normalizeSessionId
+import com.admoai.sdk.model.common.sessionIdRejectionReason
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 
-class DecisionRequestBuilder {
+/**
+ * Fluent builder for a [DecisionRequest].
+ *
+ * @param initialSessionId sticky session seed from the SDK instance (already publisher-provided).
+ * @param onSessionRejected PII-safe callback invoked with a rejection-reason token (never the value)
+ *   when [setSessionId] receives a blank or over-length id.
+ */
+class DecisionRequestBuilder internal constructor(
+    initialSessionId: String?,
+    private val onSessionRejected: ((String) -> Unit)?
+) {
+    /** Public constructor for direct/manual use (no config seeding, no logging callback). */
+    constructor() : this(null, null)
+
     private val placements: MutableList<Placement> = mutableListOf()
     private var targeting: Targeting = Targeting()
     private var user: User = User()
+    private var sessionId: String? = normalizeSessionId(initialSessionId)
+    private var journeyOpt: JourneyOpt? = null
     private var collectAppData: Boolean = true
-    private var collectDeviceData: Boolean = true 
+    private var collectDeviceData: Boolean = true
 
     fun disableAppCollection() = apply { collectAppData = false }
 
@@ -92,8 +110,22 @@ class DecisionRequestBuilder {
 
     fun addCustomTarget(key: String, value: Boolean) = addCustomTarget(key, JsonPrimitive(value))
 
+    /**
+     * Replaces the custom-targeting list, keeping the LAST entry for any repeated key.
+     *
+     * The dedupe is not cosmetic. The engine rejects a duplicate custom key with
+     * `ErrDuplicateCustomKey` and returns immediately from validation, so a single repeated key
+     * fails the ENTIRE decision request — every placement in it, not just the offending target.
+     * `addCustomTarget` has always deduped; this bulk setter did not, so the two paths disagreed
+     * and only the bulk one could produce that 422. iOS and Flutter both fold-dedupe here.
+     */
     fun setCustomTargets(customTargets: List<CustomTargetingInfo>) = apply {
-        targeting = targeting.copy(custom = customTargets)
+        val deduped = customTargets.fold(mutableListOf<CustomTargetingInfo>()) { acc, entry ->
+            acc.removeAll { it.key == entry.key }
+            acc.add(entry)
+            acc
+        }
+        targeting = targeting.copy(custom = deduped)
     }
 
     fun setUserId(id: String?) = apply { user = user.copy(id = id) }
@@ -102,9 +134,30 @@ class DecisionRequestBuilder {
 
     fun setUserTimezone(timezone: String?) = apply { user = user.copy(timezone = timezone) }
 
-    fun setUserConsent(gdpr: Boolean?) = apply { user = user.copy(consent = Consent(gdpr = gdpr)) }
+    /**
+     * Sets GDPR consent. A null argument means "not granted" (`false`) rather than "unspecified" —
+     * the engine has no unspecified state and treats an absent flag as false, so this makes the
+     * wire body identical to iOS and Flutter for the same call.
+     */
+    fun setUserConsent(gdpr: Boolean?) =
+        apply { user = user.copy(consent = Consent(gdpr = gdpr ?: false)) }
 
     fun setUserConsent(consent: Consent?) = apply { user = user.copy(consent = consent) }
+
+    /**
+     * Sets the Journey session id for this request, overriding the sticky seed. Stored normalized
+     * (trimmed; blank → null). Blank/over-length triggers a PII-safe warning but is still sent.
+     */
+    fun setSessionId(sessionId: String?) = apply {
+        sessionIdRejectionReason(sessionId)?.let { onSessionRejected?.invoke(it) }
+        this.sessionId = normalizeSessionId(sessionId)
+    }
+
+    fun clearSessionId() = apply { this.sessionId = null }
+
+    fun setJourneyOpt(journeyOpt: JourneyOpt?) = apply { this.journeyOpt = journeyOpt }
+
+    fun clearJourneyOpt() = apply { this.journeyOpt = null }
 
     fun clearGeoTargeting() = apply {
         targeting = targeting.copy(geo = null)
@@ -138,6 +191,13 @@ class DecisionRequestBuilder {
         clearPlacements()
         clearTargeting()
         clearUser()
+        // Also stop automatic app/device collection, matching the iOS and Flutter SDKs. Without
+        // these, `clearAll()` put a different request on the wire per platform: the same call left
+        // Android still sending `app` and `device` while the other two sent neither.
+        disableAppCollection()
+        disableDeviceCollection()
+        // Clear journeyOpt (a stale opt-out would change eligibility) but preserve the sticky sessionId.
+        journeyOpt = null
     }
 
     fun build(): DecisionRequest {
@@ -157,6 +217,8 @@ class DecisionRequestBuilder {
             placements = placements.toList(),
             targeting = finalTargeting,
             user = finalUser,
+            sessionId = sessionId,
+            journeyOpt = journeyOpt,
             collectAppData = collectAppData,
             collectDeviceData = collectDeviceData
         )

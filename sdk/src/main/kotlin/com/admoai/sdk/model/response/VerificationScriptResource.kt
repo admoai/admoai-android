@@ -1,5 +1,6 @@
 package com.admoai.sdk.model.response
 
+import com.admoai.sdk.serialization.VerificationParametersSerializer
 import kotlinx.serialization.Serializable
 
 /**
@@ -10,12 +11,13 @@ import kotlinx.serialization.Serializable
  *
  * @property vendorKey The identifier for the verification vendor (e.g., "ias", "doubleverify")
  * @property scriptUrl The URL to the verification script that needs to be loaded
- * @property verificationParameters Additional parameters required for verification setup
+ * @property verificationParameters Additional parameters; an object/array value is preserved as JSON text.
  */
 @Serializable
 data class VerificationScriptResource(
     val vendorKey: String,
     val scriptUrl: String,
+    @Serializable(with = VerificationParametersSerializer::class)
     val verificationParameters: String? = null
 )
 

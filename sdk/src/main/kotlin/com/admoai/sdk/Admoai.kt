@@ -11,6 +11,8 @@ import com.admoai.sdk.model.request.DecisionRequest
 import com.admoai.sdk.model.request.DecisionRequestBuilder
 import com.admoai.sdk.model.request.Device
 import com.admoai.sdk.model.request.Targeting
+import com.admoai.sdk.model.common.normalizeSessionId
+import com.admoai.sdk.model.common.sessionIdRejectionReason
 import com.admoai.sdk.model.request.User
 import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sdk.model.response.TrackingInfo
@@ -45,6 +47,14 @@ class Admoai private constructor() {
     private var deviceConfig: DeviceConfig? = null
     private var appConfig: AppConfig? = null
 
+    /** Sticky publisher-provided Journey session id; seeded into each builder, per-request setter wins. */
+    @Volatile
+    private var stickySessionId: String? = null
+
+    /** Test seam: when set, [log] routes here instead of `android.util.Log` (a stub in JVM unit tests). */
+    @VisibleForTesting
+    internal var logSink: ((String, LogLevel, Throwable?) -> Unit)? = null
+
     private val coroutineExceptionHandler = CoroutineExceptionHandler { _, _ -> }
 
     @VisibleForTesting
@@ -52,7 +62,9 @@ class Admoai private constructor() {
 
     private fun applyConfiguration(newConfig: SDKConfig) {
         this.sdkConfig = newConfig
-        this.apiService = AdMoaiApiServiceImpl(newConfig, newConfig.networkClientEngine)
+        this.apiService = AdMoaiApiServiceImpl(newConfig, newConfig.networkClientEngine) { message ->
+            log(message, LogLevel.WARNING)
+        }
     }
 
     suspend fun configure(newConfig: SDKConfig) {
@@ -94,7 +106,27 @@ class Admoai private constructor() {
 
     fun getAppConfig(): AppConfig? = this.appConfig
 
-    fun createRequestBuilder(): DecisionRequestBuilder = DecisionRequestBuilder()
+    /**
+     * Sets the sticky Journey session id (seeded into each new builder). Rotation is explicit — the
+     * SDK never generates or changes it. Blank/over-length values log a PII-safe reason token only.
+     */
+    fun setSessionId(sessionId: String?) {
+        sessionIdRejectionReason(sessionId)?.let {
+            log("Journey sessionId rejected ($it)", LogLevel.WARNING)
+        }
+        this.stickySessionId = normalizeSessionId(sessionId)
+    }
+
+    fun clearSessionId() {
+        this.stickySessionId = null
+    }
+
+    fun getSessionId(): String? = this.stickySessionId
+
+    fun createRequestBuilder(): DecisionRequestBuilder =
+        DecisionRequestBuilder(stickySessionId) { reason ->
+            log("Journey sessionId rejected ($reason)", LogLevel.WARNING)
+        }
 
     fun prepareFinalDecisionRequest(initialDecisionRequest: DecisionRequest): DecisionRequest {
         val requestUser = initialDecisionRequest.user
@@ -144,12 +176,22 @@ class Admoai private constructor() {
             )
         } else null
 
+        if ((initialDecisionRequest.sessionId != null || initialDecisionRequest.journeyOpt != null) &&
+            sdkConfig?.apiVersion == null
+        ) {
+            log("Journey context set but apiVersion is null; Journey will be ignored.", LogLevel.WARNING)
+        }
+
         return DecisionRequest(
             placements = initialDecisionRequest.placements,
             user = mergedUser,
             targeting = mergedTargeting,
             app = appObject,
             device = deviceObject,
+            // Journey context flows through the builder; do not re-inject sticky here (honors a
+            // per-request clear). Normalize so a directly-built DecisionRequest is trimmed too.
+            sessionId = normalizeSessionId(initialDecisionRequest.sessionId),
+            journeyOpt = initialDecisionRequest.journeyOpt,
             collectAppData = initialDecisionRequest.collectAppData,
             collectDeviceData = initialDecisionRequest.collectDeviceData
         )
@@ -182,6 +224,11 @@ class Admoai private constructor() {
 
     fun fireTracking(url: String) {
         val currentApiService = apiService ?: return
+        if (!isAbsoluteHttpUrl(url)) {
+            // PII-safe: never log the opaque tracking URL / e= token, only a redacted reason.
+            log("Tracking URL rejected: not an absolute http(s) URL", LogLevel.WARNING)
+            return
+        }
         sdkScope.launch {
             try {
                 currentApiService.fireTrackingUrl(url).collect {}
@@ -191,6 +238,33 @@ class Admoai private constructor() {
                 // fire-and-forget: network failures never propagate to the caller
             }
         }
+    }
+
+    /**
+     * Fires the custom_event Journey completion beacon for [key] verbatim. Quiet by design: a no-op
+     * when there are no completions (normal ads and final_stage serves carry none); warns only on a
+     * key-miss against a non-empty list, and when firing with a null apiVersion (billing-critical —
+     * the callback would hit the legacy tracking handler and not record).
+     */
+    fun fireCompletion(trackingInfo: TrackingInfo, key: String) {
+        val completions = trackingInfo.completions
+        if (completions.isNullOrEmpty()) return
+        val url = completions.firstOrNull { it.key == key }?.url
+        if (url == null) {
+            log("Journey completion key not found in completions list", LogLevel.WARNING)
+            return
+        }
+        if (sdkConfig?.apiVersion == null) {
+            log("Firing Journey completion without apiVersion; it may not record.", LogLevel.WARNING)
+        }
+        fireTracking(url)
+    }
+
+    private fun isAbsoluteHttpUrl(url: String): Boolean = try {
+        val uri = java.net.URI(url)
+        (uri.scheme == "http" || uri.scheme == "https") && !uri.host.isNullOrEmpty()
+    } catch (_: Exception) {
+        false
     }
 
     fun fireImpression(trackingInfo: TrackingInfo, key: String = "default") {
@@ -214,7 +288,9 @@ class Admoai private constructor() {
     }
 
     internal fun log(message: String, level: LogLevel = LogLevel.INFO, throwable: Throwable? = null) {
-        if (sdkConfig?.enableLogging == true || level == LogLevel.ERROR) {
+        // WARNING/ERROR always emit (misuse must surface even with debug logging off).
+        if (sdkConfig?.enableLogging == true || level == LogLevel.WARNING || level == LogLevel.ERROR) {
+            logSink?.let { it(message, level, throwable); return }
             val tag = "AdMoaiSDK"
             when (level) {
                 LogLevel.DEBUG -> android.util.Log.d(tag, message, throwable)
@@ -237,7 +313,7 @@ class Admoai private constructor() {
          */
         @JvmStatic
         @JvmOverloads
-        fun initialize(baseUrl: String, apiVersion: String? = null, enableLogging: Boolean = false, defaultLanguage: String? = null) {
+        fun initialize(baseUrl: String, apiVersion: String? = null, enableLogging: Boolean = false, defaultLanguage: String? = null, sessionId: String? = null) {
             val config = SDKConfig(
                 baseUrl = baseUrl,
                 apiVersion = apiVersion,
@@ -245,8 +321,22 @@ class Admoai private constructor() {
                 defaultLanguage = defaultLanguage
             )
             initialize(config)
+            // initialize() runs once at startup before any request, so setting sessionId here is safe.
+            sessionId?.let { getInstance().setSessionId(it) }
         }
         
+        /**
+         * Initializes (or re-initializes) the SDK.
+         *
+         * Re-initializing resets the sticky Journey [setSessionId] value. Because this class is a
+         * process singleton, `initialize()` used to reuse the existing instance and only reapply
+         * config, leaving a previous session id in place — so a publisher calling `initialize()` at
+         * logout, account switch or environment switch silently carried the old Journey session
+         * into the next user's requests. On iOS and Flutter initialization produces a fresh SDK
+         * value/instance, so the session never survived there.
+         *
+         * Use [configure] to change configuration on a running SDK without touching session state.
+         */
         @JvmStatic
         fun initialize(sdkConfig: SDKConfig) {
             val immutableSdkConfig = sdkConfig.copy()
@@ -255,6 +345,7 @@ class Admoai private constructor() {
                     INSTANCE = Admoai()
                 }
                 INSTANCE!!.applyConfiguration(immutableSdkConfig)
+                INSTANCE!!.clearSessionId()
                 isSdkInitialized = true
             }
         }

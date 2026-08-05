@@ -1,5 +1,13 @@
 package com.admoai.sdk.model.response
 
+import com.admoai.sdk.serialization.AdvertiserOrDefaultSerializer
+import com.admoai.sdk.serialization.ContentListSerializer
+import com.admoai.sdk.serialization.CreativeJourneyOrNullSerializer
+import com.admoai.sdk.serialization.CreativeMetadataOrNullSerializer
+import com.admoai.sdk.serialization.TemplateInfoOrNullSerializer
+import com.admoai.sdk.serialization.TrackingInfoOrDefaultSerializer
+import com.admoai.sdk.serialization.VastDataOrNullSerializer
+import com.admoai.sdk.serialization.VerificationResourceListSerializer
 import kotlinx.serialization.Serializable
 
 /**
@@ -13,15 +21,25 @@ import kotlinx.serialization.Serializable
  * @property delivery Delivery method for video ads ("vast_tag", "vast_xml", "json")
  * @property vast VAST data containing tag URL or XML content for video ads
  * @property verificationScriptResources Open Measurement verification script resources for ad verification
+ * @property journey Read-only Journey Takeover metadata; null for normal (non-Journey) ads
  */
 @Serializable
 data class Creative(
-    val contents: List<Content>,
-    val advertiser: Advertiser,
-    val template: TemplateInfo? = null, 
-    val tracking: TrackingInfo,
+    @Serializable(with = ContentListSerializer::class)
+    val contents: List<Content> = emptyList(),
+    @Serializable(with = AdvertiserOrDefaultSerializer::class)
+    val advertiser: Advertiser = Advertiser(),
+    @Serializable(with = TemplateInfoOrNullSerializer::class)
+    val template: TemplateInfo? = null,
+    @Serializable(with = TrackingInfoOrDefaultSerializer::class)
+    val tracking: TrackingInfo = TrackingInfo(),
+    @Serializable(with = CreativeMetadataOrNullSerializer::class)
     val metadata: CreativeMetadata? = null,
     val delivery: String? = null,
+    @Serializable(with = VastDataOrNullSerializer::class)
     val vast: VastData? = null,
-    val verificationScriptResources: List<VerificationScriptResource>? = null
+    @Serializable(with = VerificationResourceListSerializer::class)
+    val verificationScriptResources: List<VerificationScriptResource>? = null,
+    @Serializable(with = CreativeJourneyOrNullSerializer::class)
+    val journey: CreativeJourney? = null
 )

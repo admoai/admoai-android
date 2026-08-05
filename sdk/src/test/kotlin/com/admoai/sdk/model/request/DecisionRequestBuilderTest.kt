@@ -1,6 +1,8 @@
 package com.admoai.sdk.model.request
 
 import com.admoai.sdk.exception.AdMoaiConfigurationException
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
@@ -11,6 +13,41 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DecisionRequestBuilderTest {
+
+    // Scenario: consent is set without an explicit GDPR value.
+    @Test
+    fun `consent with a null gdpr value serializes as false, not an empty object`() {
+        // The engine types gdpr as a non-nullable bool defaulting to false, so there is no
+        // "unspecified" state. This model was nullable, so the same call emitted `{}` here while
+        // iOS and Flutter emitted `{"gdpr":false}` — a different body per platform for identical
+        // engine behaviour.
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .setUserConsent(null as Boolean?)
+            .build()
+
+        assertEquals(false, request.user?.consent?.gdpr)
+
+        val body = Json { encodeDefaults = true; explicitNulls = false }.encodeToString(request)
+        assertTrue(body.contains("\"gdpr\":false"))
+    }
+
+    // Scenario: a destination target is serialized for the wire.
+    @Test
+    fun `destination targeting serializes minConfidence in camelCase`() {
+        // Contract: the engine's canonical key is `minConfidence`, matching every other field on
+        // the request contract. `min_confidence` survives only as a back-compat alias for already
+        // fielded SDKs, and camelCase wins when both are present. This SDK emitted the alias.
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .addDestinationTarget(40.7, -74.0, 0.8)
+            .build()
+
+        val body = Json { encodeDefaults = true; explicitNulls = false }.encodeToString(request)
+
+        assertTrue(body.contains("\"minConfidence\":0.8"))
+        assertFalse(body.contains("min_confidence"))
+    }
 
     @Test
     fun `build with minimal placement`() {
@@ -361,6 +398,30 @@ class DecisionRequestBuilderTest {
             .build()
 
         assertEquals(customTargets, request.targeting?.custom)
+    }
+
+    // Scenario: the bulk setter is handed a list that repeats a key.
+    @Test
+    fun `set custom targets deduplicates by key, keeping the last entry`() {
+        // Contract: the engine rejects a duplicate custom key with ErrDuplicateCustomKey and
+        // returns immediately from validation, failing the ENTIRE decision request — every
+        // placement in it. `addCustomTarget` has always deduped; this bulk setter did not, so
+        // only this path could produce that 422. iOS and Flutter both fold-dedupe here.
+        val request = DecisionRequestBuilder()
+            .addPlacement("p1")
+            .setCustomTargets(
+                listOf(
+                    CustomTargetingInfo("tier", JsonPrimitive("gold")),
+                    CustomTargetingInfo("city", JsonPrimitive("santiago")),
+                    CustomTargetingInfo("tier", JsonPrimitive("platinum"))
+                )
+            )
+            .build()
+
+        val custom = request.targeting?.custom
+        assertEquals(2, custom?.size)
+        assertEquals(JsonPrimitive("platinum"), custom?.find { it.key == "tier" }?.value)
+        assertEquals(JsonPrimitive("santiago"), custom?.find { it.key == "city" }?.value)
     }
 
     @Test

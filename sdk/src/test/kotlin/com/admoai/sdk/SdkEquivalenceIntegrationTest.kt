@@ -115,7 +115,9 @@ class SdkEquivalenceIntegrationTest {
         assertNotNull("User-Agent must be present on tracking", req!!.getHeader("User-Agent"))
         assertTrue(req.getHeader("User-Agent")!!.startsWith("AdMoaiSDK/"))
         assertEquals("Accept-Language on tracking must match config", "pt", req.getHeader("Accept-Language"))
-        assertEquals("X-Decision-Version on tracking must match config", "2025-11-01", req.getHeader("X-Decision-Version"))
+        // Tracking version-routes on X-Tracking-Version; X-Decision-Version has no effect there.
+        assertEquals("X-Tracking-Version on tracking must match config", "2025-11-01", req.getHeader("X-Tracking-Version"))
+        assertNull("X-Decision-Version must not be sent on tracking", req.getHeader("X-Decision-Version"))
     }
 
     @Test
@@ -315,6 +317,11 @@ class SdkEquivalenceIntegrationTest {
         assertEquals("feed", request.placements[0].key)
         assertNull("Targeting must be null after clearAll", request.targeting)
         assertNull("User must be null after clearAll", request.user)
+        // Cross-SDK parity: iOS and Flutter both disable app/device collection inside clearAll(),
+        // so the same call has to put the same request on the wire here. Android previously kept
+        // collecting both, which meant `clearAll()` meant something different per platform.
+        assertFalse("clearAll must stop app collection", request.collectAppData)
+        assertFalse("clearAll must stop device collection", request.collectDeviceData)
     }
 
     @Test
