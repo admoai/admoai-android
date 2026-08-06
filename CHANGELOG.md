@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0](https://github.com/admoai/admoai-android/compare/v1.4.0...v1.5.0) (2026-08-05)
+
+
+### Fixed
+
+* resolve compile failures — fire-and-forget API not propagated to sample and test call sites ([#59](https://github.com/admoai/admoai-android/issues/59)) ([39b2b6e](https://github.com/admoai/admoai-android/commit/39b2b6ed16bdcc777befc5c1c8d34e626d774d2c))
+* **sdk:** wave 3 — P2 cross-SDK parity sweep ([#76](https://github.com/admoai/admoai-android/issues/76)) ([3513252](https://github.com/admoai/admoai-android/commit/3513252be8830d407eea07b84f3e212c69d4d3cf))
+
+
+### Changed
+
+* release as 1.5.0 ([#77](https://github.com/admoai/admoai-android/issues/77)) ([f5f1504](https://github.com/admoai/admoai-android/commit/f5f1504601f10b6fc143874114c8b4ea6dacc00f))
+
 ## [1.4.0](https://github.com/admoai/admoai-android/admoai/admoai-android/compare/v1.3.0...v1.4.0) (2026-05-27)
 
 
