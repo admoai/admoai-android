@@ -51,7 +51,7 @@ dependencies {
 ```kotlin
 val config = SDKConfig(
     baseUrl = "https://api.admoai.com",
-    apiVersion = "2025-11-01",         // Required for Journey Ads and the format filter
+    apiVersion = "2025-11-01",         // Recommended: gates Journey Ads, video, POI targeting and more
     enableLogging = true,              // Optional: for debugging
     networkRequestTimeoutMs = 30000L   // Optional: 30s timeout
 )
@@ -321,7 +321,7 @@ That moves real commercial weight into your app:
 | Uses journey metadata (stage keys, node ids) to drive app logic or layout | Breaks silently the moment someone edits the campaign. |
 
 **None of this raises an error at request time.** Requests succeed, ads appear, and the problem only shows up
-later in reporting — which is why the checklist and checks at the end of this section matter more than usual.
+later in reporting — which is why the checklist and the checks at the end of this section matter more than usual.
 
 ### What is new for you: one session, every call
 
@@ -338,7 +338,11 @@ So the one new obligation is: **every decision request during a user's session m
 ### What Journey Ads require
 
 `apiVersion = "2025-11-01"` or later. Without it the engine ignores the journey fields completely and serves
-normal ads — silently, with no error.
+normal ads — silently, with no error — and Journey completion tracking will not record.
+
+`2025-11-01` is not only about Journey Ads. It gates several capabilities, so unless you have a specific reason
+not to, set it: **Journey Ads**, **video ads**, **POI / destination targeting**, **mid-flight campaign
+changes**, **Open Measurement** support, and the **format filter**.
 
 ```kotlin
 Admoai.initialize(
@@ -598,13 +602,23 @@ Journey creatives support the same three delivery modes as normal ads (`json`, `
 
 | Mistake | Consequence | Do this instead |
 |---|---|---|
-| A new `sessionId` per request or per screen | Journey restarts constantly; stages never advance | One value per user session |
-| Reusing a user id as the session id forever | Journeys never restart for returning users | Rotate when a new session begins |
-| Omitting `journeyOpt` to mean "no journeys" | Journeys still serve — omitting is permissive | Send `OPT_OUT` explicitly |
-| Substituting your own ad on a journey no-ad | Breaks the takeover the advertiser paid for | Collapse the slot |
-| Skipping `fireCompletion` on a `custom_event` campaign | Completion never records — lost revenue | Fire it when the paid action happens |
-| Firing `creative.tracking` for VAST journey ads | Double-counted impressions | Let the player own VAST beacons |
-| Branching UI on `journeyStageKey()` | Breaks whenever the campaign is edited | Treat metadata as read-only telemetry |
+| A new `sessionId` per screen or per request | The journey restarts at stage 1 forever and never progresses | One id per activity, rotated only when the activity ends |
+| Reusing a user id, account id or login as the `sessionId` | Every activity by that user collapses into a single journey | Mint an opaque id per activity |
+| No `sessionId` at all | Journeys never activate; the feature is silently off (ordinary ads still serve) | Set it once via `Admoai.initialize(sessionId = …)` |
+| Omitting `journeyOpt` to mean "no journeys" | Permissive — journeys still serve, and an active one continues | Send `JourneyOpt.OPT_OUT` explicitly |
+| Expecting opt-out to pause a journey | The instance is **closed**; a later opt-in starts a brand-new one | Treat opt-out as terminal |
+| Sending `JourneyOpt.OPT_OUT`, then omitting `journeyOpt` to re-enable | A stored opt-out persists, so journeys stay off for that session | Send `JourneyOpt.OPT_IN` explicitly to re-consent |
+| Missing or older `apiVersion` | Journey fields are ignored silently, and completions do not record | Set `2025-11-01` |
+| Not firing the `custom_event` completion beacon | The journey never completes and CPT never bills | Fire it once when the agreed action happens |
+| Hard-coding the completion key | The key is campaign-specific; a wrong key fires **nothing** and only logs a warning | Read it from `creative.tracking``.completions` |
+| Firing a completion on a `final_stage` deal | Nothing to fire; the call is a no-op | Check `isJourneyCompletion()` and fire only the impression |
+| Firing the completion on render instead of on the action | Completions and CPT revenue are reported for journeys that never delivered the outcome | Fire on the real user action |
+| Filling a journey-owned slot with another ad when the journey returns no ad | Breaks the single-brand takeover the advertiser paid for | Collapse the slot |
+| Immediately re-requesting the same placement in a loop after a no-ad | Wasted calls; a placement the journey is holding will not free up mid-loop | Collapse, then request again at your next natural ad opportunity |
+| Treating a repeated `journeyStageKey()` as a bug | One stage can own several surfaces, so it legitimately repeats | Use `journeyStageNodeId()` for the no-repeat rule |
+| Using journey metadata to drive app logic or layout | Breaks silently the moment someone edits the campaign | Render from `contents` / `template` |
+| Rebuilding or appending to a tracking URL | Invalidates the encrypted token; attribution is lost | Fire the string verbatim |
+| Firing SDK video events for VAST delivery | Every event counts twice | Let the player's VAST beacons do it |
 
 ### Verifying your integration
 
@@ -1390,7 +1404,7 @@ sdk.setAppConfig(AppConfig.systemDefault())
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `baseUrl` | String | Required | Decision Engine API endpoint |
-| `apiVersion` | String? | `null` | API version (e.g., `"2025-11-01"` for format filter) |
+| `apiVersion` | String? | `null` | Engine API version. `"2025-11-01"` gates Journey Ads, video ads, POI / destination targeting, mid-flight campaign changes, Open Measurement and the format filter |
 | `enableLogging` | Boolean | `false` | Enable debug logging |
 | `defaultLanguage` | String? | `null` | Default language for requests |
 | `networkRequestTimeoutMs` | Long | `10000` | HTTP request timeout (ms) |

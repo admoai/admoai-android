@@ -58,7 +58,7 @@ dependencies {
 Admoai.initialize(
     SDKConfig(
         baseUrl = "https://api.admoai.com",
-        apiVersion = "2025-11-01"   // required for Journey Ads and the format filter
+        apiVersion = "2025-11-01"   // gates Journey Ads, video, POI targeting, mid-flight changes, Open Measurement
     )
 )
 val sdk = Admoai.getInstance()
