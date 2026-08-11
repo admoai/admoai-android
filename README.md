@@ -11,7 +11,7 @@ AdMoai Android SDK provides a comprehensive native advertising solution for Andr
 ## Features
 
 - **Native Ad Formats** - Seamlessly integrated native advertising
-- **Journey Takeover Ads** - Multi-stage, single-advertiser takeovers across a session
+- **Journey Ads** - Multi-stage, single-advertiser takeovers across one user activity
 - **Advanced Targeting** - Geo, location, destination, and custom targeting options
 - **Jetpack Compose** - First-class Compose support with `rememberAdState`
 - **GDPR Compliance** - Built-in user consent management
@@ -58,7 +58,7 @@ dependencies {
 Admoai.initialize(
     SDKConfig(
         baseUrl = "https://api.admoai.com",
-        apiVersion = "2025-11-01"   // required for Journey Ads and the format filter
+        apiVersion = "2025-11-01"   // gates Journey Ads, video, POI targeting, mid-flight changes, Open Measurement
     )
 )
 val sdk = Admoai.getInstance()
@@ -94,74 +94,22 @@ fun MyAdScreen() {
 }
 ```
 
-## Journey Takeover Ads
+## Journey Ads
 
-Journey Takeover Ads are single-brand, multi-stage experiences that follow a user across trip
-stages. All Journey logic (eligibility, stage progression, takeover protection, completion,
-billing) is owned by the decision engine — the SDK only forwards session context, surfaces
-read-only metadata, and fires the engine's tracking URLs verbatim.
+Journey Ads are single-brand, multi-stage experiences that follow a user across one activity, sold
+as a single deal. All Journey logic — eligibility, stage progression, takeover protection,
+completion and billing — is owned by the Decision Engine; the SDK forwards your `sessionId` and
+`journeyOpt`, exposes read-only journey metadata, and fires only the beacons you ask it to.
 
-> **This is the first Admoai feature where a _sequence_ of calls matters.** A journey only advances
-> when every request in a user's session carries the **same `sessionId`**. Full rules, worked
-> examples, and the common mistakes are in the
-> **[Journey Ads guide](./sdk/README.md#journey-ads)** — read it before integrating.
+**Journey Ads put a new obligation on your app: the same `sessionId` on every request of a user's
+activity.** Get it wrong and journeys silently never progress — no error, no warning.
 
-**Requires** `apiVersion = "2025-11-01"` (minimum Journey-capable engine version). Without it,
-Journey is ignored by the engine and normal ads are served, silently.
+> 📖 **The full integration guide lives in [`sdk/README.md` → Journey Ads](./sdk/README.md#journey-ads).**
+> It is the single source of truth and covers the commercial model, what a session actually is, the
+> `sessionId` contract, opt-in/opt-out, completion, no-ad handling, idle expiry, frequency capping,
+> a pre-launch checklist, a glossary and an FAQ. This page deliberately does not summarise it —
+> a partial copy would drift out of date and mislead.
 
-```kotlin
-// 1. Configure with the Journey-capable API version and a stable, publisher-provided session id.
-Admoai.initialize(
-    baseUrl = "https://api.admoai.com",
-    apiVersion = "2025-11-01",
-    sessionId = "your-stable-session-id"
-)
-
-// The sessionId is sticky and seeded into every request builder. Rotate it explicitly per your
-// own rules (the SDK never generates or changes it). It is PII — keep it out of your own logs.
-Admoai.getInstance().setSessionId("new-session-id")
-
-// 2. Optionally opt a session in/out of Journey at serve time.
-val request = Admoai.getInstance().createRequestBuilder()
-    .addPlacement("home_feed")
-    .setJourneyOpt(JourneyOpt.OPT_IN) // or OPT_OUT
-    .build()
-
-// 3. Read the read-only Journey metadata off the served creative.
-if (creative.isJourneyAd()) {
-    val dealId = creative.journeyDealId()
-    val stageKey = creative.journeyStageKey()
-    val optStatus = creative.journeyOptStatus()
-}
-```
-
-### Completion
-
-Completion has two mutually-exclusive, engine-decided modes:
-
-- **`custom_event`** — the creative carries a completion beacon, and completion is recorded **only**
-  when you fire it. Fire it once, when the action the campaign pays for actually happens (not on
-  render). The key is defined by the campaign:
-  ```kotlin
-  if (creative.hasCompletionUrl()) {
-      Admoai.getInstance().fireCompletion(creative.tracking, key = "journey_complete")
-  }
-  ```
-  `fireCompletion` is a no-op when there is no completion beacon, so it is safe to call on any ad.
-- **`final_stage`** — completion is recorded server-side at decision time; there is no URL to fire.
-  Check `creative.isJourneyCompletion()`. Fire only the normal impression.
-
-### No-ad handling
-
-Single-brand takeover may return no ad rather than a competing brand. Treat `creatives` `[]`,
-`null`, and absent uniformly via `adData.isNoAd()` / `adData.hasCreative()`. Do not substitute a
-local ad.
-
-### Tracking notes
-
-- Tracking GETs are sent with the `X-Tracking-Version` header (from `apiVersion`).
-- For VAST delivery (`vast_tag` / `vast_xml`), impression/click beacons live inside the VAST
-  payload — do not also fire `creative.tracking` for VAST, or you will double-count.
 
 ## Documentation
 
