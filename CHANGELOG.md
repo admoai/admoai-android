@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1](https://github.com/admoai/admoai-android/compare/v1.5.0...v1.5.1) (2026-08-11)
+
+
+### Documentation
+
+* **sdk:** make the Journey Ads guide a self-service publisher contract ([#81](https://github.com/admoai/admoai-android/issues/81)) ([8e7ddd3](https://github.com/admoai/admoai-android/commit/8e7ddd3ba2a11227f93852b14ddb2b2fd02e0309))
+
 ## [1.5.0](https://github.com/admoai/admoai-android/compare/v1.4.0...v1.5.0) (2026-08-05)
 
 
