@@ -19,6 +19,8 @@ import com.admoai.sdk.model.response.TrackingInfo
 import com.admoai.sdk.network.AdMoaiApiService
 import com.admoai.sdk.network.AdMoaiApiServiceImpl
 import com.admoai.sdk.network.AdmoaiHttpRequest
+import com.admoai.sdk.network.ThirdPartyTrackerDispatcher
+import com.admoai.sdk.network.ThirdPartyTrackerEvent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -38,6 +40,16 @@ class Admoai private constructor() {
     internal var apiService: AdMoaiApiService? = null
         internal set(value) {
             (field as? Closeable)?.close()
+            field = value
+        }
+
+    /**
+     * Fires `tracking.thirdPartyTrackers` through its own credential-isolated client — never
+     * through [apiService], whose client carries the SDK User-Agent and Admoai headers.
+     */
+    internal var thirdPartyDispatcher: ThirdPartyTrackerDispatcher? = null
+        internal set(value) {
+            field?.close()
             field = value
         }
 
@@ -65,6 +77,14 @@ class Admoai private constructor() {
         this.apiService = AdMoaiApiServiceImpl(newConfig, newConfig.networkClientEngine) { message ->
             log(message, LogLevel.WARNING)
         }
+        // Always `engine = null`: the dispatcher must own a private engine. Reusing
+        // networkClientEngine would inherit a publisher-preconfigured OkHttp client's
+        // cookie jar, cache and logging interceptors — voiding the isolation (and
+        // URL-privacy) guarantees third-party dispatch exists to provide.
+        this.thirdPartyDispatcher = ThirdPartyTrackerDispatcher(
+            engine = null,
+            scopeProvider = { sdkScope }
+        ) { message, level -> log(message, level) }
     }
 
     suspend fun configure(newConfig: SDKConfig) {
@@ -267,14 +287,37 @@ class Admoai private constructor() {
         false
     }
 
+    /**
+     * Fires the canonical impression beacon and fans out every third-party impression tracker
+     * (`tracking.thirdPartyTrackers`) exactly once, through the credential-isolated dispatcher.
+     * A key with no canonical impression URL fires nothing — canonical or third-party — so
+     * third-party counts can never exceed ours.
+     */
     fun fireImpression(trackingInfo: TrackingInfo, key: String = "default") {
         val url = trackingInfo.impressions?.find { it.key == key }?.url ?: return
         fireTracking(url)
+        // Fan out only when the canonical beacon actually fired — a rejected canonical
+        // URL must not leave third-party counts above ours.
+        if (!isAbsoluteHttpUrl(url)) return
+        fireThirdPartyTrackers(trackingInfo, ThirdPartyTrackerEvent.Impression)
     }
 
+    /**
+     * Fires the canonical click beacon and fans out matching third-party click trackers:
+     * `any`-click trackers on every valid key, `specific` trackers only when [key] equals their
+     * `eventKey`. A key with no canonical click URL fires nothing at all.
+     */
     fun fireClick(trackingInfo: TrackingInfo, key: String = "default") {
         val url = trackingInfo.clicks?.find { it.key == key }?.url ?: return
         fireTracking(url)
+        if (!isAbsoluteHttpUrl(url)) return
+        fireThirdPartyTrackers(trackingInfo, ThirdPartyTrackerEvent.Click(key))
+    }
+
+    private fun fireThirdPartyTrackers(trackingInfo: TrackingInfo, event: ThirdPartyTrackerEvent) {
+        val trackers = trackingInfo.thirdPartyTrackers
+        if (trackers.isNullOrEmpty()) return
+        thirdPartyDispatcher?.dispatch(trackers, event)
     }
 
     fun fireCustomEvent(trackingInfo: TrackingInfo, key: String) {
@@ -361,6 +404,7 @@ class Admoai private constructor() {
         internal fun resetForTesting() {
             synchronized(singletonMutex) {
                 (INSTANCE?.apiService as? Closeable)?.close()
+                INSTANCE?.thirdPartyDispatcher?.close()
                 INSTANCE = null
                 isSdkInitialized = false
             }

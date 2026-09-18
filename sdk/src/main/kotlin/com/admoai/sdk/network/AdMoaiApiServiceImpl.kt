@@ -53,7 +53,15 @@ internal class AdMoaiApiServiceImpl(
         prettyPrint = sdkConfig.enableLogging
     }
 
-    private val httpClient: HttpClient = HttpClient(engine ?: CIO.create()) {
+    /**
+     * The engine this service created and therefore owns. Ktor never closes an engine passed
+     * by instance (`manageEngine = false`), so without closing it explicitly in [close] every
+     * `initialize()`/`configure()` with the default `networkClientEngine = null` leaked a CIO
+     * selector/thread pool when the previous service was replaced.
+     */
+    private val ownedEngine: HttpClientEngine? = if (engine == null) CIO.create() else null
+
+    private val httpClient: HttpClient = HttpClient(engine ?: ownedEngine!!) {
         install(ContentNegotiation) {
             json(json)
         }
@@ -204,5 +212,6 @@ internal class AdMoaiApiServiceImpl(
 
     override fun close() {
         httpClient.close()
+        ownedEngine?.close()
     }
 }
