@@ -11,6 +11,7 @@ import com.admoai.sdk.model.response.contentTypeFromWire
 import com.admoai.sdk.model.response.CreativeJourney
 import com.admoai.sdk.model.response.CreativeMetadata
 import com.admoai.sdk.model.response.TemplateInfo
+import com.admoai.sdk.model.response.ThirdPartyTracker
 import com.admoai.sdk.model.response.TrackingDetail
 import com.admoai.sdk.model.response.TrackingInfo
 import com.admoai.sdk.model.response.VastData
@@ -171,6 +172,8 @@ internal object ContentListSerializer : DropMalformedListSerializer<Content>(Con
 internal object CreativeListSerializer : DropMalformedListSerializer<Creative>(Creative.serializer())
 internal object TrackingDetailListSerializer :
     DropMalformedListSerializer<TrackingDetail>(TrackingDetail.serializer())
+internal object ThirdPartyTrackerListSerializer :
+    DropMalformedListSerializer<ThirdPartyTracker>(ThirdPartyTracker.serializer())
 internal object VerificationResourceListSerializer :
     DropMalformedListSerializer<VerificationScriptResource>(VerificationScriptResource.serializer())
 internal object ErrorListSerializer : DropMalformedListSerializer<Error>(Error.serializer())

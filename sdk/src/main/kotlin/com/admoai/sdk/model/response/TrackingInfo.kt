@@ -1,5 +1,6 @@
 package com.admoai.sdk.model.response
 
+import com.admoai.sdk.serialization.ThirdPartyTrackerListSerializer
 import com.admoai.sdk.serialization.TrackingDetailListSerializer
 import kotlinx.serialization.Serializable
 
@@ -11,6 +12,12 @@ import kotlinx.serialization.Serializable
  * @property custom Custom event tracking URLs with named keys
  * @property videoEvents Video-specific event tracking URLs with named keys
  * @property completions Journey completion beacons (populated only for custom_event completion deals)
+ * @property thirdPartyTrackers Third-party event trackers (agency ad servers such as CM360),
+ *   served additively under `X-Decision-Version: 2025-11-01` and absent otherwise (the engine
+ *   never sends `[]`). `fireImpression`/`fireClick` fan these out automatically through a
+ *   credential-isolated dispatcher — publishers never fire them by hand. Not addressed by key,
+ *   so deliberately outside [TrackingType]/[getTrackingUrl]: entries are matched by event
+ *   semantics (`eventType`/`matchType`/`eventKey`).
  */
 @Serializable
 data class TrackingInfo(
@@ -23,7 +30,9 @@ data class TrackingInfo(
     @Serializable(with = TrackingDetailListSerializer::class)
     val videoEvents: List<TrackingDetail>? = null,
     @Serializable(with = TrackingDetailListSerializer::class)
-    val completions: List<TrackingDetail>? = null
+    val completions: List<TrackingDetail>? = null,
+    @Serializable(with = ThirdPartyTrackerListSerializer::class)
+    val thirdPartyTrackers: List<ThirdPartyTracker>? = null
 )
 
 fun TrackingInfo.getImpressionUrl(key: String = "default"): String? =
