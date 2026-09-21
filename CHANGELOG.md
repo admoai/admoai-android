@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0](https://github.com/admoai/admoai-android/compare/v1.5.0...v1.6.0) (2026-09-21)
+
+
+### Added
+
+* fan out third-party event trackers from fireImpression and fireClick ([#85](https://github.com/admoai/admoai-android/issues/85)) ([52355d3](https://github.com/admoai/admoai-android/commit/52355d3a4883026a492e40cb0ff3fa2abb9f1f88))
+
+
+### Documentation
+
+* **sdk:** make the Journey Ads guide a self-service publisher contract ([#81](https://github.com/admoai/admoai-android/issues/81)) ([8e7ddd3](https://github.com/admoai/admoai-android/commit/8e7ddd3ba2a11227f93852b14ddb2b2fd02e0309))
+
 ## [1.5.0](https://github.com/admoai/admoai-android/compare/v1.4.0...v1.5.0) (2026-08-05)
 
 
