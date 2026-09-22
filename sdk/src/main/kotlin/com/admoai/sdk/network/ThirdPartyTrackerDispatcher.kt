@@ -173,6 +173,17 @@ internal class ThirdPartyTrackerDispatcher(
             if (parsed.protocol.name != "https" || parsed.host.isEmpty()) {
                 return "url is not an absolute https URL"
             }
+            // Defense in depth (the Ad Manager already rejects these at creation): a
+            // tracker URL must carry no embedded credentials — they would travel in
+            // cleartext through proxies and land in the agency server's access logs —
+            // and no fragment, which is client-side-only and never part of a fixed
+            // measurement URL.
+            if (!parsed.user.isNullOrEmpty() || !parsed.password.isNullOrEmpty()) {
+                return "url embeds credentials (userinfo)"
+            }
+            if (parsed.fragment.isNotEmpty()) {
+                return "url carries a fragment"
+            }
             if (parsed.toString() != tracker.url) {
                 return "url does not round-trip verbatim through the URL parser"
             }

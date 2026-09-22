@@ -163,6 +163,21 @@ class ThirdPartyTrackerTest {
     }
 
     @Test
+    fun `A8b - urls with embedded credentials or fragments are rejected`() {
+        // Defense in depth: the Ad Manager blocks these at creation, but a row written
+        // past the BFF must still never dispatch — credentials would reach the agency's
+        // access logs, and fragments are client-side-only.
+        for (url in listOf(
+            "https://user:pass@agency.example/imp",
+            "https://user@agency.example/imp",
+            "https://agency.example/imp#frag"
+        )) {
+            assertNotNull("expected rejection for credentialed/fragment url",
+                ThirdPartyTrackerDispatcher.rejectionReason(tracker(url = url)))
+        }
+    }
+
+    @Test
     fun `A9 A10 - unknown eventType or matchType and keyless specific clicks are rejected`() {
         assertNotNull(ThirdPartyTrackerDispatcher.rejectionReason(tracker(eventType = "conversion")))
         assertNotNull(
