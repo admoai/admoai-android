@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1](https://github.com/admoai/admoai-android/compare/v1.6.0...v1.6.1) (2026-09-22)
+
+
+### Fixed
+
+* reject tracker URLs with embedded credentials or fragments ([#86](https://github.com/admoai/admoai-android/issues/86)) ([72ff6bc](https://github.com/admoai/admoai-android/commit/72ff6bc8f476a960b4d91a6630f15d2df62c069a))
+
 ## [1.6.0](https://github.com/admoai/admoai-android/compare/v1.5.0...v1.6.0) (2026-09-21)
 
 
