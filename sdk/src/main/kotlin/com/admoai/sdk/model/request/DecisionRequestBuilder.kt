@@ -175,6 +175,87 @@ class DecisionRequestBuilder internal constructor(
         targeting = targeting.copy(custom = null)
     }
 
+    /**
+     * Asks for the campaign's pins within [radiusMeters] of a point (Sponsored Pin Locations).
+     *
+     * This is a search the publisher is running, not a statement about where the viewer is —
+     * see [Targeting.distance]. Rendering the pins that come back is the app's job; the SDK
+     * draws nothing and never infers that a pin was seen.
+     *
+     * The radius *ceiling* is server policy and is deliberately not checked here: an SDK that
+     * hard-codes it ships a client that refuses what a newer engine would accept.
+     *
+     * @param limit narrows the campaign's own cap on how many points come back. It can never
+     *   widen it, and omitting it means "as many as the campaign allows".
+     * @throws IllegalArgumentException on an impossible origin, a radius of zero or less, or a
+     *   limit of zero or less.
+     */
+    fun setDistanceTargeting(
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Double,
+        limit: Int? = null
+    ) = apply {
+        requireDistanceOrigin(latitude, longitude)
+        require(radiusMeters > 0) { "distance radius must be greater than 0 metres, was $radiusMeters" }
+        requireDistanceLimit(limit)
+        targeting = targeting.copy(
+            distance = Distance(latitude, longitude, radius = radiusMeters, limit = limit)
+        )
+    }
+
+    /**
+     * Asks for the campaign's pins inside a rectangle, measured from a point.
+     *
+     * The origin stays required: "nearest first" needs somewhere to measure from, and the centre
+     * of the rectangle is not necessarily where the viewer is. The diagonal *ceiling* is server
+     * policy and is not checked here.
+     *
+     * @throws IllegalArgumentException on an impossible origin, a rectangle that encloses
+     *   nothing or crosses the antimeridian, or a limit of zero or less.
+     */
+    fun setDistanceTargeting(
+        latitude: Double,
+        longitude: Double,
+        bounds: DistanceBounds,
+        limit: Int? = null
+    ) = apply {
+        requireDistanceOrigin(latitude, longitude)
+        require(bounds.north in -90.0..90.0 && bounds.south in -90.0..90.0 &&
+            bounds.east in -180.0..180.0 && bounds.west in -180.0..180.0) {
+            "distance bounds latitudes must be in [-90, 90] and longitudes in [-180, 180]"
+        }
+        require(bounds.north > bounds.south) {
+            "distance bounds require north greater than south"
+        }
+        // The engine refuses a rectangle crossing the antimeridian, so west < east is flat.
+        require(bounds.west < bounds.east) {
+            "distance bounds must not cross the antimeridian: west must be less than east"
+        }
+        requireDistanceLimit(limit)
+        targeting = targeting.copy(
+            distance = Distance(latitude, longitude, bounds = bounds, limit = limit)
+        )
+    }
+
+    /** Removes a previously set Sponsored Pin search, leaving every other targeting axis alone. */
+    fun clearDistanceTargeting() = apply {
+        targeting = targeting.copy(distance = null)
+    }
+
+    private fun requireDistanceOrigin(latitude: Double, longitude: Double) {
+        require(latitude in -90.0..90.0 && longitude in -180.0..180.0) {
+            "distance latitude must be in [-90, 90] and longitude in [-180, 180], " +
+                "was ($latitude, $longitude)"
+        }
+    }
+
+    private fun requireDistanceLimit(limit: Int?) {
+        if (limit != null) {
+            require(limit > 0) { "distance limit must be greater than 0, was $limit" }
+        }
+    }
+
     fun clearTargeting() = apply {
         targeting = Targeting()
     }
@@ -205,8 +286,11 @@ class DecisionRequestBuilder internal constructor(
             throw AdMoaiConfigurationException("At least one placement is required")
         }
 
+        // `distance` has to be in this test: a Sponsored Pin request often sets nothing else,
+        // and omitting it here would drop the whole targeting object and with it the search.
         val finalTargeting = targeting.takeIf {
-            !it.geo.isNullOrEmpty() || !it.location.isNullOrEmpty() || !it.destination.isNullOrEmpty() || !it.custom.isNullOrEmpty()
+            !it.geo.isNullOrEmpty() || !it.location.isNullOrEmpty() || !it.destination.isNullOrEmpty() ||
+                !it.custom.isNullOrEmpty() || it.distance != null
         }
 
         val finalUser = user.takeIf {
