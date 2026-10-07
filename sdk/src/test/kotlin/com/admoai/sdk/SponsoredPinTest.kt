@@ -5,6 +5,7 @@ import com.admoai.sdk.model.request.DistanceBounds
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.matchedPoints
 import io.ktor.client.engine.cio.CIO
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import okhttp3.mockwebserver.MockResponse
@@ -230,6 +231,37 @@ class SponsoredPinTest {
 
         assertFalse(encoded.contains("\"distance\""))
         assertTrue(encoded.contains("\"geo\":[42]"))
+    }
+
+    /**
+     * The one that matters: what actually leaves the device.
+     *
+     * Every other request-side test here inspects `build()`. `requestAds` then rebuilds the
+     * targeting object to merge in SDK-level config, and a rebuild that forgets an axis drops it
+     * on the floor — which is exactly what happened to `distance` until the live-engine manifest
+     * suite (SP1-SP6) caught it: the builder was correct, the wire was not, and the engine
+     * answered a Sponsored Pin campaign with no ad and no error. Assert on the recorded body.
+     */
+    @Test
+    fun `AC1 - the distance search survives the request pipeline and reaches the wire`() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"success":true,"data":[{"placement":"map","creatives":[]}]}""")
+        )
+
+        val request = builder()
+            .setDistanceTargeting(
+                latitude = -33.4175, longitude = -70.6065, radiusMeters = 8000.0, limit = 7
+            )
+            .build()
+        Admoai.getInstance().requestAds(request).first()
+
+        val body = server.takeRequest(3, TimeUnit.SECONDS)!!.body.readUtf8()
+        assertTrue("the wire body carries no distance search: $body", body.contains("\"distance\""))
+        assertTrue(body.contains("\"radius\":8000"))
+        assertTrue(body.contains("\"limit\":7"))
     }
 
     @Test

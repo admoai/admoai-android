@@ -165,12 +165,17 @@ class Admoai private constructor() {
         val finalCustomTargetingInfo = mutableListOf<CustomTargetingInfo>()
         requestTargeting?.custom?.let { finalCustomTargetingInfo.addAll(it) }
 
-        val mergedTargeting: Targeting? = if (requestTargeting?.geo != null || requestTargeting?.location != null || requestTargeting?.destination != null || finalCustomTargetingInfo.isNotEmpty()) {
+        // `distance` has to be in both the test and the copy. A Sponsored Pin request often sets
+        // no other axis, and rebuilding Targeting without it drops the publisher's search on the
+        // floor: the engine then sees a Sponsored Pin campaign with no spatial question and serves
+        // nothing, with no error to explain why.
+        val mergedTargeting: Targeting? = if (requestTargeting?.geo != null || requestTargeting?.location != null || requestTargeting?.destination != null || requestTargeting?.distance != null || finalCustomTargetingInfo.isNotEmpty()) {
             Targeting(
                 geo = requestTargeting?.geo,
                 location = requestTargeting?.location,
                 destination = requestTargeting?.destination,
-                custom = if (finalCustomTargetingInfo.isNotEmpty()) finalCustomTargetingInfo.toList() else null
+                custom = if (finalCustomTargetingInfo.isNotEmpty()) finalCustomTargetingInfo.toList() else null,
+                distance = requestTargeting?.distance
             )
         } else { null }
 

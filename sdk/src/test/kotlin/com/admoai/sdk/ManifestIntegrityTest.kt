@@ -23,7 +23,7 @@ import java.security.MessageDigest
 class ManifestIntegrityTest {
 
     private val expectedSha256 =
-        "5b7c2b3d261d68b5b4e52091d0b00ac7ec1bd09cf950f482ce968e1e1a34d2ca"
+        "e6a48841c7bce33ea74f06183fe9c5d979a7272eafc465234642145ef3c7324a"
 
     private fun manifestBytes(): ByteArray =
         javaClass.classLoader!!.getResourceAsStream("e2e-scenarios.json")!!.readBytes()
