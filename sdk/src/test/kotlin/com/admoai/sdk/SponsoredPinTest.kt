@@ -474,6 +474,50 @@ class SponsoredPinTest {
         assertEquals(listOf("/a/view", "/a/view"), firedPaths(2))
     }
 
+    /**
+     * AC8b — a full screenful at the campaign's ceiling.
+     *
+     * A campaign may return up to 50 matched points, and max cardinality is where collection
+     * bugs live: a truncated list, a set that de-duplicates on the wrong key, a dispatch that
+     * drops under load. The scenarios above use three, which proves none of that.
+     */
+    @Test
+    fun `AC8b - a full screenful of 50 points fires 50 distinct beacons`() = runTest {
+        repeat(50) { server.enqueue(MockResponse().setResponseCode(200)) }
+        val admoai = sdk()
+        val points = creative(
+            pointsJson(*(0 until 50).map { trackedPoint("p$it", "p$it") }.toTypedArray())
+        ).matchedPoints
+
+        assertEquals("all 50 points decode", 50, points.size)
+
+        admoai.trackPointViews(points)
+
+        val fired = firedPaths(50)
+        assertEquals("one beacon per point, none dropped", 50, fired.size)
+        assertEquals("and all of them distinct", 50, fired.toSet().size)
+        assertEquals((0 until 50).map { "/p$it/view" }.toSet(), fired.toSet())
+    }
+
+    /** AC8b — de-duplication still holds at the ceiling. */
+    @Test
+    fun `AC8b - deduplication still holds at 50`() = runTest {
+        repeat(50) { server.enqueue(MockResponse().setResponseCode(200)) }
+        val admoai = sdk()
+        val points = creative(
+            pointsJson(*(0 until 50).map { trackedPoint("p$it", "p$it") }.toTypedArray())
+        ).matchedPoints
+
+        admoai.trackPointViews(points + points)
+
+        assertEquals(
+            "the same screenful listed twice in one call is still one view each",
+            50,
+            firedPaths(50).size,
+        )
+        assertNull(server.takeRequest(500, TimeUnit.MILLISECONDS))
+    }
+
     /** AC8b — an empty list is a no-op, not a crash. */
     @Test
     fun `AC8b - bulk with no points fires nothing`() = runTest {
