@@ -62,6 +62,13 @@ internal class AdMoaiApiServiceImpl(
     private val ownedEngine: HttpClientEngine? = if (engine == null) CIO.create() else null
 
     private val httpClient: HttpClient = HttpClient(engine ?: ownedEngine!!) {
+        // A tracking beacon is terminal: the engine records the event on the first response.
+        // `/v1/tracking` answers a click with `302 Location: <destination>` so a browser can
+        // record-and-land in one hop, but an SDK beacon is not navigation. Following it sent a
+        // second, invisible GET to the advertiser's landing page on every click, carrying this
+        // client's `Accept: application/json`; a destination that rejects non-HTML requests then
+        // failed the beacon. The decision POST is unaffected — Ktor never follows a POST redirect.
+        followRedirects = false
         install(ContentNegotiation) {
             json(json)
         }
@@ -169,7 +176,9 @@ internal class AdMoaiApiServiceImpl(
                     header("X-Tracking-Version", version)
                 }
             }
-            if (!response.status.isSuccess()) {
+            // A 3xx is the engine's answer, not a hop to take: a click is recorded before the
+            // `302` is written, so the redirect is as much an acceptance as a `2xx`.
+            if (!response.status.isSuccess() && response.status.value !in 300..399) {
                 throw AdMoaiNetworkException("Tracking request failed with status ${response.status}")
             }
             emit(Unit)
