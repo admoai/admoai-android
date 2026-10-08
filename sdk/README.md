@@ -31,7 +31,7 @@ Add the dependency to your app's `build.gradle.kts`:
 <!-- x-release-please-start-version -->
 ```kotlin
 dependencies {
-    implementation("com.admoai:admoai-android:1.6.1")
+    implementation("com.admoai:admoai-android:1.7.0")
 }
 ```
 <!-- x-release-please-end-version -->
@@ -41,7 +41,7 @@ Or in Groovy (`build.gradle`):
 <!-- x-release-please-start-version -->
 ```groovy
 dependencies {
-    implementation 'com.admoai:admoai-android:1.6.1'
+    implementation 'com.admoai:admoai-android:1.7.0'
 }
 ```
 <!-- x-release-please-end-version -->

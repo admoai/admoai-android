@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0](https://github.com/admoai/admoai-android/compare/v1.6.1...v1.7.0) (2026-10-08)
+
+
+### Added
+
+* sponsored pin distance search, matched points and point-level tracking ([#88](https://github.com/admoai/admoai-android/issues/88)) ([c604dba](https://github.com/admoai/admoai-android/commit/c604dba4563a0788ec6bb30288d585663e2121c7))
+
+
+### Fixed
+
+* the Sponsored Pin search reached the builder but never the wire ([#90](https://github.com/admoai/admoai-android/issues/90)) ([a7a566a](https://github.com/admoai/admoai-android/commit/a7a566a7e8c4bde33c21bf0f4c8dc4e12822f765))
+
+
+### Documentation
+
+* say that a Sponsored Pin campaign needs a distance search to serve ([#89](https://github.com/admoai/admoai-android/issues/89)) ([cd6cd10](https://github.com/admoai/admoai-android/commit/cd6cd10cb40123a3520cd34e5122abcb671896f1))
+
 ## [1.6.1](https://github.com/admoai/admoai-android/compare/v1.6.0...v1.6.1) (2026-09-22)
 
 
