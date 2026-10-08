@@ -5,6 +5,7 @@ import com.admoai.sdk.model.request.DistanceBounds
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.matchedPoints
 import io.ktor.client.engine.cio.CIO
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import okhttp3.mockwebserver.MockResponse
@@ -232,6 +233,37 @@ class SponsoredPinTest {
         assertTrue(encoded.contains("\"geo\":[42]"))
     }
 
+    /**
+     * The one that matters: what actually leaves the device.
+     *
+     * Every other request-side test here inspects `build()`. `requestAds` then rebuilds the
+     * targeting object to merge in SDK-level config, and a rebuild that forgets an axis drops it
+     * on the floor — which is exactly what happened to `distance` until the live-engine manifest
+     * suite (SP1-SP6) caught it: the builder was correct, the wire was not, and the engine
+     * answered a Sponsored Pin campaign with no ad and no error. Assert on the recorded body.
+     */
+    @Test
+    fun `AC1 - the distance search survives the request pipeline and reaches the wire`() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"success":true,"data":[{"placement":"map","creatives":[]}]}""")
+        )
+
+        val request = builder()
+            .setDistanceTargeting(
+                latitude = -33.4175, longitude = -70.6065, radiusMeters = 8000.0, limit = 7
+            )
+            .build()
+        Admoai.getInstance().requestAds(request).first()
+
+        val body = server.takeRequest(3, TimeUnit.SECONDS)!!.body.readUtf8()
+        assertTrue("the wire body carries no distance search: $body", body.contains("\"distance\""))
+        assertTrue(body.contains("\"radius\":8000"))
+        assertTrue(body.contains("\"limit\":7"))
+    }
+
     @Test
     fun `another targeting axis does not drop the search`() {
         val encoded = Json.encodeToString(
@@ -440,6 +472,50 @@ class SponsoredPinTest {
         admoai.trackPointViews(listOf(point))
 
         assertEquals(listOf("/a/view", "/a/view"), firedPaths(2))
+    }
+
+    /**
+     * AC8b — a full screenful at the campaign's ceiling.
+     *
+     * A campaign may return up to 50 matched points, and max cardinality is where collection
+     * bugs live: a truncated list, a set that de-duplicates on the wrong key, a dispatch that
+     * drops under load. The scenarios above use three, which proves none of that.
+     */
+    @Test
+    fun `AC8b - a full screenful of 50 points fires 50 distinct beacons`() = runTest {
+        repeat(50) { server.enqueue(MockResponse().setResponseCode(200)) }
+        val admoai = sdk()
+        val points = creative(
+            pointsJson(*(0 until 50).map { trackedPoint("p$it", "p$it") }.toTypedArray())
+        ).matchedPoints
+
+        assertEquals("all 50 points decode", 50, points.size)
+
+        admoai.trackPointViews(points)
+
+        val fired = firedPaths(50)
+        assertEquals("one beacon per point, none dropped", 50, fired.size)
+        assertEquals("and all of them distinct", 50, fired.toSet().size)
+        assertEquals((0 until 50).map { "/p$it/view" }.toSet(), fired.toSet())
+    }
+
+    /** AC8b — de-duplication still holds at the ceiling. */
+    @Test
+    fun `AC8b - deduplication still holds at 50`() = runTest {
+        repeat(50) { server.enqueue(MockResponse().setResponseCode(200)) }
+        val admoai = sdk()
+        val points = creative(
+            pointsJson(*(0 until 50).map { trackedPoint("p$it", "p$it") }.toTypedArray())
+        ).matchedPoints
+
+        admoai.trackPointViews(points + points)
+
+        assertEquals(
+            "the same screenful listed twice in one call is still one view each",
+            50,
+            firedPaths(50).size,
+        )
+        assertNull(server.takeRequest(500, TimeUnit.MILLISECONDS))
     }
 
     /** AC8b — an empty list is a no-op, not a crash. */

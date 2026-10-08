@@ -5,6 +5,8 @@ import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.exception.AdMoaiConfigurationException
 import com.admoai.sdk.exception.AdMoaiValidationException
 import com.admoai.sdk.model.common.JourneyOpt
+import com.admoai.sdk.model.request.DistanceBounds
+import com.admoai.sdk.model.response.matchedPoints
 import com.admoai.sdk.model.request.PlacementFormat
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.getContent
@@ -62,6 +64,9 @@ private fun JsonObject.str(key: String): String? =
 private fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.content?.toIntOrNull()
 
 private fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitive)?.booleanOrNull
+
+private fun JsonObject.dbl(key: String): Double? =
+    (this[key] as? JsonPrimitive)?.content?.toDoubleOrNull()
 
 internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) {
     val scenarios = loadManifest()["scenarios"]!!.jsonArray
@@ -126,6 +131,33 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
         request.str("session")?.let { builder.setSessionId(freshSession(entry.str("id")!!.lowercase())) }
         request.str("journeyOpt")?.let {
             builder.setJourneyOpt(if (it == "in") JourneyOpt.OPT_IN else JourneyOpt.OPT_OUT)
+        }
+        // Sponsored Pin: a radius or a bounds search (epic #3138).
+        (request["distance"] as? JsonObject)?.let { d ->
+            val lat = d.dbl("latitude")!!
+            val lng = d.dbl("longitude")!!
+            val limit = d.int("limit")
+            val bounds = d["bounds"] as? JsonObject
+            if (bounds != null) {
+                builder.setDistanceTargeting(
+                    latitude = lat,
+                    longitude = lng,
+                    bounds = DistanceBounds(
+                        north = bounds.dbl("north")!!,
+                        south = bounds.dbl("south")!!,
+                        east = bounds.dbl("east")!!,
+                        west = bounds.dbl("west")!!,
+                    ),
+                    limit = limit,
+                )
+            } else {
+                builder.setDistanceTargeting(
+                    latitude = lat,
+                    longitude = lng,
+                    radiusMeters = d.dbl("radius")!!,
+                    limit = limit,
+                )
+            }
         }
 
         val outcome = expect.str("outcome")!!
@@ -240,6 +272,56 @@ private fun assertCreative(creative: Creative, e: JsonObject) {
             "NO engine-side impression URL is exposed (VAST owns it; both would double-count)",
         )
     }
+    // --- Sponsored Pin --------------------------------------------------------------------
+    val points = creative.matchedPoints
+    e.int("matchedPointsAtLeast")?.let {
+        expect(points.size >= it, "the creative carries at least $it matched point(s) (got ${points.size})")
+    }
+    e.int("matchedPointsEquals")?.let {
+        expect(points.size == it, "the creative carries exactly $it matched point(s) (got ${points.size})")
+    }
+    if (e.bool("matchedPointsNone") == true) {
+        expect(points.isEmpty(), "the creative carries NO matched points (got ${points.size})")
+    }
+    if (e.bool("matchedPointsNearestFirst") == true) {
+        var ordered = true
+        for (i in 1 until points.size) if (points[i - 1].distance > points[i].distance) ordered = false
+        expect(ordered, "matched points are ordered nearest first")
+    }
+    if (e.bool("matchedPointsWellFormed") == true) {
+        expect(points.isNotEmpty(), "there are matched points to inspect")
+        points.forEach { p ->
+            expect(p.id.isNotEmpty(), "point id is non-empty")
+            expect(
+                p.id.startsWith("advertiser_location_"),
+                "point id is an Advertiser Location public id (got ${p.id})",
+            )
+            expect(p.name.isNotEmpty(), "point ${p.id} has a name")
+            expect(p.distance >= 0, "point ${p.name} has a non-negative distance")
+        }
+    }
+    if (e.bool("matchedPointsHaveBeacons") == true) {
+        expect(points.isNotEmpty(), "there are matched points to inspect")
+        val seen = mutableSetOf<String>()
+        points.forEach { p ->
+            val t = p.tracking
+            expect(t != null, "point ${p.name} carries tracking")
+            expect(!t?.views.isNullOrEmpty(), "point ${p.name} has a view beacon")
+            expect(!t?.taps.isNullOrEmpty(), "point ${p.name} has a tap beacon")
+            expect(!t?.clicks.isNullOrEmpty(), "point ${p.name} has a click beacon")
+            // A shared beacon would attribute every shop's numbers to whichever one the
+            // signed token happens to name.
+            t?.views.orEmpty().forEach { item ->
+                expect(seen.add(item.url), "point ${p.name} has its own view beacon, not a shared one")
+            }
+        }
+    }
+    if (e.bool("matchedPointsHaveClickUrl") == true) {
+        points.forEach { p ->
+            expect(!p.clickUrl.isNullOrEmpty(), "point ${p.name} carries a resolved destination")
+        }
+    }
+
     e.int("clicksAtLeast")?.let {
         val clicks = creative.tracking.clicks.orEmpty()
         expect(clicks.size >= it, "at least $it click URL(s) exposed (got ${clicks.size})")
