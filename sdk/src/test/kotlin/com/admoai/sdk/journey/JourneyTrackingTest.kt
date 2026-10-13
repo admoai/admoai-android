@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * BDD coverage for Journey tracking: completions parsing, fireCompletion behaviour, the
- * X-Tracking-Version routing fix, the URL guard, and 302 characterization.
+ * X-Tracking-Version routing fix, the URL guard, and the terminal 302.
  */
 class JourneyTrackingTest {
 
@@ -140,10 +140,10 @@ class JourneyTrackingTest {
         }
     }
 
-    // --- 302 characterization (pre-existing follow-redirect behaviour, not changed) ---
+    // --- 302 is terminal ---
 
     @Test
-    fun `tracking GET follows a 302 redirect (characterization)`() = runTest {
+    fun `tracking GET treats a 302 as terminal and never requests the Location`() = runTest {
         val server = MockWebServer()
         server.start()
         try {
@@ -163,9 +163,8 @@ class JourneyTrackingTest {
 
             val first = requireNotNull(server.takeRequest(3, TimeUnit.SECONDS))
             assertTrue(first.path!!.startsWith("/v1/tracking"))
-            // Documents that Ktor follows the redirect by default (a second request reaches /dest).
-            val second = requireNotNull(server.takeRequest(3, TimeUnit.SECONDS))
-            assertEquals("/dest", second.path)
+            // The engine recorded the event on the 302; the destination belongs to the app.
+            assertNull(server.takeRequest(500, TimeUnit.MILLISECONDS))
         } finally {
             server.shutdown()
         }

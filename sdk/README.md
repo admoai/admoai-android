@@ -780,6 +780,10 @@ The SDK fires tracking beacons as HTTP GETs. Every `fire*` method is **fire-and-
 dispatches on the SDK's own scope, and never throws into your call site. A failed beacon is logged (when
 logging is enabled) rather than surfaced, so do not build retry logic around a return value.
 
+A click beacon records the click and nothing else. The tracking endpoint answers a click with a `302` to the
+creative's destination, which is meant for browsers; the SDK takes that response as final and never requests
+the destination. Opening it is your app's job — call `fireClick` and navigate from the creative's contents.
+
 The SDK fires **only** what you ask it to — nothing is ever fired automatically.
 
 ### Available Methods
