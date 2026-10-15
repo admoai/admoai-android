@@ -12,6 +12,10 @@ AdMoai Android SDK provides a comprehensive native advertising solution for Andr
 
 - **Native Ad Formats** - Seamlessly integrated native advertising
 - **Journey Ads** - Multi-stage, single-advertiser takeovers across one user activity
+- **Sponsored Pin Locations** - Promote an advertiser's real places as pins on your map.
+  Read [Sponsored Pin Locations](./sdk/README.md#sponsored-pin-locations) before integrating:
+  the SDK renders nothing and never infers that a pin was seen, so the measurement contract
+  is yours to honour
 - **Advanced Targeting** - Geo, location, destination, and custom targeting options
 - **Jetpack Compose** - First-class Compose support with `rememberAdState`
 - **GDPR Compliance** - Built-in user consent management
@@ -109,6 +113,26 @@ activity.** Get it wrong and journeys silently never progress — no error, no w
 > `sessionId` contract, opt-in/opt-out, completion, no-ad handling, idle expiry, frequency capping,
 > a pre-launch checklist, a glossary and an FAQ. This page deliberately does not summarise it —
 > a partial copy would drift out of date and mislead.
+
+
+## Sponsored Pin Locations
+
+Sponsored Pin Locations promote an advertiser's real places — shops, branches, pickup points —
+as pins on your map. The advertiser maintains the places in the Ad Manager; your request says
+where the viewer is looking and how far, and the Decision Engine answers with the nearest of
+that advertiser's pins, each carrying its own image, headline, call to action and destination.
+
+**Sponsored Pin Locations put two obligations on your app.** First, `apiVersion` must be
+`2025-11-01` — without it no pins come back at all, and the response is a perfectly ordinary ad
+with no error and no warning. Second, the SDK renders nothing and never infers that a pin was
+seen: which pin became visible, and whether an action was a look or a decision, are yours to
+report. A tap that opens a card is free; a click that opens the shop is billable.
+
+> 📖 **The full integration guide lives in [`sdk/README.md` → Sponsored Pin Locations](./sdk/README.md#sponsored-pin-locations).**
+> It is the single source of truth and covers the distance search, the `matchedPoints` contract,
+> which beacon to fire for a view, a tap and a destination click, and why attribution is per
+> location. This page deliberately does not summarise it — a partial copy would drift out of
+> date and mislead.
 
 
 ## Documentation
