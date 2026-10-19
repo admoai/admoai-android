@@ -65,6 +65,10 @@ class Admoai private constructor() {
     @Volatile
     private var stickySessionId: String? = null
 
+    /** Sponsored Pin view URLs already fired — see [trackPointView]. */
+    @VisibleForTesting
+    internal val pointViewLedger = PointViewLedger()
+
     /** Test seam: when set, [log] routes here instead of `android.util.Log` (a stub in JVM unit tests). */
     @VisibleForTesting
     internal var logSink: ((String, LogLevel, Throwable?) -> Unit)? = null
@@ -333,8 +337,17 @@ class Admoai private constructor() {
      *
      * Pin views are **in addition to** the creative's own impression, never summed into it: one
      * served creative is one impression however many pins it shows.
+     *
+     * **Once per decision response.** A pin is reported the first time it is shown for the
+     * response that returned it; calling this again for the same point — a re-render, a zoom, a
+     * cluster expanding — sends nothing. A new decision response returning the same location
+     * carries a new view URL and is reported again. The SDK remembers the last 500 view URLs (ten
+     * full responses), and a view is never retried: a beacon that failed to send is not re-sent on
+     * the next render. Taps and clicks are never de-duplicated.
      */
-    fun trackPointView(point: MatchedPoint) = fireAll(point.tracking?.views)
+    fun trackPointView(point: MatchedPoint) {
+        point.tracking?.views?.forEach { if (pointViewLedger.claim(it.url)) fireTracking(it.url) }
+    }
 
     /**
      * Reports that the user **tapped the marker** (`pin_tap`). Free.
@@ -362,16 +375,14 @@ class Admoai private constructor() {
      * Reports that several pins became visible at once (`pin_view` each) — the bulk form of
      * [trackPointView], for the usual case of a map drawing a screenful.
      *
-     * A point named twice in one call is reported once. There is no de-duplication *across*
-     * calls: two renders are two views, which is what the number means.
+     * Follows the same once-per-decision-response rule: call it on every render with whatever is
+     * visible, and only pins not yet reported for their response send anything. A point named
+     * twice in one call is reported once.
      *
      * There is deliberately no bulk tap or bulk click. Each of those is one user gesture, so a
      * plural form could only report something that did not happen — and for clicks, bill for it.
      */
-    fun trackPointViews(points: List<MatchedPoint>) {
-        val seen = HashSet<String>()
-        points.forEach { if (seen.add(it.id)) trackPointView(it) }
-    }
+    fun trackPointViews(points: List<MatchedPoint>) = points.forEach(::trackPointView)
 
     private fun fireAll(items: List<TrackingDetail>?) {
         items?.forEach { fireTracking(it.url) }
@@ -434,11 +445,12 @@ class Admoai private constructor() {
         /**
          * Initializes (or re-initializes) the SDK.
          *
-         * Re-initializing resets the sticky Journey [setSessionId] value. Because this class is a
-         * process singleton, `initialize()` used to reuse the existing instance and only reapply
-         * config, leaving a previous session id in place — so a publisher calling `initialize()` at
-         * logout, account switch or environment switch silently carried the old Journey session
-         * into the next user's requests. On iOS and Flutter initialization produces a fresh SDK
+         * Re-initializing resets the sticky Journey [setSessionId] value and the record of Sponsored
+         * Pin views already fired ([trackPointView]). Because this class is a process singleton,
+         * `initialize()` used to reuse the existing instance and only reapply config, leaving a
+         * previous session id in place — so a publisher calling `initialize()` at logout, account
+         * switch or environment switch silently carried the old Journey session into the next
+         * user's requests. On iOS and Flutter initialization produces a fresh SDK
          * value/instance, so the session never survived there.
          *
          * Use [configure] to change configuration on a running SDK without touching session state.
@@ -452,6 +464,7 @@ class Admoai private constructor() {
                 }
                 INSTANCE!!.applyConfiguration(immutableSdkConfig)
                 INSTANCE!!.clearSessionId()
+                INSTANCE!!.pointViewLedger.clear()
                 isSdkInitialized = true
             }
         }
