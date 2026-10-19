@@ -20,7 +20,22 @@ import com.admoai.sdk.utils.journeyInstanceId
 import com.admoai.sdk.utils.isSkippable
 import com.admoai.sdk.utils.isVastTagDelivery
 import com.admoai.sdk.utils.isVastXmlDelivery
+import com.admoai.sdk.model.response.MatchedPoint
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.toByteArray
+import io.ktor.client.request.header
+import io.ktor.client.request.request
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.readRawBytes
+import io.ktor.http.HttpHeaders
+import io.ktor.http.content.ByteArrayContent
+import io.ktor.http.contentType
+import io.ktor.http.headersOf
+import java.util.Collections
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -78,7 +93,11 @@ internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) 
     }
 }
 
-private fun reconfigure(baseUrl: String, apiVersion: String?) {
+private fun reconfigure(
+    baseUrl: String,
+    apiVersion: String?,
+    engine: HttpClientEngine = CIO.create(),
+) {
     // configure() rather than initialize(): it swaps config on the running singleton without
     // resetting session state, which is exactly the distinction Wave 2 introduced.
     runBlocking {
@@ -88,7 +107,7 @@ private fun reconfigure(baseUrl: String, apiVersion: String?) {
                 apiVersion = apiVersion,
                 enableLogging = false,
                 defaultLanguage = "en",
-                networkClientEngine = CIO.create(),
+                networkClientEngine = engine,
             ),
         )
     }
@@ -106,7 +125,14 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
         "none" -> null
         else -> rawVersion
     }
-    reconfigure(baseUrl, version)
+    val pinTracking = entry["pinTracking"] as? JsonObject
+    if (pinTracking != null) {
+        // The SDK's own transport, recorded: every tracking GET it sends is observed on its way to
+        // the real engine, which is the only place "sent once" can be proven.
+        reconfigure(baseUrl, version, BeaconRecorder.engine())
+    } else {
+        reconfigure(baseUrl, version)
+    }
 
     try {
         val builder = Admoai.getInstance().createRequestBuilder()
@@ -187,7 +213,8 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
         }
 
         // --- served / no-ad ---------------------------------------------------------------
-        val response = runBlocking { Admoai.getInstance().requestAds(builder.build()).first() }
+        val built = builder.build()
+        val response = runBlocking { Admoai.getInstance().requestAds(built).first() }
         val decisions = response.data ?: emptyList()
 
         expect.int("decisions")?.let {
@@ -221,10 +248,193 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
         }
 
         (expect["creative"] as? JsonObject)?.let { assertCreative(creatives.first(), it) }
+        pinTracking?.let {
+            val note = runPinTracking(it, creatives.first().matchedPoints) {
+                runBlocking { Admoai.getInstance().requestAds(built).first() }
+                    .data.orEmpty().firstOrNull()?.creatives?.firstOrNull()?.matchedPoints.orEmpty()
+            }
+            println("          · ${entry.str("id")}: $note")
+        }
     } finally {
         // Restore the suite-wide version so later hand-written groups are unaffected.
         reconfigure(baseUrl, defaultVersion)
     }
+}
+
+// ---- Sponsored Pin tracking (adhub#4410) ----
+//
+// `pinTracking` replays what a map does with the pins it was served, through the SDK's real
+// point-tracking calls, and asserts what actually reached the engine. The semantics are the
+// manifest's, so all three interpreters implement them identically:
+//
+// - Steps run in order against the pins of the CURRENT response — the first creative of the
+//   first decision. `{"newResponse": true}` sends the scenario's request again and makes its pins
+//   current.
+// - `{"views": "all"}` → `trackPointViews(all)`; `{"views": {"from": a, "to": b}}` →
+//   `trackPointViews(pins[a until b])`; `{"view": i}` → `trackPointView(pins[i])`; `{"tap": i}` and
+//   `{"click": i}` → `trackPointTap` / `trackPointClick` on `pins[i]`.
+// - Expected beacons are derived from the steps: every view URL of every pin a view step named,
+//   once; every tap/click URL, once per call naming it. The runner waits for that many tracking
+//   GETs, then a further 1.5 s so a duplicate arriving late is still caught.
+// - `viewsOncePerResponse`: each expected view URL was sent exactly once, and no view URL of a
+//   pin the app never showed was sent. `interactionsEveryCall`: each tap/click URL was sent once
+//   per call. `newResponseHasNewViewUrls`: no view URL repeats across responses.
+//   `engineAcceptsEveryBeacon`: the engine answered every tracking GET with a status below 400.
+//   Always: the total number of tracking GETs equals the expected total — nothing stray.
+
+/**
+ * A Ktor engine that records every request the SDK makes and forwards it, unchanged, to the real
+ * engine — the Kotlin counterpart of iOS's `RecordingURLProtocol` and Flutter's `RecordingClient`.
+ * The forwarder never follows a redirect, the same as the SDK: a click's `302` is the engine's
+ * answer, and following it would fetch the advertiser's page and record that status instead.
+ */
+private object BeaconRecorder {
+    val sent: MutableList<String> = Collections.synchronizedList(mutableListOf())
+    val answered: MutableList<Pair<String, Int>> = Collections.synchronizedList(mutableListOf())
+
+    private val forwarder = HttpClient(CIO) {
+        followRedirects = false
+        expectSuccess = false
+    }
+
+    private val unsafe = setOf(HttpHeaders.ContentLength, HttpHeaders.ContentType, HttpHeaders.Host, HttpHeaders.TransferEncoding)
+
+    fun clear() {
+        sent.clear()
+        answered.clear()
+    }
+
+    fun tracking(): List<String> = synchronized(sent) { sent.filter { "/v1/tracking" in it } }
+
+    fun trackingAnswers(): List<Pair<String, Int>> =
+        synchronized(answered) { answered.filter { "/v1/tracking" in it.first } }
+
+    fun engine(): HttpClientEngine = MockEngine { request ->
+        val url = request.url.toString()
+        sent += url
+        try {
+            val upstream = forwarder.request(url) {
+                method = request.method
+                request.headers.forEach { name, values ->
+                    if (unsafe.none { it.equals(name, ignoreCase = true) }) values.forEach { header(name, it) }
+                }
+                val bytes = request.body.toByteArray()
+                if (bytes.isNotEmpty()) setBody(ByteArrayContent(bytes, request.body.contentType))
+            }
+            answered += url to upstream.status.value
+            respond(
+                content = upstream.readRawBytes(),
+                status = upstream.status,
+                headers = headersOf(HttpHeaders.ContentType, upstream.contentType()?.toString() ?: "application/json"),
+            )
+        } catch (e: Exception) {
+            answered += url to -1
+            throw e
+        }
+    }
+}
+
+/** Runs [pinTracking]'s steps through the SDK and returns a one-line note of what was sent. */
+private fun runPinTracking(
+    pinTracking: JsonObject,
+    served: List<MatchedPoint>,
+    fetchAgain: () -> List<MatchedPoint>,
+): String {
+    val sdk = Admoai.getInstance()
+    val responses = mutableListOf(served)
+    val expectedViews = mutableSetOf<String>()
+    val expectedInteractions = mutableMapOf<String, Int>()
+
+    fun pick(i: Int): MatchedPoint {
+        val pins = responses.last()
+        expect(i < pins.size, "the response carries a pin at index $i (got ${pins.size})")
+        return pins[i]
+    }
+
+    // The decision that served this scenario went through the recorder too; only beacons count.
+    BeaconRecorder.clear()
+    for (element in pinTracking["steps"]!!.jsonArray) {
+        val step = element.jsonObject
+        if (step.bool("newResponse") == true) {
+            val pins = fetchAgain()
+            expect(pins.isNotEmpty(), "the new decision response carries pins")
+            responses += pins
+        }
+        step["views"]?.let { views ->
+            val pins = responses.last()
+            val slice = if (views is JsonPrimitive) {
+                expect(views.content == "all", "views is \"all\" or {from, to}")
+                pins
+            } else {
+                val range = views.jsonObject
+                val from = range.int("from")!!
+                val to = range.int("to")!!
+                expect(to <= pins.size, "the response carries $to pins (got ${pins.size})")
+                pins.subList(from, to)
+            }
+            sdk.trackPointViews(slice)
+            slice.forEach { p -> p.tracking?.views.orEmpty().forEach { expectedViews += it.url } }
+        }
+        step.int("view")?.let { i ->
+            val p = pick(i)
+            sdk.trackPointView(p)
+            p.tracking?.views.orEmpty().forEach { expectedViews += it.url }
+        }
+        step.int("tap")?.let { i ->
+            val p = pick(i)
+            sdk.trackPointTap(p)
+            p.tracking?.taps.orEmpty().forEach { expectedInteractions.merge(it.url, 1, Int::plus) }
+        }
+        step.int("click")?.let { i ->
+            val p = pick(i)
+            sdk.trackPointClick(p)
+            p.tracking?.clicks.orEmpty().forEach { expectedInteractions.merge(it.url, 1, Int::plus) }
+        }
+    }
+
+    val expectedTotal = expectedViews.size + expectedInteractions.values.sum()
+    expect(expectedTotal > 0, "the steps name at least one beacon to send")
+    val deadline = System.currentTimeMillis() + 10_000
+    while (BeaconRecorder.tracking().size < expectedTotal && System.currentTimeMillis() < deadline) Thread.sleep(50)
+    Thread.sleep(1_500)
+    val sent = BeaconRecorder.tracking()
+    val counts = sent.groupingBy { it }.eachCount()
+    val e = pinTracking["expect"]!!.jsonObject
+
+    if (e.bool("viewsOncePerResponse") == true) {
+        val everyViewUrl = responses.flatten().flatMap { p -> p.tracking?.views.orEmpty().map { it.url } }.toSet()
+        for (url in expectedViews) {
+            expect(counts[url] == 1, "a shown pin's view beacon is sent exactly once (got ${counts[url] ?: 0})")
+        }
+        val unexpected = sent.toSet().intersect(everyViewUrl) - expectedViews
+        expect(unexpected.isEmpty(), "no view beacon is sent for a pin the app never showed (got ${unexpected.size})")
+    }
+    if (e.bool("interactionsEveryCall") == true) {
+        for ((url, times) in expectedInteractions) {
+            expect(counts[url] == times, "a tap/click beacon is sent on every call: $times (got ${counts[url] ?: 0})")
+        }
+    }
+    expect(
+        sent.size == expectedTotal,
+        "exactly $expectedTotal tracking GETs reach the engine, nothing stray (got ${sent.size})",
+    )
+    if (e.bool("newResponseHasNewViewUrls") == true) {
+        expect(responses.size >= 2, "the steps fetched a second response")
+        val perResponse = responses.map { pins -> pins.flatMap { p -> p.tracking?.views.orEmpty().map { it.url } }.toSet() }
+        for (i in perResponse.indices) for (j in perResponse.indices) {
+            if (j > i) expect(perResponse[i].intersect(perResponse[j]).isEmpty(), "a new response mints new view URLs for the same pins")
+        }
+    }
+    if (e.bool("engineAcceptsEveryBeacon") == true) {
+        val answerDeadline = System.currentTimeMillis() + 10_000
+        while (BeaconRecorder.trackingAnswers().size < sent.size && System.currentTimeMillis() < answerDeadline) Thread.sleep(50)
+        val answers = BeaconRecorder.trackingAnswers()
+        expect(answers.size == sent.size, "the engine answered every beacon (${answers.size}/${sent.size})")
+        val rejected = answers.filter { it.second !in 200..399 }
+        expect(rejected.isEmpty(), "the engine accepts every beacon (rejected: ${rejected.map { it.second }})")
+    }
+    return "${responses.size} response(s), ${responses.map { it.size }} pins: ${expectedViews.size} view GET(s), " +
+        "${expectedInteractions.values.sum()} tap/click GET(s), ${sent.size} sent in total"
 }
 
 private fun assertCreative(creative: Creative, e: JsonObject) {
