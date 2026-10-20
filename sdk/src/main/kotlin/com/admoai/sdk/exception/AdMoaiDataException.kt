@@ -7,7 +7,4 @@ package com.admoai.sdk.exception
  * @param message A descriptive message for the exception.
  * @param cause The underlying cause of the exception (e.g., serialization exception).
  */
-class AdMoaiDataException(
-    message: String,
-    cause: Throwable? = null
-) : AdMoaiException(message, cause)
+class AdMoaiDataException(message: String, cause: Throwable? = null) : AdMoaiException(message, cause)

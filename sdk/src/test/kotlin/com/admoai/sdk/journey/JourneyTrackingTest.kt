@@ -13,6 +13,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.unmockkAll
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -25,7 +26,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.util.concurrent.TimeUnit
 
 /**
  * BDD coverage for Journey tracking: completions parsing, fireCompletion behaviour, the
@@ -76,7 +76,11 @@ class JourneyTrackingTest {
     }
 
     @Test
-    fun `fireCompletion is a silent no-op when there are no completions`() = withMockedService { sdk, service, warnings ->
+    fun `fireCompletion is a silent no-op when there are no completions`() = withMockedService {
+            sdk,
+            service,
+            warnings
+        ->
         sdk.fireCompletion(TrackingInfo(completions = null), "anything")
         sdk.fireCompletion(TrackingInfo(completions = emptyList()), "anything")
         coVerify(exactly = 0) { service.fireTrackingUrl(any()) }
@@ -84,7 +88,11 @@ class JourneyTrackingTest {
     }
 
     @Test
-    fun `fireCompletion warns on a key-miss against a non-empty completions list`() = withMockedService { sdk, service, warnings ->
+    fun `fireCompletion warns on a key-miss against a non-empty completions list`() = withMockedService {
+            sdk,
+            service,
+            warnings
+        ->
         val info = TrackingInfo(completions = listOf(TrackingDetail("purchase", "https://track/complete")))
         sdk.fireCompletion(info, "wrong-key")
         coVerify(exactly = 0) { service.fireTrackingUrl(any()) }
@@ -92,7 +100,11 @@ class JourneyTrackingTest {
     }
 
     @Test
-    fun `fireCompletion warns when firing without apiVersion`() = withMockedService(apiVersion = null) { sdk, service, warnings ->
+    fun `fireCompletion warns when firing without apiVersion`() = withMockedService(apiVersion = null) {
+            sdk,
+            service,
+            warnings
+        ->
         val info = TrackingInfo(completions = listOf(TrackingDetail("purchase", "https://track/complete")))
         sdk.fireCompletion(info, "purchase")
         coVerify(exactly = 1) { service.fireTrackingUrl("https://track/complete") }
@@ -102,7 +114,11 @@ class JourneyTrackingTest {
     // --- URL guard ---
 
     @Test
-    fun `fireTracking rejects a non-absolute URL and logs a redacted reason`() = withMockedService { sdk, service, warnings ->
+    fun `fireTracking rejects a non-absolute URL and logs a redacted reason`() = withMockedService {
+            sdk,
+            service,
+            warnings
+        ->
         // A scheme-less URL carrying a sensitive-looking token; must be rejected and never logged.
         sdk.fireTracking("//track.example/v1/tracking?e=SENSITIVE_TOKEN_VALUE")
         coVerify(exactly = 0) { service.fireTrackingUrl(any()) }

@@ -9,5 +9,6 @@ import kotlinx.serialization.json.JsonElement
 @Serializable
 data class CustomTargetingInfo(
     val key: String,
-    val value: JsonElement // Using JsonElement to support various primitive types or structures
+    // Using JsonElement to support various primitive types or structures
+    val value: JsonElement
 )

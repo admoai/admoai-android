@@ -302,11 +302,7 @@ class JourneyRequestTest {
         assertTrue(body.contains("\"journeyOpt\":\"in\""))
     }
 
-    private fun initSdk(
-        sessionId: String? = null,
-        apiVersion: String? = null,
-        enableLogging: Boolean = false
-    ) {
+    private fun initSdk(sessionId: String? = null, apiVersion: String? = null, enableLogging: Boolean = false) {
         Admoai.initialize(
             SDKConfig(
                 baseUrl = "http://127.0.0.1/",

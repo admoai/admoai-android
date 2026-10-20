@@ -17,8 +17,4 @@ import kotlinx.serialization.Serializable
  * @property minConfidence The minimum confidence level required for the destination prediction (0.0 to 1.0)
  */
 @Serializable
-data class DestinationTargetingInfo(
-    val latitude: Double,
-    val longitude: Double,
-    val minConfidence: Double
-)
+data class DestinationTargetingInfo(val latitude: Double, val longitude: Double, val minConfidence: Double)

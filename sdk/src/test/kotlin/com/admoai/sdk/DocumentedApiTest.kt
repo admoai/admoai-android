@@ -11,13 +11,13 @@ import com.admoai.sdk.model.request.DecisionRequestBuilder
 import com.admoai.sdk.model.request.DestinationTargetingInfo
 import com.admoai.sdk.model.request.LocationTargetingInfo
 import com.admoai.sdk.model.request.PlacementFormat
-import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.ContentType
+import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.TrackingInfo
 import com.admoai.sdk.model.response.TrackingType
-import com.admoai.sdk.model.response.getContent
 import com.admoai.sdk.model.response.getClickUrl
 import com.admoai.sdk.model.response.getCompletionUrl
+import com.admoai.sdk.model.response.getContent
 import com.admoai.sdk.model.response.getCustomUrl
 import com.admoai.sdk.model.response.getImpressionUrl
 import com.admoai.sdk.model.response.getTrackingUrl
@@ -73,12 +73,20 @@ class DocumentedApiTest {
             baseUrl = "https://example.test",
             apiVersion = "2025-11-01",
             enableLogging = false,
-            defaultLanguage = "en",
+            defaultLanguage = "en"
         )
-        @Suppress("UNUSED_VARIABLE") val copy = config.copy(enableLogging = true)
-        @Suppress("UNUSED_VARIABLE") val user = UserConfig(id = "u", ip = null, timezone = "UTC")
-        @Suppress("UNUSED_VARIABLE") val app = AppConfig(language = "en")
-        @Suppress("UNUSED_VARIABLE") val device = DeviceConfig(language = "en")
+
+        @Suppress("UNUSED_VARIABLE")
+        val copy = config.copy(enableLogging = true)
+
+        @Suppress("UNUSED_VARIABLE")
+        val user = UserConfig(id = "u", ip = null, timezone = "UTC")
+
+        @Suppress("UNUSED_VARIABLE")
+        val app = AppConfig(language = "en")
+
+        @Suppress("UNUSED_VARIABLE")
+        val device = DeviceConfig(language = "en")
     }
 
     @Test

@@ -1,9 +1,9 @@
 package com.admoai.sdk.config
 
-import com.admoai.sdk.core.Clearable
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.content.pm.PackageInfoCompat
+import com.admoai.sdk.core.Clearable
 
 /**
  * Configuration related to the application.
@@ -20,7 +20,8 @@ data class AppConfig(
     val appVersion: String? = null, // e.g., "1.0.0"
     val packageName: String? = null, // e.g., "com.admoai.sdk.example"
     val buildNumber: String? = null, // e.g., "42"
-    val language: String? = null // e.g., "en-US"
+    // e.g., "en-US"
+    val language: String? = null
 ) : Clearable<AppConfig> {
 
     /**
@@ -32,24 +33,24 @@ data class AppConfig(
      * Returns a new instance with all properties set to null.
      */
     override fun clear(): AppConfig = AppConfig()
-    
+
     companion object {
         /**
          * Creates an AppConfig with system default values automatically populated from the application context.
-         * 
+         *
          * This factory method extracts app information such as name, version, and package name
          * from the Android Context.
          */
         @JvmStatic
         fun systemDefault(context: Context? = null): AppConfig {
             if (context == null) return AppConfig()
-            
+
             try {
                 val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
                 val appName = context.packageManager.getApplicationLabel(context.applicationInfo).toString()
                 val appVersion = packageInfo.versionName
                 val packageName = context.packageName
-                
+
                 val buildNumber = PackageInfoCompat.getLongVersionCode(packageInfo).toString()
                 val language = context.resources.configuration.locales
                     .takeIf { !it.isEmpty }?.get(0)?.toLanguageTag()

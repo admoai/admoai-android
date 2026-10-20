@@ -3,14 +3,13 @@ package com.admoai.sdk.utils
 import com.admoai.sdk.model.common.JourneyOpt
 import com.admoai.sdk.model.response.Creative
 
-/** Read-only accessors for Journey Takeover metadata on a [Creative] (mirrors VideoHelper/OMHelper). */
+// Read-only accessors for Journey Takeover metadata on a Creative (mirrors VideoHelper/OMHelper).
 
 /**
  * Whether this creative is a Journey serve. Checks a real identifier (not just non-null) so a
  * tolerant `"journey": {}` decoding to an all-null object is not a false positive.
  */
-fun Creative.isJourneyAd(): Boolean =
-    !journey?.dealId.isNullOrBlank() || !journey?.instanceId.isNullOrBlank()
+fun Creative.isJourneyAd(): Boolean = !journey?.dealId.isNullOrBlank() || !journey?.instanceId.isNullOrBlank()
 
 /** Whether this serve completes the Journey (`final_stage` strategy). */
 fun Creative.isJourneyCompletion(): Boolean = journey?.isCompletion == true

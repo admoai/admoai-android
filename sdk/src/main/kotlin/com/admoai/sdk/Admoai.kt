@@ -1,18 +1,19 @@
 package com.admoai.sdk
 
+import androidx.annotation.VisibleForTesting
+import com.admoai.sdk.config.AppConfig
+import com.admoai.sdk.config.DeviceConfig
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.config.UserConfig
-import com.admoai.sdk.config.DeviceConfig
-import com.admoai.sdk.config.AppConfig
 import com.admoai.sdk.exception.AdMoaiConfigurationException
+import com.admoai.sdk.model.common.normalizeSessionId
+import com.admoai.sdk.model.common.sessionIdRejectionReason
 import com.admoai.sdk.model.request.App
 import com.admoai.sdk.model.request.CustomTargetingInfo
 import com.admoai.sdk.model.request.DecisionRequest
 import com.admoai.sdk.model.request.DecisionRequestBuilder
 import com.admoai.sdk.model.request.Device
 import com.admoai.sdk.model.request.Targeting
-import com.admoai.sdk.model.common.normalizeSessionId
-import com.admoai.sdk.model.common.sessionIdRejectionReason
 import com.admoai.sdk.model.request.User
 import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sdk.model.response.MatchedPoint
@@ -23,6 +24,7 @@ import com.admoai.sdk.network.AdMoaiApiServiceImpl
 import com.admoai.sdk.network.AdmoaiHttpRequest
 import com.admoai.sdk.network.ThirdPartyTrackerDispatcher
 import com.admoai.sdk.network.ThirdPartyTrackerEvent
+import java.io.Closeable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -33,8 +35,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonPrimitive
-import androidx.annotation.VisibleForTesting
-import java.io.Closeable
 
 class Admoai private constructor() {
 
@@ -149,10 +149,9 @@ class Admoai private constructor() {
 
     fun getSessionId(): String? = this.stickySessionId
 
-    fun createRequestBuilder(): DecisionRequestBuilder =
-        DecisionRequestBuilder(stickySessionId) { reason ->
-            log("Journey sessionId rejected ($reason)", LogLevel.WARNING)
-        }
+    fun createRequestBuilder(): DecisionRequestBuilder = DecisionRequestBuilder(stickySessionId) { reason ->
+        log("Journey sessionId rejected ($reason)", LogLevel.WARNING)
+    }
 
     fun prepareFinalDecisionRequest(initialDecisionRequest: DecisionRequest): DecisionRequest {
         val requestUser = initialDecisionRequest.user
@@ -161,9 +160,13 @@ class Admoai private constructor() {
         val mergedUserIp = requestUser?.ip ?: globalUser?.ip
         val mergedUserTimezone = requestUser?.timezone ?: globalUser?.timezone ?: this.deviceConfig?.timezone
         val mergedUserConsent = requestUser?.consent ?: globalUser?.consentData
-        val mergedUser: User? = if (mergedUserId != null || mergedUserIp != null || mergedUserTimezone != null || mergedUserConsent != null) {
+        val mergedUser: User? = if (mergedUserId != null || mergedUserIp != null || mergedUserTimezone != null ||
+            mergedUserConsent != null
+        ) {
             User(id = mergedUserId, ip = mergedUserIp, timezone = mergedUserTimezone, consent = mergedUserConsent)
-        } else { null }
+        } else {
+            null
+        }
 
         val requestTargeting = initialDecisionRequest.targeting
         val finalCustomTargetingInfo = mutableListOf<CustomTargetingInfo>()
@@ -173,7 +176,11 @@ class Admoai private constructor() {
         // no other axis, and rebuilding Targeting without it drops the publisher's search on the
         // floor: the engine then sees a Sponsored Pin campaign with no spatial question and serves
         // nothing, with no error to explain why.
-        val mergedTargeting: Targeting? = if (requestTargeting?.geo != null || requestTargeting?.location != null || requestTargeting?.destination != null || requestTargeting?.distance != null || finalCustomTargetingInfo.isNotEmpty()) {
+        val mergedTargeting: Targeting? = if (requestTargeting?.geo != null || requestTargeting?.location != null ||
+            requestTargeting?.destination != null ||
+            requestTargeting?.distance != null ||
+            finalCustomTargetingInfo.isNotEmpty()
+        ) {
             Targeting(
                 geo = requestTargeting?.geo,
                 location = requestTargeting?.location,
@@ -181,7 +188,9 @@ class Admoai private constructor() {
                 custom = if (finalCustomTargetingInfo.isNotEmpty()) finalCustomTargetingInfo.toList() else null,
                 distance = requestTargeting?.distance
             )
-        } else { null }
+        } else {
+            null
+        }
 
         val appObject = if (initialDecisionRequest.collectAppData && this.appConfig != null) {
             val appConf = this.appConfig!!
@@ -192,7 +201,9 @@ class Admoai private constructor() {
                 buildNumber = appConf.buildNumber,
                 language = appConf.language
             )
-        } else null
+        } else {
+            null
+        }
 
         val deviceObject = if (initialDecisionRequest.collectDeviceData && this.deviceConfig != null) {
             val devConf = this.deviceConfig!!
@@ -205,7 +216,9 @@ class Admoai private constructor() {
                 timezone = devConf.timezone,
                 language = devConf.language
             )
-        } else null
+        } else {
+            null
+        }
 
         if ((initialDecisionRequest.sessionId != null || initialDecisionRequest.journeyOpt != null) &&
             sdkConfig?.apiVersion == null
@@ -230,7 +243,7 @@ class Admoai private constructor() {
 
     /**
      * Requests ads from the AdMoai decision engine.
-     * 
+     *
      * @param initialDecisionRequest Decision request with placements and targeting
      * @return Flow emitting the decision response
      * @throws AdMoaiConfigurationException if SDK not initialized
@@ -407,7 +420,10 @@ class Admoai private constructor() {
     internal fun log(message: String, level: LogLevel = LogLevel.INFO, throwable: Throwable? = null) {
         // WARNING/ERROR always emit (misuse must surface even with debug logging off).
         if (sdkConfig?.enableLogging == true || level == LogLevel.WARNING || level == LogLevel.ERROR) {
-            logSink?.let { it(message, level, throwable); return }
+            logSink?.let {
+                it(message, level, throwable)
+                return
+            }
             val tag = "AdMoaiSDK"
             when (level) {
                 LogLevel.DEBUG -> android.util.Log.d(tag, message, throwable)
@@ -421,7 +437,7 @@ class Admoai private constructor() {
     enum class LogLevel { DEBUG, INFO, WARNING, ERROR }
 
     companion object {
-        @Volatile private var INSTANCE: Admoai? = null
+        @Volatile private var instance: Admoai? = null
         private val singletonMutex = Mutex()
         private var isSdkInitialized = false
 
@@ -430,7 +446,13 @@ class Admoai private constructor() {
          */
         @JvmStatic
         @JvmOverloads
-        fun initialize(baseUrl: String, apiVersion: String? = null, enableLogging: Boolean = false, defaultLanguage: String? = null, sessionId: String? = null) {
+        fun initialize(
+            baseUrl: String,
+            apiVersion: String? = null,
+            enableLogging: Boolean = false,
+            defaultLanguage: String? = null,
+            sessionId: String? = null
+        ) {
             val config = SDKConfig(
                 baseUrl = baseUrl,
                 apiVersion = apiVersion,
@@ -441,7 +463,7 @@ class Admoai private constructor() {
             // initialize() runs once at startup before any request, so setting sessionId here is safe.
             sessionId?.let { getInstance().setSessionId(it) }
         }
-        
+
         /**
          * Initializes (or re-initializes) the SDK.
          *
@@ -459,29 +481,27 @@ class Admoai private constructor() {
         fun initialize(sdkConfig: SDKConfig) {
             val immutableSdkConfig = sdkConfig.copy()
             synchronized(singletonMutex) {
-                if (INSTANCE == null) {
-                    INSTANCE = Admoai()
+                if (instance == null) {
+                    instance = Admoai()
                 }
-                INSTANCE!!.applyConfiguration(immutableSdkConfig)
-                INSTANCE!!.clearSessionId()
-                INSTANCE!!.pointViewLedger.clear()
+                instance!!.applyConfiguration(immutableSdkConfig)
+                instance!!.clearSessionId()
+                instance!!.pointViewLedger.clear()
                 isSdkInitialized = true
             }
         }
 
         @JvmStatic
-        fun getInstance(): Admoai {
-            return INSTANCE ?: throw IllegalStateException("SDK not initialized")
-        }
+        fun getInstance(): Admoai = instance ?: throw IllegalStateException("SDK not initialized")
 
         fun isInitialized(): Boolean = isSdkInitialized
 
         @VisibleForTesting
         internal fun resetForTesting() {
             synchronized(singletonMutex) {
-                (INSTANCE?.apiService as? Closeable)?.close()
-                INSTANCE?.thirdPartyDispatcher?.close()
-                INSTANCE = null
+                (instance?.apiService as? Closeable)?.close()
+                instance?.thirdPartyDispatcher?.close()
+                instance = null
                 isSdkInitialized = false
             }
         }

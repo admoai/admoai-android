@@ -5,6 +5,10 @@ import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.MatchedPoint
 import com.admoai.sdk.model.response.matchedPoints
 import io.ktor.client.engine.cio.CIO
+import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -15,10 +19,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.io.File
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 /**
  * Pin views are reported once per decision response — the scenarios of
@@ -92,17 +92,14 @@ class PointViewLedgerTest {
     private fun url(response: String, event: String, pin: Int) =
         "http://127.0.0.1:${server.port}/$response/$event/p$pin"
 
-    private fun viewPaths(range: IntRange, response: String) =
-        range.map { "/$response/view/p$it" }.toSet()
+    private fun viewPaths(range: IntRange, response: String) = range.map { "/$response/view/p$it" }.toSet()
 
-    private fun respondOk(times: Int) =
-        repeat(times) { server.enqueue(MockResponse().setResponseCode(200)) }
+    private fun respondOk(times: Int) = repeat(times) { server.enqueue(MockResponse().setResponseCode(200)) }
 
     private fun fired(count: Int): List<String> =
         (1..count).mapNotNull { server.takeRequest(3, TimeUnit.SECONDS)?.path }
 
-    private fun assertNothingMoreFired() =
-        assertNull(server.takeRequest(500, TimeUnit.MILLISECONDS))
+    private fun assertNothingMoreFired() = assertNull(server.takeRequest(500, TimeUnit.MILLISECONDS))
 
     @Test
     fun `every scenario has a test`() {
@@ -215,7 +212,12 @@ class PointViewLedgerTest {
         val r = points(0 until 50, "r")
         val pool = Executors.newFixedThreadPool(8)
         val start = CountDownLatch(1)
-        repeat(8) { pool.execute { start.await(); admoai.trackPointViews(r) } }
+        repeat(8) {
+            pool.execute {
+                start.await()
+                admoai.trackPointViews(r)
+            }
+        }
 
         start.countDown()
         pool.shutdown()

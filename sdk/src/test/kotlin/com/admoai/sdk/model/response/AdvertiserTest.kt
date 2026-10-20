@@ -7,7 +7,10 @@ import org.junit.Test
 
 class AdvertiserTest {
 
-    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+    }
 
     @Test
     fun `given server omits advertiser id when parsing then id is null`() {
@@ -36,7 +39,11 @@ class AdvertiserTest {
     @Test
     fun `given fully populated advertiser payload when parsing then all fields parsed correctly`() {
         // Given: complete advertiser JSON
-        val payload = """{"id":"adv_XYZ","name":"Ride Corp","legalName":"Ride Corp LLC","logoUrl":"https://cdn.example.com/logo.svg"}"""
+        val payload =
+            """
+            {"id":"adv_XYZ","name":"Ride Corp","legalName":"Ride Corp LLC",
+             "logoUrl":"https://cdn.example.com/logo.svg"}
+            """.trimIndent()
 
         // When: SDK parses the response
         val advertiser = json.decodeFromString<Advertiser>(payload)

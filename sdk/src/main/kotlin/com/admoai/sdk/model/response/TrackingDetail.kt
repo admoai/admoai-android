@@ -9,7 +9,4 @@ import kotlinx.serialization.Serializable
  * @property url Tracking URL to be fired when the event occurs
  */
 @Serializable
-data class TrackingDetail(
-    val key: String,
-    val url: String 
-)
+data class TrackingDetail(val key: String, val url: String)

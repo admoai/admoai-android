@@ -20,4 +20,3 @@ data class VerificationScriptResource(
     @Serializable(with = VerificationParametersSerializer::class)
     val verificationParameters: String? = null
 )
-

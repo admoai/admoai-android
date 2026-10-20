@@ -7,8 +7,5 @@ package com.admoai.sdk.exception
  * @param cause The underlying cause of the exception, if any.
  * @param statusCode The HTTP status code, if available.
  */
-class AdMoaiNetworkException(
-    message: String,
-    cause: Throwable? = null,
-    val statusCode: Int? = null
-) : AdMoaiException(message, cause)
+class AdMoaiNetworkException(message: String, cause: Throwable? = null, val statusCode: Int? = null) :
+    AdMoaiException(message, cause)

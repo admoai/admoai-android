@@ -53,13 +53,13 @@ class TargetingTest {
             placements = listOf(placement),
             targeting = targeting
         )
-        
+
         val preparedRequest = admoai.prepareFinalDecisionRequest(request)
         coEvery { mockApiService.requestAds(preparedRequest) } returns flowOf(decisionResponse)
-        
+
         // When: Building request with geo targeting
         val result = admoai.requestAds(request).first()
-        
+
         // Then: Should include location data in prepared request
         assertEquals(decisionResponse, result)
         coVerify { mockApiService.requestAds(preparedRequest) }
@@ -82,7 +82,7 @@ class TargetingTest {
                 value = JsonPrimitive("25-34")
             ),
             CustomTargetingInfo(
-                key = "interests", 
+                key = "interests",
                 value = JsonPrimitive("technology")
             )
         )
@@ -92,13 +92,13 @@ class TargetingTest {
             placements = listOf(placement),
             targeting = targeting
         )
-        
+
         val preparedRequest = admoai.prepareFinalDecisionRequest(request)
         coEvery { mockApiService.requestAds(preparedRequest) } returns flowOf(decisionResponse)
-        
+
         // When: Building request with custom targeting
         val result = admoai.requestAds(request).first()
-        
+
         // Then: Should include custom parameters in prepared request
         assertEquals(decisionResponse, result)
         coVerify { mockApiService.requestAds(preparedRequest) }

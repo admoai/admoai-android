@@ -9,6 +9,7 @@ import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sdk.model.response.TrackingDetail
 import com.admoai.sdk.model.response.TrackingInfo
 import io.ktor.client.engine.cio.CIO
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
@@ -21,7 +22,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.util.concurrent.TimeUnit
 
 class AdmoaiIntegrationTest {
 
@@ -81,7 +81,6 @@ class AdmoaiIntegrationTest {
             val recordedRequest = server.takeRequest()
             assertEquals("/v1/decision", recordedRequest.path)
             assertEquals("POST", recordedRequest.method)
-
         } catch (e: AdMoaiNetworkException) {
             println("AdMoaiNetworkException caught in test. Full stack trace:")
             e.printStackTrace()

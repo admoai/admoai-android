@@ -1,0 +1,18 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+# IntelliJ's default for Kotlin; 100 forced awkward wraps.
+max_line_length = 120
+ktlint_code_style = android_studio
+# Compose convention: @Composable functions are PascalCase.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+# Android Studio collapses imports into `*` by default; a rule that fights the IDE
+# every contributor uses produces churn, not safety.
+ktlint_standard_no-wildcard-imports = disabled

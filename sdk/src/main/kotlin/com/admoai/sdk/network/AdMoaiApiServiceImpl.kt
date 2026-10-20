@@ -15,18 +15,18 @@ import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import java.io.Closeable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import java.io.Closeable
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /** Builds the API-deprecation warning message, or null when not deprecated. Pure/testable. */
 internal fun deprecationWarningMessage(deprecated: String?, sunset: String?): String? {
@@ -42,7 +42,8 @@ internal class AdMoaiApiServiceImpl(
     private val sdkConfig: SDKConfig,
     private val engine: HttpClientEngine?,
     private val logWarning: ((String) -> Unit)? = null
-) : AdMoaiApiService, Closeable {
+) : AdMoaiApiService,
+    Closeable {
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -91,7 +92,6 @@ internal class AdMoaiApiServiceImpl(
             url(sdkConfig.baseUrl)
         }
     }
-
 
     override fun requestAds(request: DecisionRequest): Flow<DecisionResponse> = flow {
         try {

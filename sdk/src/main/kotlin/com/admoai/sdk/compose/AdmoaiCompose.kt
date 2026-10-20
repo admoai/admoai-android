@@ -1,3 +1,7 @@
+// Renaming the file would rename the JVM facade class (AdmoaiComposeKt) — a binary break for
+// Java callers of rememberAdState — so the filename rule is suppressed instead.
+@file:Suppress("ktlint:standard:filename")
+
 package com.admoai.sdk.compose
 
 import androidx.compose.runtime.Composable
@@ -47,25 +51,21 @@ sealed class AdState {
  * @return The current [AdState] of the ad request.
  */
 @Composable
-fun rememberAdState(
-    admoai: Admoai,
-    decisionRequest: DecisionRequest,
-    key: Any = decisionRequest
-): AdState {
+fun rememberAdState(admoai: Admoai, decisionRequest: DecisionRequest, key: Any = decisionRequest): AdState {
     // Create a Flow that encapsulates the request logic and state transitions
     val adRequestFlow = remember(key) {
         createAdRequestFlow(admoai, decisionRequest)
     }
-    
+
     // Collect the flow with lifecycle awareness
     val adState by adRequestFlow.collectAsStateWithLifecycle(initialValue = AdState.Idle)
-    
+
     return adState
 }
 
 /**
  * Creates a Flow that handles the ad request and state transitions.
- * 
+ *
  * @param admoai The Admoai SDK instance
  * @param decisionRequest The request to send
  * @return Flow emitting AdState values representing the current state of the request
@@ -76,19 +76,21 @@ private fun createAdRequestFlow(admoai: Admoai, decisionRequest: DecisionRequest
         emit(AdState.Error(AdMoaiConfigurationException("Admoai SDK not initialized. Call Admoai.initialize() first.")))
         return@flow
     }
-    
+
     if (decisionRequest.placements.isEmpty()) {
         emit(AdState.Error(AdMoaiValidationException("DecisionRequest must contain at least one placement")))
         return@flow
     }
-    
+
     // Begin the actual request
     emit(AdState.Loading)
-    
+
     // Collect and transform the original Flow
     admoai.requestAds(decisionRequest)
         .catch { exception ->
-            emit(AdState.Error(exception as? Exception ?: RuntimeException("Unknown error during ad request", exception)))
+            emit(
+                AdState.Error(exception as? Exception ?: RuntimeException("Unknown error during ad request", exception))
+            )
         }
         .collect { response ->
             emit(AdState.Success(response))

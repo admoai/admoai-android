@@ -21,9 +21,7 @@ import com.admoai.sdk.model.response.VerificationScriptResource
  * }
  * ```
  */
-fun Creative.getVerificationResources(): List<VerificationScriptResource>? {
-    return verificationScriptResources
-}
+fun Creative.getVerificationResources(): List<VerificationScriptResource>? = verificationScriptResources
 
 /**
  * Checks if a Creative contains Open Measurement verification data.
@@ -40,7 +38,4 @@ fun Creative.getVerificationResources(): List<VerificationScriptResource>? {
  * }
  * ```
  */
-fun Creative.hasOMVerification(): Boolean {
-    return !verificationScriptResources.isNullOrEmpty()
-}
-
+fun Creative.hasOMVerification(): Boolean = !verificationScriptResources.isNullOrEmpty()

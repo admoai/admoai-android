@@ -28,8 +28,9 @@ import org.junit.Test
 class AdmoaiTest {
 
     private lateinit var mockApiService: AdMoaiApiService
+
     // mockEngine is no longer primary for most tests, but keep for specific engine tests if any in future
-    private lateinit var mockEngine: HttpClientEngine 
+    private lateinit var mockEngine: HttpClientEngine
 
     private val minimalSDKConfig = SDKConfig(baseUrl = "https://test.admoai.com")
     private val placementKey = "test-placement"
@@ -38,8 +39,8 @@ class AdmoaiTest {
     @Before
     fun setUp() {
         mockApiService = mockk(relaxed = true)
-        mockEngine = mockk(relaxed = true) 
-        Admoai.resetForTesting() 
+        mockEngine = mockk(relaxed = true)
+        Admoai.resetForTesting()
     }
 
     @After
@@ -79,20 +80,25 @@ class AdmoaiTest {
     @Test
     fun `re-initialize updates config and keeps instance`() {
         // Ensure logging is OFF for this JVM unit test for BOTH configs
-        val initialConfig = minimalSDKConfig.copy(enableLogging = false, networkClientEngine = null) // Logging explicitly false
+        val initialConfig = minimalSDKConfig.copy(enableLogging = false, networkClientEngine = null)
         Admoai.initialize(initialConfig)
         val admoaiInstance1 = Admoai.getInstance()
         val initialApiService = admoaiInstance1.apiService // Capture the internally created one on the first init
         assertNotNull("Initial ApiService should not be null after first init", initialApiService)
 
-        val newConfig = SDKConfig(baseUrl = "https://updated-test.admoai.com", enableLogging = true, networkClientEngine = null) // Logging explicitly false
+        val newConfig =
+            SDKConfig(baseUrl = "https://updated-test.admoai.com", enableLogging = true, networkClientEngine = null)
         Admoai.initialize(newConfig) // This should reconfigure the existing instance
         val admoaiInstance2 = Admoai.getInstance()
         val newApiService = admoaiInstance2.apiService // Capture the apiService after re-init
 
         assertSame("Singleton instance should be the same", admoaiInstance1, admoaiInstance2) // Line 84
         assertNotNull("New ApiService should not be null after re-initialization", newApiService)
-        assertNotEquals("ApiService should be a new instance after re-initialization with new config", initialApiService, newApiService)
+        assertNotEquals(
+            "ApiService should be a new instance after re-initialization with new config",
+            initialApiService,
+            newApiService
+        )
     }
 
     // --- Configuration ---
@@ -102,7 +108,8 @@ class AdmoaiTest {
         val admoai = Admoai.getInstance()
         admoai.apiService = mockApiService // Set mock service
 
-        val newSdkConfig = SDKConfig(baseUrl = "https://test.admoai.com", enableLogging = true, networkClientEngine = null)
+        val newSdkConfig =
+            SDKConfig(baseUrl = "https://test.admoai.com", enableLogging = true, networkClientEngine = null)
 
         admoai.configure(newSdkConfig)
         // Test a behavior that depends on the new config (e.g., logging or apiService re-creation)
@@ -118,17 +125,15 @@ class AdmoaiTest {
         Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null))
         val instance = Admoai.getInstance()
         instance.apiService = mockApiService
-        Admoai.resetForTesting() 
-        instance.configure(SDKConfig("new-base", enableLogging = true, networkClientEngine = null)) 
+        Admoai.resetForTesting()
+        instance.configure(SDKConfig("new-base", enableLogging = true, networkClientEngine = null))
     }
-
 
     @Test(expected = IllegalStateException::class)
     fun `configure throws if called on an instance obtained before initialization (via getInstance)`() = runTest {
-        val instance = Admoai.getInstance() 
-        instance.configure(minimalSDKConfig) 
+        val instance = Admoai.getInstance()
+        instance.configure(minimalSDKConfig)
     }
-
 
     @Test
     fun `set and get UserConfig`() {
@@ -184,25 +189,26 @@ class AdmoaiTest {
         Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null))
         val admoai = Admoai.getInstance()
         // admoai.apiService = mockApiService // No need to set, exception is pre-check
-        Admoai.resetForTesting() 
-        admoai.requestAds(minimalDecisionRequest).first() 
-    }
-    
-    @Test(expected = AdMoaiConfigurationException::class)
-    fun `requestAds if apiService is null throws AdMoaiConfigurationException`() = runTest {
-        Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null)) 
-        val admoai = Admoai.getInstance()
-        admoai.apiService = null // Manually set apiService to null
-        admoai.requestAds(minimalDecisionRequest).first() 
+        Admoai.resetForTesting()
+        admoai.requestAds(minimalDecisionRequest).first()
     }
 
+    @Test(expected = AdMoaiConfigurationException::class)
+    fun `requestAds if apiService is null throws AdMoaiConfigurationException`() = runTest {
+        Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null))
+        val admoai = Admoai.getInstance()
+        admoai.apiService = null // Manually set apiService to null
+        admoai.requestAds(minimalDecisionRequest).first()
+    }
 
     @Test
     fun `prepareFinalDecisionRequest merges UserConfig - request overrides global`() = runTest {
         Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null))
         val admoai = Admoai.getInstance()
         admoai.apiService = mockApiService
-        admoai.setUserConfig(UserConfig(id = "globalUser", ip = "1.1.1.1", timezone = "Global/Zone", consentData = Consent(false)))
+        admoai.setUserConfig(
+            UserConfig(id = "globalUser", ip = "1.1.1.1", timezone = "Global/Zone", consentData = Consent(false))
+        )
 
         val request = DecisionRequestBuilder()
             .addPlacement(placementKey)
@@ -211,8 +217,8 @@ class AdmoaiTest {
             .setUserTimezone("Local/Zone")
             .setUserConsent(true)
             .build()
-        
-        val finalRequest = admoai.prepareFinalDecisionRequest(request) 
+
+        val finalRequest = admoai.prepareFinalDecisionRequest(request)
         assertEquals("localUser", finalRequest.user?.id)
         assertEquals("2.2.2.2", finalRequest.user?.ip)
         assertEquals("Local/Zone", finalRequest.user?.timezone)
@@ -224,29 +230,31 @@ class AdmoaiTest {
         Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null))
         val admoai = Admoai.getInstance()
         admoai.apiService = mockApiService
-        admoai.setUserConfig(UserConfig(id = "globalUser", ip = "1.1.1.1", timezone = "Global/Zone", consentData = Consent(false)))
+        admoai.setUserConfig(
+            UserConfig(id = "globalUser", ip = "1.1.1.1", timezone = "Global/Zone", consentData = Consent(false))
+        )
         admoai.setDeviceConfig(DeviceConfig(timezone = "Device/Zone"))
 
         val request = DecisionRequestBuilder().addPlacement(placementKey).build()
-        
-        val finalRequest = admoai.prepareFinalDecisionRequest(request) 
+
+        val finalRequest = admoai.prepareFinalDecisionRequest(request)
         assertEquals("globalUser", finalRequest.user?.id)
         assertEquals("1.1.1.1", finalRequest.user?.ip)
         assertEquals("Global/Zone", finalRequest.user?.timezone)
         assertFalse(finalRequest.user?.consent?.gdpr == true)
     }
-    
+
     @Test
     fun `prepareFinalDecisionRequest merges UserConfig - device timezone fallback`() = runTest {
         Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null))
         val admoai = Admoai.getInstance()
         admoai.apiService = mockApiService
-        admoai.setUserConfig(UserConfig(id = "globalUser")) 
+        admoai.setUserConfig(UserConfig(id = "globalUser"))
         admoai.setDeviceConfig(DeviceConfig(timezone = "Device/Zone"))
 
         val request = DecisionRequestBuilder().addPlacement(placementKey).build()
-        
-        val finalRequest = admoai.prepareFinalDecisionRequest(request) 
+
+        val finalRequest = admoai.prepareFinalDecisionRequest(request)
         assertEquals("Device/Zone", finalRequest.user?.timezone)
     }
 
@@ -255,36 +263,40 @@ class AdmoaiTest {
         Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null))
         val admoai = Admoai.getInstance()
         admoai.apiService = mockApiService
-        admoai.setDeviceConfig(DeviceConfig(
-            model = "TestModel", 
-            osName = "TestOS", 
-            osVersion = "13", 
-            deviceId = "testDevId", 
-            timezone = "Device/Zone",
-            manufacturer = "TestManufacturer",
-            language = "en-US"
-        ))
-        admoai.setAppConfig(AppConfig(
-            appName = "TestApp", 
-            appVersion = "1.1", 
-            packageName = "com.test.app",
-            buildNumber = "42",
-            language = "es"
-        ))
+        admoai.setDeviceConfig(
+            DeviceConfig(
+                model = "TestModel",
+                osName = "TestOS",
+                osVersion = "13",
+                deviceId = "testDevId",
+                timezone = "Device/Zone",
+                manufacturer = "TestManufacturer",
+                language = "en-US"
+            )
+        )
+        admoai.setAppConfig(
+            AppConfig(
+                appName = "TestApp",
+                appVersion = "1.1",
+                packageName = "com.test.app",
+                buildNumber = "42",
+                language = "es"
+            )
+        )
 
         val request = DecisionRequestBuilder()
             .addPlacement(placementKey)
             .addCustomTarget("existing_custom", "value")
             .build()
 
-        val finalRequest = admoai.prepareFinalDecisionRequest(request) 
-        
+        val finalRequest = admoai.prepareFinalDecisionRequest(request)
+
         // Check that custom targeting still works
         assertNotNull(finalRequest.targeting?.custom)
         val customMap = finalRequest.targeting?.custom?.associate { it.key to it.value }
         assertEquals(JsonPrimitive("value"), customMap?.get("existing_custom"))
-        assertEquals(1, customMap?.size) 
-        
+        assertEquals(1, customMap?.size)
+
         // Check app as a top-level field
         assertNotNull(finalRequest.app)
         assertEquals("TestApp", finalRequest.app?.name)
@@ -292,7 +304,7 @@ class AdmoaiTest {
         assertEquals("com.test.app", finalRequest.app?.identifier)
         assertEquals("42", finalRequest.app?.buildNumber)
         assertEquals("es", finalRequest.app?.language)
-        
+
         // Check device as a top-level field
         assertNotNull(finalRequest.device)
         assertEquals("TestModel", finalRequest.device?.model)
@@ -315,8 +327,8 @@ class AdmoaiTest {
             .addPlacement(placementKey)
             .disableDeviceCollection()
             .build()
-        
-        val finalRequest = admoai.prepareFinalDecisionRequest(request) 
+
+        val finalRequest = admoai.prepareFinalDecisionRequest(request)
         val customMap = finalRequest.targeting?.custom?.associate { it.key to it.value }
         assertNull(customMap?.get("sdk_device_model"))
         assertFalse(finalRequest.collectDeviceData)
@@ -333,42 +345,42 @@ class AdmoaiTest {
             .addPlacement(placementKey)
             .disableAppCollection()
             .build()
-        
-        val finalRequest = admoai.prepareFinalDecisionRequest(request) 
+
+        val finalRequest = admoai.prepareFinalDecisionRequest(request)
         val customMap = finalRequest.targeting?.custom?.associate { it.key to it.value }
         assertNull(customMap?.get("sdk_app_name"))
         assertFalse(finalRequest.collectAppData)
     }
-    
+
     @Test
     fun `requestAds basic call now uses injected mockApiService`() = runTest {
         val decisionResponse = DecisionResponse(success = true)
-        
-        Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null)) 
+
+        Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null))
         val admoai = Admoai.getInstance()
         admoai.apiService = mockApiService // Inject the mock
-        
+
         // Prepare the request that would be passed to the mock
         val preparedRequest = admoai.prepareFinalDecisionRequest(minimalDecisionRequest)
         coEvery { mockApiService.requestAds(preparedRequest) } returns flowOf(decisionResponse)
 
         val result = admoai.requestAds(minimalDecisionRequest).first()
         assertEquals(decisionResponse, result)
-        
+
         coVerify { mockApiService.requestAds(preparedRequest) }
     }
 
     @Test(expected = AdMoaiConfigurationException::class)
     fun `getHttpRequestData before init throws AdMoaiConfigurationException`() {
-         Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null))
-         val admoai = Admoai.getInstance()
-         Admoai.resetForTesting()
-         admoai.getHttpRequestData(minimalDecisionRequest) 
+        Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null))
+        val admoai = Admoai.getInstance()
+        Admoai.resetForTesting()
+        admoai.getHttpRequestData(minimalDecisionRequest)
     }
-    
+
     @Test(expected = AdMoaiConfigurationException::class)
     fun `getHttpRequestData if apiService is null throws AdMoaiConfigurationException`() {
-        Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null)) 
+        Admoai.initialize(minimalSDKConfig.copy(networkClientEngine = null))
         val admoai = Admoai.getInstance()
         admoai.apiService = null // Manually set apiService to null
         admoai.getHttpRequestData(minimalDecisionRequest)
@@ -384,10 +396,10 @@ class AdmoaiTest {
         // Prepare the request using the initialized instance for coVerify
         val preparedRequest = admoai.prepareFinalDecisionRequest(minimalDecisionRequest)
         coEvery { mockApiService.getHttpRequestData(preparedRequest) } returns expectedHttpRequest
-        
+
         val actualRequest = admoai.getHttpRequestData(minimalDecisionRequest)
         assertEquals(expectedHttpRequest, actualRequest)
-                                                      
+
         coVerify { mockApiService.getHttpRequestData(preparedRequest) }
     }
 
