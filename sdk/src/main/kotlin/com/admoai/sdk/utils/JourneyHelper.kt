@@ -27,3 +27,5 @@ fun Creative.journeySessionId(): String? = journey?.sessionId
 fun Creative.journeyOptStatus(): JourneyOpt? = journey?.optStatus
 fun Creative.journeyPricingModel(): String? = journey?.pricingModel
 fun Creative.journeyFallbackBillingMode(): String? = journey?.fallbackBillingMode
+
+fun   redProof( ) = 1
