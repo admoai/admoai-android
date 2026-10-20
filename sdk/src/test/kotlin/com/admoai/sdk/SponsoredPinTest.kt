@@ -461,17 +461,21 @@ class SponsoredPinTest {
         assertNull(server.takeRequest(500, TimeUnit.MILLISECONDS))
     }
 
-    /** AC8b — two renders are two views. No de-duplication across invocations. */
+    /**
+     * AC8b — a second render of the same response is not a second view. The full rule lives in
+     * [PointViewLedgerTest], scenario by scenario.
+     */
     @Test
-    fun `AC8b - bulk does not deduplicate across invocations`() = runTest {
-        repeat(2) { server.enqueue(MockResponse().setResponseCode(200)) }
+    fun `AC8b - bulk deduplicates across invocations of the same response`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(200))
         val admoai = sdk()
         val point = creative(pointsJson(trackedPoint("a", "a"))).matchedPoints.single()
 
         admoai.trackPointViews(listOf(point))
         admoai.trackPointViews(listOf(point))
 
-        assertEquals(listOf("/a/view", "/a/view"), firedPaths(2))
+        assertEquals(listOf("/a/view"), firedPaths(1))
+        assertNull(server.takeRequest(500, TimeUnit.MILLISECONDS))
     }
 
     /**
