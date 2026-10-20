@@ -266,7 +266,7 @@ class Admoai private constructor() {
         return currentApiService.getHttpRequestData(finalDecisionRequest)
     }
 
-    fun fireTracking(url: String) {
+    internal fun fireTracking(url: String) {
         val currentApiService = apiService ?: return
         if (!isAbsoluteHttpUrl(url)) {
             // PII-safe: never log the opaque tracking URL / e= token, only a redacted reason.
