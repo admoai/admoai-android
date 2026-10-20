@@ -4,6 +4,11 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.dokka)
+    // Public API baseline: sdk/api/sdk.api. `./gradlew :sdk:apiCheck` fails when the surface
+    // changes without `./gradlew :sdk:apiDump` (see CONTRIBUTING, "When the API check fails").
+    // No ignoredPackages: every public type in the dump is meant for integrators (the
+    // network.AdMoaiApiService seam included); the e2e runner's seams are `internal`.
+    alias(libs.plugins.binary.compatibility.validator)
     `maven-publish`
     signing
 }

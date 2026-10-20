@@ -20,6 +20,7 @@ mockWebServer = "4.12.0"
 robolectric = "4.13"
 ktlintGradle = "14.2.0"
 ktlint = "1.8.0"
+binaryCompatibilityValidator = "0.18.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -64,6 +65,7 @@ mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", versio
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 
 [plugins]
+binary-compatibility-validator = { id = "org.jetbrains.kotlinx.binary-compatibility-validator", version.ref = "binaryCompatibilityValidator" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintGradle" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
