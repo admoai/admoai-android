@@ -1,5 +1,5 @@
-# Runs on every PR and on pushes to main: static analysis, unit tests, and a
-# build of the :sdk library. Mirrors the JDK/Gradle
+# Runs on every PR and on pushes to main: ktlint + Android lint, unit tests, and
+# a build of the :sdk library. Mirrors the JDK/Gradle
 # setup used by release-please.yml so local, CI, and release builds stay aligned.
 name: CI
 
@@ -34,6 +34,10 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # Formatting/style (rules in .editorconfig). Fix locally with ./gradlew ktlintFormat.
+      - name: ktlint (:sdk)
+        run: ./gradlew ktlintCheck --stacktrace
+
       - name: Android lint (:sdk)
         run: ./gradlew lint --stacktrace
 
@@ -50,6 +54,7 @@ jobs:
           name: reports
           path: |
             **/build/reports/lint-results-*.html
+            **/build/reports/ktlint/**
             **/build/reports/tests/**
             **/build/test-results/**
           if-no-files-found: ignore
