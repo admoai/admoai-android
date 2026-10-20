@@ -141,6 +141,9 @@ We follow [Kotlin Coding Conventions](https://kotlinlang.org/docs/coding-convent
   - Constants: `SCREAMING_SNAKE_CASE`
 - **Organize imports**: Remove unused, group by Android/Kotlin/Third-party
 
+ktlint enforces this in CI (the `Lint, test & build` job fails on `ktlintCheck`). The rules,
+and the reason for each deviation from the defaults, live in `.editorconfig`.
+
 Run the linter before committing:
 ```bash
 ./gradlew ktlintCheck
