@@ -25,23 +25,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.admoai.sample.ui.model.GeoTargetItem
 import com.admoai.sample.ui.MainViewModel
+import com.admoai.sample.ui.model.GeoTargetItem
 
 /**
  * Screen for selecting geo targeting options
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GeoTargetingScreen(
-    viewModel: MainViewModel,
-    onNavigateBack: () -> Unit
-) {
+fun GeoTargetingScreen(viewModel: MainViewModel, onNavigateBack: () -> Unit) {
     val geoTargets by viewModel.geoTargets.collectAsState()
 
     // Create a working copy of selections
     val selections = geoTargets.map { it.copy() }
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -66,7 +63,7 @@ fun GeoTargetingScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp)
             )
-            
+
             // List of geo targets
             LazyColumn(
                 state = rememberLazyListState(),
@@ -78,9 +75,12 @@ fun GeoTargetingScreen(
                         onToggleSelection = { selected ->
                             // Update the selection
                             viewModel.updateGeoTargets(
-                                geoTargets.map { 
-                                    if (it.id == geoTarget.id) it.copy(isSelected = selected) 
-                                    else it 
+                                geoTargets.map {
+                                    if (it.id == geoTarget.id) {
+                                        it.copy(isSelected = selected)
+                                    } else {
+                                        it
+                                    }
                                 }
                             )
                         }
@@ -92,10 +92,7 @@ fun GeoTargetingScreen(
 }
 
 @Composable
-fun GeoTargetItem(
-    geoTarget: GeoTargetItem,
-    onToggleSelection: (Boolean) -> Unit
-) {
+fun GeoTargetItem(geoTarget: GeoTargetItem, onToggleSelection: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -119,7 +116,7 @@ fun GeoTargetItem(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        
+
         Checkbox(
             checked = geoTarget.isSelected,
             onCheckedChange = { selected ->

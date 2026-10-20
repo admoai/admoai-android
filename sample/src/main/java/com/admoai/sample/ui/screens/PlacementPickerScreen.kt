@@ -10,23 +10,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tag
-import androidx.compose.material.icons.filled.LocalOffer
-import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,13 +53,10 @@ import com.admoai.sample.ui.model.PlacementItem
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlacementPickerScreen(
-    viewModel: MainViewModel,
-    onNavigateBack: () -> Unit
-) {
+fun PlacementPickerScreen(viewModel: MainViewModel, onNavigateBack: () -> Unit) {
     val placements = viewModel.availablePlacements
     val currentPlacement by viewModel.placementKey.collectAsState()
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -93,11 +90,7 @@ fun PlacementPickerScreen(
 }
 
 @Composable
-fun PlacementRow(
-    placement: PlacementItem,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
+fun PlacementRow(placement: PlacementItem, isSelected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -108,25 +101,43 @@ fun PlacementRow(
         // Icon based on placement
         // Map iOS SF Symbol names to Material icons
         val icon = when (placement.id) {
-            "home" -> Icons.Default.Home                      // Home placement
-            "search" -> Icons.Default.Search                  // Search placement
-            "menu" -> Icons.Default.Menu                      // Menu placement
-            "promotions" -> Icons.Default.LocalOffer          // Promotions placement
-            "vehicleSelection" -> Icons.Default.DirectionsCar // Vehicle Selection placement
-            "rideSummary" -> Icons.AutoMirrored.Filled.ReceiptLong       // Ride Summary placement
-            "waiting" -> Icons.Default.Timer                  // Waiting placement
-            "freeMinutes" -> Icons.Default.CardGiftcard       // Free Minutes placement
-            "invalidPlacement" -> Icons.Default.Warning       // Invalid Placement
+            "home" -> Icons.Default.Home
+
+            // Home placement
+            "search" -> Icons.Default.Search
+
+            // Search placement
+            "menu" -> Icons.Default.Menu
+
+            // Menu placement
+            "promotions" -> Icons.Default.LocalOffer
+
+            // Promotions placement
+            "vehicleSelection" -> Icons.Default.DirectionsCar
+
+            // Vehicle Selection placement
+            "rideSummary" -> Icons.AutoMirrored.Filled.ReceiptLong
+
+            // Ride Summary placement
+            "waiting" -> Icons.Default.Timer
+
+            // Waiting placement
+            "freeMinutes" -> Icons.Default.CardGiftcard
+
+            // Free Minutes placement
+            "invalidPlacement" -> Icons.Default.Warning
+
+            // Invalid Placement
             else -> Icons.Default.Home
         }
-        
+
         Icon(
             imageVector = icon,
             contentDescription = null,
             modifier = Modifier.padding(end = 16.dp),
             tint = MaterialTheme.colorScheme.primary
         )
-        
+
         // Placement name
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -143,12 +154,12 @@ fun PlacementRow(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        
+
         // Video-friendly badge for supported placements
         val isVideoFriendly = placement.id in listOf("promotions", "rideSummary", "waiting", "freeMinutes")
         if (isVideoFriendly) {
             val badgeText = if (placement.id == "freeMinutes") "Interactive\nVideo" else "Video"
-            
+
             Surface(
                 shape = RoundedCornerShape(4.dp),
                 color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
@@ -176,7 +187,7 @@ fun PlacementRow(
                 }
             }
         }
-        
+
         // Check icon for selected item
         if (isSelected) {
             Icon(

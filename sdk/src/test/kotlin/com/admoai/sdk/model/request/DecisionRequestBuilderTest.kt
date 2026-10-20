@@ -28,7 +28,10 @@ class DecisionRequestBuilderTest {
 
         assertEquals(false, request.user?.consent?.gdpr)
 
-        val body = Json { encodeDefaults = true; explicitNulls = false }.encodeToString(request)
+        val body = Json {
+            encodeDefaults = true
+            explicitNulls = false
+        }.encodeToString(request)
         assertTrue(body.contains("\"gdpr\":false"))
     }
 
@@ -43,7 +46,10 @@ class DecisionRequestBuilderTest {
             .addDestinationTarget(40.7, -74.0, 0.8)
             .build()
 
-        val body = Json { encodeDefaults = true; explicitNulls = false }.encodeToString(request)
+        val body = Json {
+            encodeDefaults = true
+            explicitNulls = false
+        }.encodeToString(request)
 
         assertTrue(body.contains("\"minConfidence\":0.8"))
         assertFalse(body.contains("min_confidence"))
@@ -121,7 +127,6 @@ class DecisionRequestBuilderTest {
         assertEquals(1, request.placements.size)
         assertEquals("new1", request.placements[0].key)
     }
-
 
     @Test
     fun `set user properties`() {
@@ -215,7 +220,7 @@ class DecisionRequestBuilderTest {
         val locations = listOf(LocationTargetingInfo(1.0, 2.0), LocationTargetingInfo(3.0, 4.0))
         val request = DecisionRequestBuilder()
             .addPlacement("p1")
-            .addLocationTarget(9.0,9.0) // should be replaced
+            .addLocationTarget(9.0, 9.0) // should be replaced
             .setLocationTargets(locations)
             .build()
 
@@ -362,7 +367,8 @@ class DecisionRequestBuilderTest {
         assertNotNull(custom)
         assertEquals(JsonPrimitive(true), custom?.value)
     }
-     @Test
+
+    @Test
     fun `add custom target JsonElement null`() {
         val request = DecisionRequestBuilder()
             .addPlacement("p1")
@@ -372,7 +378,6 @@ class DecisionRequestBuilderTest {
         assertNotNull(custom)
         assertEquals(JsonNull, custom?.value)
     }
-
 
     @Test
     fun `add custom target updates existing key`() {
@@ -503,7 +508,7 @@ class DecisionRequestBuilderTest {
         assertNull(request.user?.timezone)
         assertNull(request.user?.consent)
     }
-    
+
     @Test
     fun `build includes user if only ip is set`() {
         val request = DecisionRequestBuilder()

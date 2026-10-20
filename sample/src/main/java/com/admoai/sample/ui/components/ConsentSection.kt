@@ -35,13 +35,13 @@ import com.admoai.sample.ui.MainViewModel
 fun ConsentSection(viewModel: MainViewModel) {
     val gdprConsent by viewModel.gdprConsent.collectAsState()
     var isExpanded by remember { mutableStateOf(false) }
-    
+
     // Animate the expand/collapse arrow rotation
     val arrowRotation by animateFloatAsState(
         targetValue = if (isExpanded) 90f else 0f,
         label = "arrow_rotation"
     )
-    
+
     SectionContainer(title = "Consent") {
         // Section header row that can be clicked to expand/collapse
         Row(
@@ -55,14 +55,14 @@ fun ConsentSection(viewModel: MainViewModel) {
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.weight(1f)
             )
-            
+
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = if (isExpanded) "Collapse" else "Expand",
                 modifier = Modifier.rotate(arrowRotation)
             )
         }
-        
+
         // Expandable content
         AnimatedVisibility(
             visible = isExpanded,
@@ -81,11 +81,11 @@ fun ConsentSection(viewModel: MainViewModel) {
                         )
                     }
                 )
-                
+
                 // Help text about consent
                 Text(
                     text = "GDPR consent toggles whether user consent information is sent with ad requests. " +
-                          "When enabled, requests will include consent data in compliance with EU regulations.",
+                        "When enabled, requests will include consent data in compliance with EU regulations.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)

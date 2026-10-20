@@ -5,11 +5,11 @@ import com.admoai.sdk.model.request.DecisionRequestBuilder
 import com.admoai.sdk.model.response.TrackingDetail
 import com.admoai.sdk.model.response.TrackingInfo
 import io.ktor.client.engine.cio.CIO
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
-import java.util.concurrent.TimeUnit
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

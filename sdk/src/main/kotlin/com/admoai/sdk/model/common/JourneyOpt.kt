@@ -2,8 +2,8 @@ package com.admoai.sdk.model.common
 
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -48,9 +48,8 @@ internal object JourneyOptSerializer : KSerializer<JourneyOpt> {
 
     override fun serialize(encoder: Encoder, value: JourneyOpt) = encoder.encodeString(value.wire)
 
-    override fun deserialize(decoder: Decoder): JourneyOpt =
-        JourneyOpt.fromWire(decoder.decodeString())
-            ?: throw SerializationException("Unknown JourneyOpt value")
+    override fun deserialize(decoder: Decoder): JourneyOpt = JourneyOpt.fromWire(decoder.decodeString())
+        ?: throw SerializationException("Unknown JourneyOpt value")
 }
 
 /**

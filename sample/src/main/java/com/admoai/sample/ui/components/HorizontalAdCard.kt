@@ -12,25 +12,25 @@ import androidx.compose.material.icons.filled.Domain
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
-import com.admoai.sdk.model.response.AdData
 import com.admoai.sample.ui.mapper.AdTemplateMapper
+import com.admoai.sdk.model.response.AdData
 
-/**
+/*
  * Horizontal ad card layout specifically for Home placement
- * 
+ *
  * This matches the iOS layout with two styles:
  * 1. Standard style:
  *  - Thin horizontal card (not tall vertical)
@@ -48,10 +48,7 @@ import com.admoai.sample.ui.mapper.AdTemplateMapper
  * Placeholder version of HorizontalAdCard when no ad data is available
  */
 @Composable
-fun HorizontalPlaceholderAdCard(
-    modifier: Modifier = Modifier,
-    isWideImageOnly: Boolean = false
-) {
+fun HorizontalPlaceholderAdCard(modifier: Modifier = Modifier, isWideImageOnly: Boolean = false) {
     Card(
         modifier = modifier
             .fillMaxWidth(0.95f)
@@ -78,7 +75,7 @@ fun HorizontalPlaceholderAdCard(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                
+
                 // Bottom footer overlay
                 Box(
                     modifier = Modifier
@@ -101,7 +98,7 @@ fun HorizontalPlaceholderAdCard(
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White
                         )
-                        
+
                         // Ad pill
                         Surface(
                             shape = RoundedCornerShape(4.dp),
@@ -141,9 +138,9 @@ fun HorizontalPlaceholderAdCard(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.width(12.dp))
-                
+
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
@@ -155,9 +152,9 @@ fun HorizontalPlaceholderAdCard(
                             .clip(RoundedCornerShape(4.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant)
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     // Placeholder publisher row
                     Row(
                         modifier = Modifier
@@ -171,9 +168,9 @@ fun HorizontalPlaceholderAdCard(
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
                         )
-                        
+
                         Spacer(modifier = Modifier.width(4.dp))
-                        
+
                         Box(
                             modifier = Modifier
                                 .width(60.dp)
@@ -205,27 +202,27 @@ fun HorizontalAdCard(
         HorizontalPlaceholderAdCard(modifier = modifier)
         return
     }
-    
+
     // Extract creative from ad data (used throughout the component)
     val firstCreative = adData.creatives.firstOrNull()
     val adPlacement = adData.placement
     val creativeId = firstCreative?.metadata?.creativeId
-    
+
     // Create a stable key for impression tracking
     val impressionKey = remember(adPlacement, creativeId) {
         "${adPlacement}_${creativeId ?: "unknown"}"
     }
-    
+
     // Use LaunchedEffect to ensure impression is tracked only once per ad instance
     LaunchedEffect(impressionKey) {
         firstCreative?.tracking?.impressions?.find { it.key == "default" }?.let { impression ->
             onTrackImpression(impression.url)
         }
     }
-    
+
     // Use template mapper to determine style
     val isWideImageOnly = AdTemplateMapper.isWideImageOnlyStyle(adData)
-    
+
     // For wideImageOnly style, prioritize wideImage over other image types
     val coverImage = if (isWideImageOnly) {
         firstCreative?.contents?.find { it.key == "wideImage" }
@@ -236,11 +233,11 @@ fun HorizontalAdCard(
             ?: firstCreative?.contents?.find { it.key == "squareImage" }
             ?: firstCreative?.contents?.find { it.key == "wideImage" }
     }
-    
+
     // Extract string values using the helper
     val headlineText = AdTemplateMapper.getContentValue(firstCreative, "headline")
     val imageUrlText = coverImage?.value?.toString()?.removeSurrounding("\"")
-    
+
     // Use different layouts based on the template style
     if (isWideImageOnly) {
         // WideImageOnly style - full width image with branding overlay
@@ -252,7 +249,7 @@ fun HorizontalAdCard(
                 .clickable {
                     // Track click event first
                     firstCreative?.tracking?.clicks?.find { it.key == "default" }?.let { click ->
-                        onTrackImpression(click.url) // Reusing the impression handler for clicks 
+                        onTrackImpression(click.url) // Reusing the impression handler for clicks
                     }
                     onAdClick(adData)
                 },
@@ -281,6 +278,7 @@ fun HorizontalAdCard(
                                         CircularProgressIndicator(modifier = Modifier.size(24.dp))
                                     }
                                 }
+
                                 is coil.compose.AsyncImagePainter.State.Error -> {
                                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                         Icon(
@@ -291,6 +289,7 @@ fun HorizontalAdCard(
                                         )
                                     }
                                 }
+
                                 else -> SubcomposeAsyncImageContent()
                             }
                         }
@@ -309,7 +308,7 @@ fun HorizontalAdCard(
                         }
                     }
                 }
-                
+
                 // Bottom footer overlay
                 Box(
                     modifier = Modifier
@@ -332,7 +331,7 @@ fun HorizontalAdCard(
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White
                         )
-                        
+
                         // Ad pill
                         Surface(
                             shape = RoundedCornerShape(4.dp),
@@ -357,7 +356,7 @@ fun HorizontalAdCard(
                 .fillMaxWidth(0.95f)
                 .height(70.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .clickable { 
+                .clickable {
                     if (AdTemplateMapper.supportsClickthrough(placementKey)) {
                         // Track click event first
                         firstCreative?.tracking?.clicks?.find { it.key == "default" }?.let { click ->
@@ -397,6 +396,7 @@ fun HorizontalAdCard(
                                         CircularProgressIndicator(modifier = Modifier.size(16.dp))
                                     }
                                 }
+
                                 is coil.compose.AsyncImagePainter.State.Error -> {
                                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                         Icon(
@@ -407,6 +407,7 @@ fun HorizontalAdCard(
                                         )
                                     }
                                 }
+
                                 else -> SubcomposeAsyncImageContent()
                             }
                         }
@@ -419,23 +420,26 @@ fun HorizontalAdCard(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.width(12.dp))
-                
+
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
                     // Headline text - Prime Selection in reference image
                     Text(
-                        text = if (headlineText != null && headlineText.isNotBlank() && headlineText != "null") 
-                                headlineText else "Prime Selection",
+                        text = if (headlineText != null && headlineText.isNotBlank() && headlineText != "null") {
+                            headlineText
+                        } else {
+                            "Prime Selection"
+                        },
                         style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp), // Match iOS font size
                         fontWeight = FontWeight.SemiBold, // Match iOS font weight
                         maxLines = 1,
                         color = Color.Black, // Ensure text is black for matching reference
                         overflow = TextOverflow.Ellipsis
                     )
-                                // Publisher row with icon, name, and Ad pill
+                    // Publisher row with icon, name, and Ad pill
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -449,18 +453,18 @@ fun HorizontalAdCard(
                             modifier = Modifier.size(16.dp),
                             tint = Color.Gray
                         )
-                        
+
                         Spacer(modifier = Modifier.width(4.dp))
-                        
+
                         // Publisher name
                         Text(
                             text = "AdMoai",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.Gray
                         )
-                        
+
                         Spacer(modifier = Modifier.width(6.dp))
-                        
+
                         // Surface(... Ad pill)
                         Surface(
                             shape = CircleShape,

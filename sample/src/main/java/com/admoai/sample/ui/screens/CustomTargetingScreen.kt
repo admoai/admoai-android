@@ -43,10 +43,7 @@ import com.admoai.sample.ui.model.CustomTargetItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CustomTargetingScreen(
-    viewModel: MainViewModel,
-    onNavigateBack: () -> Unit
-) {
+fun CustomTargetingScreen(viewModel: MainViewModel, onNavigateBack: () -> Unit) {
     var customKey by remember { mutableStateOf("") }
     var customValue by remember { mutableStateOf("") }
     val customTargets by viewModel.customTargets.collectAsState()
@@ -84,7 +81,7 @@ fun CustomTargetingScreen(
                     modifier = Modifier.padding(16.dp)
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
             // Add custom target UI
             Card(
@@ -199,10 +196,7 @@ fun CustomTargetingScreen(
 }
 
 @Composable
-private fun CustomTargetItem(
-    target: CustomTargetItem,
-    onRemove: () -> Unit
-) {
+private fun CustomTargetItem(target: CustomTargetItem, onRemove: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -227,7 +221,7 @@ private fun CustomTargetItem(
                     color = Color.Gray
                 )
             }
-            
+
             IconButton(onClick = onRemove) {
                 Icon(
                     imageVector = Icons.Default.Clear,

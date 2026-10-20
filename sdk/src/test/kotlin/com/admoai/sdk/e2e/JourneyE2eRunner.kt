@@ -32,6 +32,9 @@ import com.admoai.sdk.utils.journeyStageId
 import com.admoai.sdk.utils.journeyStageKey
 import com.admoai.sdk.utils.journeyStageNodeId
 import io.ktor.client.engine.cio.CIO
+import java.io.File
+import java.util.concurrent.TimeUnit
+import kotlin.system.exitProcess
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
@@ -39,9 +42,6 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
-import java.io.File
-import java.util.concurrent.TimeUnit
-import kotlin.system.exitProcess
 
 /**
  * Journey SDK-driven end-to-end runner (adhub#2360). Drives the REAL Admoai SDK against a
@@ -71,7 +71,7 @@ private data class ReportEntry(
     val title: String,
     val cases: List<String>,
     val status: String,
-    val reason: String? = null,
+    val reason: String? = null
 )
 
 @Serializable
@@ -80,7 +80,7 @@ private data class Report(
     val passed: Int,
     val failed: Int,
     val skipped: Int,
-    val scenarios: List<ReportEntry>,
+    val scenarios: List<ReportEntry>
 )
 
 private val reportJson = Json { prettyPrint = true }
@@ -139,9 +139,9 @@ internal class Harness {
 // ------------------------------------------------------------------------------------------------
 
 internal const val PLACEMENT_PRE_RIDE_A = "vehicleSelection" // ride_hailing_journey pre_ride node A
-private const val PLACEMENT_PRE_RIDE_B = "search"           // ride_hailing_journey pre_ride node B
-private const val PLACEMENT_IN_RIDE = "journey"             // ride_hailing_journey in_ride
-private const val PLACEMENT_POST_RIDE = "rideSummary"       // ride_hailing_journey post_ride
+private const val PLACEMENT_PRE_RIDE_B = "search" // ride_hailing_journey pre_ride node B
+private const val PLACEMENT_IN_RIDE = "journey" // ride_hailing_journey in_ride
+private const val PLACEMENT_POST_RIDE = "rideSummary" // ride_hailing_journey post_ride
 private const val RIDE_HAILING_DEF = "ride_hailing_journey"
 
 // Dedicated Phase-1/Phase-2 e2e placements (adhub#2361/#2362). Absent until those seeds land → SKIP.
@@ -182,9 +182,10 @@ internal const val PLACEMENT_CPT_FINAL_COMPLETE = "sdk_e2e_cpt_final_complete"
 // Hand-built data does not survive `make db-reset`, so absence is a SKIP, never a FAIL.
 private const val WIZARD_DEF = "scooter_journey"
 private const val PLACEMENT_WIZARD_S1 = "promotions" // stage pre_ride     — carousel3Slides
-private const val PLACEMENT_WIZARD_S2 = "waiting"    // stage post_ride    — carousel3Slides
-private const val PLACEMENT_WIZARD_S3 = "poi"        // stage summary_ride — imageWithText, the completion stage
+private const val PLACEMENT_WIZARD_S2 = "waiting" // stage post_ride    — carousel3Slides
+private const val PLACEMENT_WIZARD_S3 = "poi" // stage summary_ride — imageWithText, the completion stage
 private const val WIZARD_MISSING = "hand-built in the platform ad manager; recreate it after a db-reset"
+
 // The short-TTL fixtures seed runtime_state_ttl_seconds = 5s (journeys.go). For §F1 (expiry) wait
 // comfortably PAST the TTL with no activity. For §F2 (refresh) use a gap SHORTER than the TTL so the
 // mid serve lands inside the window and refreshes it; two such gaps total > TTL, proving the instance
@@ -228,7 +229,7 @@ internal fun decideOn(
     placement: String,
     sessionId: String?,
     opt: JourneyOpt? = null,
-    extra: DecisionRequestBuilder.() -> Unit = {},
+    extra: DecisionRequestBuilder.() -> Unit = {}
 ): DecisionResponse = decide {
     addPlacement(placement)
     sessionId?.let { setSessionId(it) }
@@ -273,7 +274,9 @@ private fun preflight(baseUrl: String) {
     } catch (e: AdMoaiNetworkException) {
         val msg = e.message.orEmpty()
         if (msg.contains("400") || msg.contains("unknown field", ignoreCase = true)) {
-            abort("engine rejected additive Journey fields — wrong X-Decision-Version (need 2025-11-01) or version not deployed")
+            abort(
+                "engine rejected additive Journey fields — wrong X-Decision-Version (need 2025-11-01) or version not deployed"
+            )
         }
         abort("journey probe failed: $msg")
     }
@@ -281,7 +284,7 @@ private fun preflight(baseUrl: String) {
     if (creative == null || !creative.isJourneyAd()) {
         abort(
             "journey probe returned no Journey creative on '$PLACEMENT_PRE_RIDE_A' — " +
-                "is_journey_ads_enabled is OFF, Redis is down, or the mock seeds are not loaded. Check the boot recipe.",
+                "is_journey_ads_enabled is OFF, Redis is down, or the mock seeds are not loaded. Check the boot recipe."
         )
     }
 
@@ -299,7 +302,7 @@ private fun preflight(baseUrl: String) {
                 "expected demo '$RIDE_HAILING_DEF' — this DB is not a clean mock seed. Either a locally created " +
                 "Journey Deal outranks the demo deal, or the demo deal is no longer active. Reset it: " +
                 "`make db-reset` in apps/decision-engine, then restart the engine with the gate on " +
-                "(seeds load only into an empty DB). NOTE: db-reset destroys locally created platform data.",
+                "(seeds load only into an empty DB). NOTE: db-reset destroys locally created platform data."
         )
     }
 }
@@ -318,7 +321,13 @@ private fun groupA(h: Harness) {
         expect(creative == null || !creative.isJourneyAd(), "a no-session request must not start a Journey")
     }
 
-    h.scenario("A3", "sessionId/journeyOpt reach the wire as top-level camelCase + version header", "63-64", "204", "206") {
+    h.scenario(
+        "A3",
+        "sessionId/journeyOpt reach the wire as top-level camelCase + version header",
+        "63-64",
+        "204",
+        "206"
+    ) {
         val request = sdk().createRequestBuilder()
             .addPlacement(PLACEMENT_PRE_RIDE_A)
             .setSessionId("e2e-shape")
@@ -336,8 +345,12 @@ private fun groupA(h: Harness) {
         val sticky = "e2e-sticky-${System.nanoTime()}"
         sdk().setSessionId(sticky)
         try {
-            val first = sdk().getHttpRequestData(sdk().createRequestBuilder().addPlacement(PLACEMENT_PRE_RIDE_A).build())
-            val second = sdk().getHttpRequestData(sdk().createRequestBuilder().addPlacement(PLACEMENT_PRE_RIDE_B).build())
+            val first = sdk().getHttpRequestData(
+                sdk().createRequestBuilder().addPlacement(PLACEMENT_PRE_RIDE_A).build()
+            )
+            val second = sdk().getHttpRequestData(
+                sdk().createRequestBuilder().addPlacement(PLACEMENT_PRE_RIDE_B).build()
+            )
             expect(first.body.orEmpty().contains(sticky), "first build must carry the sticky sessionId")
             expect(second.body.orEmpty().contains(sticky), "second build must carry the SAME sticky sessionId")
         } finally {
@@ -359,7 +372,8 @@ private fun groupB(h: Harness) {
         expect(c!!.journeyDefinitionKey() == RIDE_HAILING_DEF, "definitionKey should be $RIDE_HAILING_DEF")
         expect(c.journeyStageKey() == "pre_ride", "stageKey should be pre_ride")
         expect(!c.journeyInstanceId().isNullOrBlank(), "instanceId must be present")
-        expect(c.journey?.isCompletion != true, "pre_ride is not a completion serve") // != true, not == false (nullable)
+        // != true, not == false (nullable)
+        expect(c.journey?.isCompletion != true, "pre_ride is not a completion serve")
         instanceId = c.journeyInstanceId()
         nodeAId = c.journeyStageNodeId()
     }
@@ -415,7 +429,7 @@ private fun groupB(h: Harness) {
         expect(
             c!!.journeyInstanceId() == instance &&
                 c.journeyStageNodeId() != nodeA && c.journeyStageNodeId() != b.journeyStageNodeId(),
-            "C: distinct node, same instance (stage never regresses)",
+            "C: distinct node, same instance (stage never regresses)"
         )
     }
 }
@@ -465,7 +479,7 @@ private fun groupC(h: Harness) {
         expect(reopened != null && reopened.isJourneyAd(), "opt-in again should be able to start a new Journey")
         expect(
             !reopened!!.journeyInstanceId().isNullOrBlank() && reopened.journeyInstanceId() != firstInstance,
-            "opt-in after opt-out must create a NEW journey_instance_id",
+            "opt-in after opt-out must create a NEW journey_instance_id"
         )
     }
 }
@@ -586,7 +600,7 @@ private fun expectIngestion(url: String, allowRedirect: Boolean) {
     expect(
         accepted,
         "the engine must accept a tracking token it minted itself; /v1/tracking returned $code" +
-            if (allowRedirect) " (202 or 302 expected for a click)" else " (2xx expected)",
+            if (allowRedirect) " (202 or 302 expected for a click)" else " (2xx expected)"
     )
 }
 
@@ -606,7 +620,10 @@ private fun verbatimFireCheck(@Suppress("UNUSED_PARAMETER") h: Harness, fire: (T
         fire(info)
         val first = server.takeRequest(3, TimeUnit.SECONDS)
         expect(first != null, "SDK must fire the tracking URL")
-        expect("${server.url("/")}".trimEnd('/') + first!!.path == url, "fired URL must match verbatim: got ${first.path}")
+        expect(
+            "${server.url("/")}".trimEnd('/') + first!!.path == url,
+            "fired URL must match verbatim: got ${first.path}"
+        )
 
         // Retry must reuse the identical URL, not a reconstructed one.
         server.enqueue(MockResponse().setResponseCode(200))
@@ -644,13 +661,19 @@ private fun groupE(h: Harness) {
         val c1 = decideOn(PLACEMENT_FREQ_CAP, s1, JourneyOpt.OPT_IN) { setUserId(user) }.creativeFor(PLACEMENT_FREQ_CAP)
         expect(c1 != null && c1.isJourneyAd(), "instance 1 starts")
         val instance1 = c1!!.journeyInstanceId()
-        val c2 = decideOn(PLACEMENT_FREQ_CAP, freshSession("E2-2"), JourneyOpt.OPT_IN) { setUserId(user) }.creativeFor(PLACEMENT_FREQ_CAP)
+        val c2 = decideOn(PLACEMENT_FREQ_CAP, freshSession("E2-2"), JourneyOpt.OPT_IN) {
+            setUserId(user)
+        }.creativeFor(PLACEMENT_FREQ_CAP)
         expect(c2 != null && c2.isJourneyAd(), "instance 2 starts (cap = 2)")
         // A 3rd NEW instance is capped...
-        val blocked = decideOn(PLACEMENT_FREQ_CAP, freshSession("E2-3"), JourneyOpt.OPT_IN) { setUserId(user) }.creativeFor(PLACEMENT_FREQ_CAP)
+        val blocked = decideOn(PLACEMENT_FREQ_CAP, freshSession("E2-3"), JourneyOpt.OPT_IN) {
+            setUserId(user)
+        }.creativeFor(PLACEMENT_FREQ_CAP)
         expect(blocked == null || !blocked.isJourneyAd(), "a 3rd NEW instance is blocked by the cap")
         // ...but instance 1 CONTINUES on its later node despite the cap being full.
-        val cont = decideOn(PLACEMENT_FREQ_CAP_LATER, s1, JourneyOpt.OPT_IN) { setUserId(user) }.creativeFor(PLACEMENT_FREQ_CAP_LATER)
+        val cont = decideOn(PLACEMENT_FREQ_CAP_LATER, s1, JourneyOpt.OPT_IN) {
+            setUserId(user)
+        }.creativeFor(PLACEMENT_FREQ_CAP_LATER)
         expect(cont != null && cont.isJourneyAd(), "the active instance continues past the cap")
         expect(cont!!.journeyInstanceId() == instance1, "continuation stays on the same (already-active) instance")
     }
@@ -661,7 +684,11 @@ private fun groupH(h: Harness) {
     println("§H CPT / fallback SDK surfaces")
     h.scenario("H1/H2", "CPT deal surfaces pricingModel/fallbackBillingMode/isCompletion", "137", "144") {
         requireFixture(PLACEMENT_CPT_COMPLETION, "adhub#2361")
-        val c = decideOn(PLACEMENT_CPT_COMPLETION, freshSession("H"), JourneyOpt.OPT_IN).creativeFor(PLACEMENT_CPT_COMPLETION)
+        val c = decideOn(
+            PLACEMENT_CPT_COMPLETION,
+            freshSession("H"),
+            JourneyOpt.OPT_IN
+        ).creativeFor(PLACEMENT_CPT_COMPLETION)
         expect(c != null && c.isJourneyAd(), "CPT fixture should serve a Journey")
         expect(c!!.journeyPricingModel() == "cpt", "pricingModel should be cpt")
         // Exact value, not merely non-blank: this fixture is seeded `no_charge` (adhub#2361), and a
@@ -670,7 +697,7 @@ private fun groupH(h: Harness) {
         // engine-internal and unobservable from the SDK (§8); what the SDK owns is surfacing it faithfully.
         expect(
             c.journeyFallbackBillingMode() == "no_charge",
-            "the no_charge fixture must surface exactly 'no_charge', got '${c.journeyFallbackBillingMode()}'",
+            "the no_charge fixture must surface exactly 'no_charge', got '${c.journeyFallbackBillingMode()}'"
         )
     }
 
@@ -702,13 +729,17 @@ private fun groupH(h: Harness) {
         val early = decideOn(PLACEMENT_CPT_FINAL_EARLY, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_CPT_FINAL_EARLY)
         expect(early != null && early.isJourneyAd(), "pre-completion stage serves")
         expect(early!!.journey?.isCompletion != true, "pre-completion serve is not a completion") // != true (nullable)
-        val complete = decideOn(PLACEMENT_CPT_FINAL_COMPLETE, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_CPT_FINAL_COMPLETE)
+        val complete = decideOn(
+            PLACEMENT_CPT_FINAL_COMPLETE,
+            sid,
+            JourneyOpt.OPT_IN
+        ).creativeFor(PLACEMENT_CPT_FINAL_COMPLETE)
         expect(complete != null && complete.isJourneyAd(), "completion stage serves")
         expect(complete!!.isJourneyCompletion(), "serving the final stage flips isCompletion=true")
         expect(complete.journeyPricingModel() == "cpt", "CPT pricing surfaced on the completion serve")
         expect(
             complete.journeyFallbackBillingMode() == "bill_per_stage",
-            "this fixture is seeded bill_per_stage, got '${complete.journeyFallbackBillingMode()}'",
+            "this fixture is seeded bill_per_stage, got '${complete.journeyFallbackBillingMode()}'"
         )
         // Mutual exclusivity, asserted on the SEEDED fixture so the guarantee survives a db-reset (§K3
         // asserts the same rule on the platform-authored journey): a `final_stage` deal marks completion
@@ -721,13 +752,24 @@ private fun groupH(h: Harness) {
         val sid = freshSession("H4")
         // Drive the instance to completion: early stage, then the completion stage.
         decideOn(PLACEMENT_CPT_FINAL_EARLY, sid, JourneyOpt.OPT_IN)
-        val complete = decideOn(PLACEMENT_CPT_FINAL_COMPLETE, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_CPT_FINAL_COMPLETE)
+        val complete = decideOn(
+            PLACEMENT_CPT_FINAL_COMPLETE,
+            sid,
+            JourneyOpt.OPT_IN
+        ).creativeFor(PLACEMENT_CPT_FINAL_COMPLETE)
         expect(complete != null && complete.isJourneyCompletion(), "journey completes on the completion stage")
         // Takeover protection ended with completion: the completed instance no longer holds the surface, so a
         // request that does not ask for a fresh Journey (opt-out) falls through to the competing normal ad.
         // (A continued opt-in instead mints a NEW instance — either way the completed instance never resumes.)
-        val after = decideOn(PLACEMENT_CPT_FINAL_COMPLETE, sid, JourneyOpt.OPT_OUT).creativeFor(PLACEMENT_CPT_FINAL_COMPLETE)
-        expect(after != null && !after.isJourneyAd(), "after completion + opt-out, the competing normal ad serves (takeover ended)")
+        val after = decideOn(
+            PLACEMENT_CPT_FINAL_COMPLETE,
+            sid,
+            JourneyOpt.OPT_OUT
+        ).creativeFor(PLACEMENT_CPT_FINAL_COMPLETE)
+        expect(
+            after != null && !after.isJourneyAd(),
+            "after completion + opt-out, the competing normal ad serves (takeover ended)"
+        )
     }
 }
 
@@ -743,12 +785,22 @@ private fun groupI(h: Harness) {
 private fun groupJ(h: Harness) {
     println("§J Mandatory blocker & targeting")
 
-    h.scenario("J1", "mandatory blocker holds the surface (positive control proves suppression)", "70", "76", "84", "P0#4") {
+    h.scenario(
+        "J1",
+        "mandatory blocker holds the surface (positive control proves suppression)",
+        "70",
+        "76",
+        "84",
+        "P0#4"
+    ) {
         requireFixture(PLACEMENT_MANDATORY_EARLY, "adhub#2361")
         val sid = freshSession("J1")
         // Request a later optional stage while the mandatory early stage is unserved.
         val blocked = decideOn(PLACEMENT_MANDATORY_LATER, sid, JourneyOpt.OPT_IN)
-        expect(blocked.isNoAdFor(PLACEMENT_MANDATORY_LATER), "mandatory blocker must hold: no Journey ad on the later stage")
+        expect(
+            blocked.isNoAdFor(PLACEMENT_MANDATORY_LATER),
+            "mandatory blocker must hold: no Journey ad on the later stage"
+        )
         // Positive control: with NO session (so no Journey can start), the competing normal ad must serve on
         // the same placement — proving the blocked result above is takeover *suppression*, not an empty
         // placement. A session with journeyOpt omitted would itself start (and hold) the Journey, so the
@@ -763,7 +815,11 @@ private fun groupJ(h: Harness) {
         val inside = decideOn(PLACEMENT_TARGET_LOCATION, freshSession("J2-in"), JourneyOpt.OPT_IN) {
             addLocationTarget(latitude = NYC_LAT, longitude = NYC_LON)
         }.creativeFor(PLACEMENT_TARGET_LOCATION)
-        if (inside == null || !inside.isJourneyAd()) skip("fixture '$PLACEMENT_TARGET_LOCATION' not seeded (see adhub#2361)")
+        if (inside == null ||
+            !inside.isJourneyAd()
+        ) {
+            skip("fixture '$PLACEMENT_TARGET_LOCATION' not seeded (see adhub#2361)")
+        }
         // Out-of-target coordinate → no Journey (a competing normal ad may serve instead).
         val outside = decideOn(PLACEMENT_TARGET_LOCATION, freshSession("J2-out"), JourneyOpt.OPT_IN) {
             addLocationTarget(latitude = FAR_LAT, longitude = FAR_LON)
@@ -775,7 +831,11 @@ private fun groupJ(h: Harness) {
         val inside = decideOn(PLACEMENT_TARGET_DESTINATION, freshSession("J3-in"), JourneyOpt.OPT_IN) {
             addDestinationTarget(latitude = NYC_LAT, longitude = NYC_LON, minConfidence = DEST_CONFIDENCE_PASS)
         }.creativeFor(PLACEMENT_TARGET_DESTINATION)
-        if (inside == null || !inside.isJourneyAd()) skip("fixture '$PLACEMENT_TARGET_DESTINATION' not seeded (see adhub#2361)")
+        if (inside == null ||
+            !inside.isJourneyAd()
+        ) {
+            skip("fixture '$PLACEMENT_TARGET_DESTINATION' not seeded (see adhub#2361)")
+        }
         // Same in-radius coordinate but a confidence below the deal's threshold → excluded by the confidence gate.
         val below = decideOn(PLACEMENT_TARGET_DESTINATION, freshSession("J3-low"), JourneyOpt.OPT_IN) {
             addDestinationTarget(latitude = NYC_LAT, longitude = NYC_LON, minConfidence = DEST_CONFIDENCE_FAIL)
@@ -793,7 +853,10 @@ private fun groupJ(h: Harness) {
         val nonMatching = decideOn(PLACEMENT_TARGET_GEO, freshSession("J4-no"), JourneyOpt.OPT_IN) {
             addGeoTarget(id = GEONAME_NO_MATCH)
         }.creativeFor(PLACEMENT_TARGET_GEO)
-        expect(nonMatching == null || !nonMatching.isJourneyAd(), "a non-matching geo target must not start the Journey")
+        expect(
+            nonMatching == null || !nonMatching.isJourneyAd(),
+            "a non-matching geo target must not start the Journey"
+        )
     }
 
     h.scenario("J5", "optional stage is skipped; a skipped stage cannot serve later", "7") {
@@ -827,7 +890,7 @@ private fun groupPhase2(h: Harness) {
         expect(second != null && second.isJourneyAd(), "re-request on the same session after TTL should serve again")
         expect(
             !second!!.journeyInstanceId().isNullOrBlank() && second.journeyInstanceId() != firstInstance,
-            "a NEW journey_instance_id must be issued after runtime-state TTL expiry",
+            "a NEW journey_instance_id must be issued after runtime-state TTL expiry"
         )
         expect(!second.isJourneyCompletion(), "no completion was emitted across the TTL restart")
     }
@@ -841,13 +904,19 @@ private fun groupPhase2(h: Harness) {
         // Mid-window activity (gap < TTL): serving a NEW node refreshes the runtime-state key's EX ttl.
         Thread.sleep(TTL_REFRESH_GAP_MS)
         val b = decideOn(PLACEMENT_MULTINODE_B, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_MULTINODE_B)
-        expect(b != null && b.isJourneyAd() && b.journeyInstanceId() == instance, "node B: same instance, and its serve refreshes the TTL")
+        expect(
+            b != null && b.isJourneyAd() && b.journeyInstanceId() == instance,
+            "node B: same instance, and its serve refreshes the TTL"
+        )
         // Another sub-TTL gap. Total elapsed (2 gaps) now exceeds the original TTL; without the refresh the
         // instance would already have expired on its creation-time deadline.
         Thread.sleep(TTL_REFRESH_GAP_MS)
         val c = decideOn(PLACEMENT_MULTINODE_C, sid, JourneyOpt.OPT_IN).creativeFor(PLACEMENT_MULTINODE_C)
         expect(c != null && c.isJourneyAd(), "node C serves past the original TTL window")
-        expect(c!!.journeyInstanceId() == instance, "same instance — the mid activity refreshed the TTL (no expiry on original creation time)")
+        expect(
+            c!!.journeyInstanceId() == instance,
+            "same instance — the mid activity refreshed the TTL (no expiry on original creation time)"
+        )
     }
     h.scenario("G1", "JSON video node exposes video delivery + fires JSON tracking", "283", "221") {
         requireFixture(PLACEMENT_VIDEO_JSON, "adhub#2362")
@@ -855,12 +924,19 @@ private fun groupPhase2(h: Harness) {
         expect(c != null && c.isJourneyAd(), "JSON video journey should serve")
         expect(c!!.isJsonDelivery(), "delivery mode should be json")
         // JSON video is served with SDK-fired JSON tracking (the SDK owns these, unlike VAST-embedded beacons).
-        expect(!c.tracking.impressions?.firstOrNull()?.url.isNullOrBlank(), "JSON video exposes an impression tracking URL")
+        expect(
+            !c.tracking.impressions?.firstOrNull()?.url.isNullOrBlank(),
+            "JSON video exposes an impression tracking URL"
+        )
     }
 
     h.scenario("G2", "VAST tag/xml returned; SDK fires no VAST-owned beacons", "284-285", "222-224", "P0#14") {
         requireFixture(PLACEMENT_VIDEO_VAST_TAG, "adhub#2362")
-        val tag = decideOn(PLACEMENT_VIDEO_VAST_TAG, freshSession("G2-tag"), JourneyOpt.OPT_IN).creativeFor(PLACEMENT_VIDEO_VAST_TAG)
+        val tag = decideOn(
+            PLACEMENT_VIDEO_VAST_TAG,
+            freshSession("G2-tag"),
+            JourneyOpt.OPT_IN
+        ).creativeFor(PLACEMENT_VIDEO_VAST_TAG)
         expect(tag != null && tag.isJourneyAd(), "VAST-tag video journey should serve")
         expect(tag!!.isVastTagDelivery(), "delivery mode should be vast_tag")
         // getVastTagUrl() with no args returns the raw signed tag URL and never touches android.util.
@@ -868,15 +944,25 @@ private fun groupPhase2(h: Harness) {
         // P0 #14: VAST-owned impression/quartile/click beacons live INSIDE the VAST document (the player's
         // job). The SDK must not surface them as its own fireable video-event beacons, and it never
         // auto-fires anything (all firing is an explicit fireX call, which this scenario never makes).
-        expect(tag.tracking.videoEvents.isNullOrEmpty(), "SDK must not surface VAST-owned video-event beacons (player owns them)")
+        expect(
+            tag.tracking.videoEvents.isNullOrEmpty(),
+            "SDK must not surface VAST-owned video-event beacons (player owns them)"
+        )
 
         requireFixture(PLACEMENT_VIDEO_VAST_XML, "adhub#2362")
-        val xml = decideOn(PLACEMENT_VIDEO_VAST_XML, freshSession("G2-xml"), JourneyOpt.OPT_IN).creativeFor(PLACEMENT_VIDEO_VAST_XML)
+        val xml = decideOn(
+            PLACEMENT_VIDEO_VAST_XML,
+            freshSession("G2-xml"),
+            JourneyOpt.OPT_IN
+        ).creativeFor(PLACEMENT_VIDEO_VAST_XML)
         expect(xml != null && xml.isJourneyAd(), "VAST-xml video journey should serve")
         expect(xml!!.isVastXmlDelivery(), "delivery mode should be vast_xml")
         // getVastXmlBase64() with no args returns the raw base64 without touching android.util.Base64.
         expect(!xml.getVastXmlBase64().isNullOrBlank(), "inline VAST XML (base64) must be returned for the player")
-        expect(xml.tracking.videoEvents.isNullOrEmpty(), "SDK must not surface VAST-owned video-event beacons (player owns them)")
+        expect(
+            xml.tracking.videoEvents.isNullOrEmpty(),
+            "SDK must not surface VAST-owned video-event beacons (player owns them)"
+        )
     }
 }
 
@@ -959,8 +1045,8 @@ fun main() {
             apiVersion = version,
             enableLogging = false,
             defaultLanguage = "en", // Accept-Language; pinned so en-only seeded creatives resolve
-            networkClientEngine = CIO.create(),
-        ),
+            networkClientEngine = CIO.create()
+        )
     )
     // Route SDK logging away from android.util.Log (unavailable off-device) and keep it quiet.
     // logSink is an instance seam, so it is set after initialize() (getInstance() is now available);

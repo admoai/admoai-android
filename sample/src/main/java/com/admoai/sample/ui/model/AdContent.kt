@@ -25,21 +25,17 @@ data class AdContent(
             // Check if it exists and convert value to string
             return content?.value?.toString()?.trim('"') // Trim quotes that might be present in JSON string
         }
-        
+
         /**
          * Extract text content from a Creative by key
          * Alias for extractText to match naming convention in carousel implementation
          */
-        fun extractTextContent(creative: Creative?, key: String): String? {
-            return creative?.let { extractText(it, key) }
-        }
-        
+        fun extractTextContent(creative: Creative?, key: String): String? = creative?.let { extractText(it, key) }
+
         /**
          * Extract URL content from a Creative by key
          * Used specifically for URL type values
          */
-        fun extractUrlContent(creative: Creative?, key: String): String? {
-            return creative?.let { extractText(it, key) }
-        }
+        fun extractUrlContent(creative: Creative?, key: String): String? = creative?.let { extractText(it, key) }
     }
 }

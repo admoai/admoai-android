@@ -21,54 +21,54 @@ fun AppInfoSection(viewModel: MainViewModel) {
         SectionRow(
             icon = Icons.Outlined.Apps,
             label = "Name",
-            value = { 
+            value = {
                 Text(
                     text = viewModel.appName,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         )
-        
+
         // App Version
         SectionRow(
             icon = Icons.Outlined.Apps,
             label = "Version",
-            value = { 
+            value = {
                 Text(
                     text = "${viewModel.appVersion} (${viewModel.appBuild})",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         )
-        
+
         // App Bundle ID
         SectionRow(
             icon = Icons.Outlined.Apps,
             label = "Bundle ID",
-            value = { 
+            value = {
                 Text(
                     text = viewModel.appIdentifier,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         )
-        
+
         // App Language
         SectionRow(
             icon = Icons.Outlined.Language,
             label = "Language",
-            value = { 
+            value = {
                 Text(
                     text = viewModel.appLanguage ?: "unknown",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         )
-        
+
         // Help text
         Text(
             text = "The app information is collected automatically by the SDK to enhance ad targeting and relevance. " +
-                  "This can be disabled via the Data Collection section below.",
+                "This can be disabled via the Data Collection section below.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)

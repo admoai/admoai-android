@@ -21,7 +21,7 @@ import com.admoai.sample.ui.MainViewModel
 fun DataCollectionSection(viewModel: MainViewModel) {
     val collectAppData by viewModel.collectAppData.collectAsState()
     val collectDeviceData by viewModel.collectDeviceData.collectAsState()
-    
+
     SectionContainer(title = "Data Collection") {
         // App data collection toggle
         SectionRow(
@@ -34,7 +34,7 @@ fun DataCollectionSection(viewModel: MainViewModel) {
                 )
             }
         )
-        
+
         // Device data collection toggle
         SectionRow(
             icon = Icons.Outlined.Smartphone,
@@ -46,11 +46,11 @@ fun DataCollectionSection(viewModel: MainViewModel) {
                 )
             }
         )
-        
+
         // Help text
         Text(
             text = "These toggles control whether the SDK will include app and device information in the ad request. " +
-                  "When disabled, the corresponding fields will be omitted from the request JSON.",
+                "When disabled, the corresponding fields will be omitted from the request JSON.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)

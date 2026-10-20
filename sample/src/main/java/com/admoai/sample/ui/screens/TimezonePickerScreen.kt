@@ -37,10 +37,7 @@ import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimezonePickerScreen(
-    viewModel: MainViewModel,
-    onNavigateBack: () -> Unit
-) {
+fun TimezonePickerScreen(viewModel: MainViewModel, onNavigateBack: () -> Unit) {
     val userTimezone by viewModel.userTimezone.collectAsState()
     val timezones = remember { TimeZone.getAvailableIDs().sorted() }
     var searchQuery by remember { mutableStateOf("") }
@@ -81,7 +78,7 @@ fun TimezonePickerScreen(
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
             )
-            
+
             // Timezone list
             LazyColumn(
                 modifier = Modifier
@@ -98,7 +95,7 @@ fun TimezonePickerScreen(
                         }
                     )
                 }
-                
+
                 // Empty state
                 if (filteredTimezones.isEmpty()) {
                     item {
@@ -118,11 +115,7 @@ fun TimezonePickerScreen(
 }
 
 @Composable
-private fun TimezoneItem(
-    timezone: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
+private fun TimezoneItem(timezone: String, isSelected: Boolean, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -139,7 +132,7 @@ private fun TimezoneItem(
                 selected = isSelected,
                 onClick = onClick
             )
-            
+
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -149,14 +142,14 @@ private fun TimezoneItem(
                     text = timezone,
                     style = MaterialTheme.typography.bodyLarge
                 )
-                
+
                 // Display offset information
                 val timeZoneInstance = TimeZone.getTimeZone(timezone)
                 val offsetMillis = timeZoneInstance.rawOffset
                 val hours = offsetMillis / (60 * 60 * 1000)
                 val minutes = Math.abs(offsetMillis / (60 * 1000) % 60)
                 val offsetText = String.format("GMT %+d:%02d", hours, minutes)
-                
+
                 Text(
                     text = offsetText,
                     style = MaterialTheme.typography.bodyMedium,

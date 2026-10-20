@@ -1,13 +1,16 @@
 package com.admoai.sample.ui.screens.previews
 
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -15,8 +18,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ImageNotSupported
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,23 +27,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
-import android.content.Intent
-import android.net.Uri
-import android.util.Log
-import com.admoai.sdk.model.response.AdData
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
+import com.admoai.sdk.model.response.AdData
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -63,13 +63,13 @@ fun PromotionsPreviewScreen(
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
     onAdClick: (AdData) -> Unit = {},
-    onTrackEvent: (String, String) -> Unit = {_, _ -> }
+    onTrackEvent: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     var isRefreshing by remember { mutableStateOf(false) }
     var isCardVisible by remember { mutableStateOf(adData != null) }
     val density = LocalDensity.current
-    
+
     // Card entry animation (slide in from right like Ride Summary)
     val cardOffsetX by animateDpAsState(
         targetValue = if (isCardVisible) 0.dp else 300.dp,
@@ -79,16 +79,16 @@ fun PromotionsPreviewScreen(
         ),
         label = "card_offset_x"
     )
-    
+
     val cardAlpha by animateFloatAsState(
         targetValue = if (isCardVisible) 1f else 0f,
         animationSpec = tween(durationMillis = 300),
         label = "card_alpha"
     )
-    
+
     // Auto-scrolling carousel pager state
     val pagerState = rememberPagerState(pageCount = { 5 })
-    
+
     // Auto-scroll the carousel
     LaunchedEffect(Unit) {
         while (true) {
@@ -109,14 +109,14 @@ fun PromotionsPreviewScreen(
             onRefreshClick()
         }
     }
-    
+
     // Reset isRefreshing when loading completes
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
         }
     }
-    
+
     // Show/hide card when ad data changes (both initial load and refresh)
     LaunchedEffect(adData) {
         if (adData != null && !isLoading && !isRefreshing) {
@@ -144,7 +144,7 @@ fun PromotionsPreviewScreen(
                 onRefreshClick = { isRefreshing = true },
                 isRefreshing = isRefreshing
             )
-            
+
             // Content
             Column(
                 modifier = Modifier
@@ -159,7 +159,7 @@ fun PromotionsPreviewScreen(
                     color = Color.Black, // Use solid color matching iOS style
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                 )
-                
+
                 // AdCard is the main element - everything else is greyed-out mock UI
                 // Only show ad card when adData is available
                 if (adData != null) {
@@ -176,68 +176,74 @@ fun PromotionsPreviewScreen(
                         // Check if this is a video ad
                         val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
                             val result = viewModel.isVideoCreative(creative)
-                            Log.d("PromotionsPreview", "isVideoCreative check: $result, delivery: ${creative.delivery}, vast: ${creative.vast != null}")
+                            Log.d(
+                                "PromotionsPreview",
+                                "isVideoCreative check: $result, delivery: ${creative.delivery}, vast: ${creative.vast != null}"
+                            )
                             result
                         } ?: false
-                    
-                    Log.d("PromotionsPreview", "Rendering decision - isVideoAd: $isVideoAd, adData: ${adData != null}")
-                    
-                    // Check if this is normal_videos template (video with companion content in one card)
-                    val isNormalVideos = com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(adData)
-                    
-                    if (isNormalVideos) {
-                        // Render VideoAdCard for normal_videos template (video + companion in unified card)
-                        com.admoai.sample.ui.components.VideoAdCard(
-                            adData = adData,
-                            viewModel = viewModel,
-                            placementKey = "promotions",
-                            modifier = Modifier.fillMaxWidth()
+
+                        Log.d(
+                            "PromotionsPreview",
+                            "Rendering decision - isVideoAd: $isVideoAd, adData: ${adData != null}"
                         )
-                    } else if (isVideoAd) {
-                        // Render standalone video player for other video ads
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(16f / 9f)
-                                .clip(RoundedCornerShape(12.dp))
-                        ) {
-                            com.admoai.sample.ui.components.VideoPlayerForPlacement(
-                                creative = adData.creatives.first(),
+
+                        // Check if this is normal_videos template (video with companion content in one card)
+                        val isNormalVideos = com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(adData)
+
+                        if (isNormalVideos) {
+                            // Render VideoAdCard for normal_videos template (video + companion in unified card)
+                            com.admoai.sample.ui.components.VideoAdCard(
+                                adData = adData,
                                 viewModel = viewModel,
-                                modifier = Modifier.fillMaxSize()
+                                placementKey = "promotions",
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else if (isVideoAd) {
+                            // Render standalone video player for other video ads
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(16f / 9f)
+                                    .clip(RoundedCornerShape(12.dp))
+                            ) {
+                                com.admoai.sample.ui.components.VideoPlayerForPlacement(
+                                    creative = adData.creatives.first(),
+                                    viewModel = viewModel,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        } else {
+                            // Render native ad card for native ads
+                            AdCard(
+                                adData = adData,
+                                placementKey = "promotions",
+                                onAdClick = { clickedAdData ->
+                                    onAdClick(clickedAdData)
+                                },
+                                onTrackImpression = { url ->
+                                    onTrackEvent("impression", url)
+                                },
+                                onSlideClick = { url ->
+                                    // Open URL in browser when carousel CTA is clicked
+                                    Log.d("PromotionsPreview", "onSlideClick called with URL: $url")
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                        Log.d("PromotionsPreview", "Starting browser intent for: $url")
+                                        context.startActivity(intent)
+                                        Log.d("PromotionsPreview", "Browser intent started successfully")
+                                    } catch (e: Exception) {
+                                        Log.e("PromotionsPreview", "Failed to open URL: $url", e)
+                                    }
+                                }
                             )
                         }
-                    } else {
-                        // Render native ad card for native ads
-                        AdCard(
-                            adData = adData,
-                            placementKey = "promotions",
-                            onAdClick = { clickedAdData -> 
-                                onAdClick(clickedAdData)
-                            },
-                            onTrackImpression = { url ->
-                                onTrackEvent("impression", url)
-                            },
-                            onSlideClick = { url ->
-                                // Open URL in browser when carousel CTA is clicked
-                                Log.d("PromotionsPreview", "onSlideClick called with URL: $url")
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                    Log.d("PromotionsPreview", "Starting browser intent for: $url")
-                                    context.startActivity(intent)
-                                    Log.d("PromotionsPreview", "Browser intent started successfully")
-                                } catch (e: Exception) {
-                                    Log.e("PromotionsPreview", "Failed to open URL: $url", e)
-                                }
-                            }
-                        )
-                    }
                     }
                 }
-                
+
                 // Grey separator
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // Greyed-out mock categories section
                 Box(
                     modifier = Modifier
@@ -251,7 +257,7 @@ fun PromotionsPreviewScreen(
                         color = Color.Gray.copy(alpha = 0.8f)
                     )
                 }
-                
+
                 // Greyed-out chip row
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
@@ -264,7 +270,7 @@ fun PromotionsPreviewScreen(
                         )
                     }
                 }
-                
+
                 // Simplified grid section with fewer mock items
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
@@ -342,7 +348,7 @@ private fun CategoryChip(
     FilterChip(
         selected = selected,
         onClick = { /* Non-functional in example */ },
-        label = { 
+        label = {
             Box(
                 modifier = Modifier
                     .width(68.dp)
@@ -409,9 +415,9 @@ private fun PromotionCard(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Mock text content
             Box(
                 modifier = Modifier
@@ -419,9 +425,9 @@ private fun PromotionCard(
                     .height(14.dp)
                     .background(Color.LightGray.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
             )
-            
+
             Spacer(modifier = Modifier.height(6.dp))
-            
+
             // Mock rating
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // 5 star rating
@@ -433,9 +439,9 @@ private fun PromotionCard(
                     )
                     Spacer(modifier = Modifier.width(2.dp))
                 }
-                
+
                 Spacer(modifier = Modifier.width(4.dp))
-                
+
                 // Rating count
                 Box(
                     modifier = Modifier
@@ -458,12 +464,10 @@ private fun getPromotionColor(index: Int): Color {
     }
 }
 
-private fun getCategoryName(index: Int): String {
-    return when (index) {
-        0 -> "Popular"
-        1 -> "Nearby"
-        2 -> "Trending"
-        3 -> "New"
-        else -> "Category ${index + 1}"
-    }
+private fun getCategoryName(index: Int): String = when (index) {
+    0 -> "Popular"
+    1 -> "Nearby"
+    2 -> "Trending"
+    3 -> "New"
+    else -> "Category ${index + 1}"
 }

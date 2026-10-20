@@ -43,12 +43,12 @@ class AdRequestTest {
         val placement = Placement("home")
         val request = DecisionRequest(placements = listOf(placement))
         val preparedRequest = admoai.prepareFinalDecisionRequest(request)
-        
+
         coEvery { mockApiService.requestAds(preparedRequest) } returns flowOf(decisionResponse)
-        
+
         // When: Requesting ad decisions
         val result = admoai.requestAds(request).first()
-        
+
         // Then: Should return successful response
         assertEquals(decisionResponse, result)
         coVerify { mockApiService.requestAds(preparedRequest) }
@@ -68,12 +68,12 @@ class AdRequestTest {
         )
         val request = DecisionRequest(placements = placements)
         val preparedRequest = admoai.prepareFinalDecisionRequest(request)
-        
+
         coEvery { mockApiService.requestAds(preparedRequest) } returns flowOf(decisionResponse)
-        
+
         // When: Requesting ad decisions for multiple placements
         val result = admoai.requestAds(request).first()
-        
+
         // Then: Should handle all placements
         assertEquals(decisionResponse, result)
         coVerify { mockApiService.requestAds(preparedRequest) }
@@ -89,12 +89,12 @@ class AdRequestTest {
 
         val request = DecisionRequest(placements = emptyList())
         val preparedRequest = admoai.prepareFinalDecisionRequest(request)
-        
+
         coEvery { mockApiService.requestAds(preparedRequest) } returns flowOf(decisionResponse)
-        
+
         // When: Requesting ad decisions with empty placements
         val result = admoai.requestAds(request).first()
-        
+
         // Then: Should handle empty placements gracefully
         assertEquals(decisionResponse, result)
         coVerify { mockApiService.requestAds(preparedRequest) }

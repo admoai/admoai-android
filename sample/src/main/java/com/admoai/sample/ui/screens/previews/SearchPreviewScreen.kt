@@ -14,11 +14,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import com.admoai.sdk.model.response.AdData
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
+import com.admoai.sdk.model.response.AdData
 
 /**
  * Search placement preview screen
@@ -38,12 +38,12 @@ fun SearchPreviewScreen(
     onRefreshClick: () -> Unit,
     // Removed unused onThemeToggle parameter
     // Removed unused onAdClick parameter as search ads don't handle clicks
-    onTrackEvent: (String, String) -> Unit = {_, _ -> }
+    onTrackEvent: (String, String) -> Unit = { _, _ -> }
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
     var isCardVisible by remember { mutableStateOf(adData != null) }
     // No need for density as we're using Dp values directly
-    
+
     // Animation values for card refresh effect
     val cardAlpha by animateFloatAsState(
         targetValue = if (isCardVisible) 1f else 0.5f,
@@ -62,14 +62,14 @@ fun SearchPreviewScreen(
             onRefreshClick()
         }
     }
-    
+
     // Reset isRefreshing when loading completes
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
         }
     }
-    
+
     // Show/hide card when ad data changes (both initial load and refresh)
     LaunchedEffect(adData) {
         if (adData != null && !isLoading && !isRefreshing) {
@@ -93,7 +93,7 @@ fun SearchPreviewScreen(
             onRefreshClick = { isRefreshing = true },
             isRefreshing = isRefreshing
         )
-        
+
         // Scrollable search results with ad inserted after third item
         LazyColumn(
             modifier = Modifier
@@ -102,10 +102,10 @@ fun SearchPreviewScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // First 3 search result bars
-            items(3) { 
+            items(3) {
                 SearchResultBar()
             }
-            
+
             // Ad card after third item
             // Only show ad card when adData is available
             if (adData != null) {
@@ -130,9 +130,9 @@ fun SearchPreviewScreen(
                     }
                 }
             }
-            
+
             // Remaining search result bars
-            items(7) { 
+            items(7) {
                 SearchResultBar()
             }
         }

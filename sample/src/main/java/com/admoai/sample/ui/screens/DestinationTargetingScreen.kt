@@ -42,12 +42,9 @@ import kotlin.math.roundToInt
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DestinationTargetingScreen(
-    viewModel: MainViewModel,
-    onNavigateBack: () -> Unit
-) {
+fun DestinationTargetingScreen(viewModel: MainViewModel, onNavigateBack: () -> Unit) {
     val destinationTargets by viewModel.destinationTargets.collectAsState()
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -83,7 +80,7 @@ fun DestinationTargetingScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp)
             )
-            
+
             // Add random destination button
             Button(
                 onClick = { viewModel.addRandomDestination() },
@@ -98,7 +95,7 @@ fun DestinationTargetingScreen(
                 )
                 Text("Add Random Destination")
             }
-            
+
             if (destinationTargets.isEmpty()) {
                 // Show empty state
                 Box(
@@ -139,10 +136,7 @@ fun DestinationTargetingScreen(
 }
 
 @Composable
-fun DestinationTargetItem(
-    destination: DestinationItem,
-    onRemove: () -> Unit
-) {
+fun DestinationTargetItem(destination: DestinationItem, onRemove: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -162,7 +156,7 @@ fun DestinationTargetItem(
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(end = 16.dp)
             )
-            
+
             // Destination info
             Column(
                 modifier = Modifier.weight(1f)
@@ -173,14 +167,14 @@ fun DestinationTargetItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                
+
                 Text(
                     text = "Lng: ${(destination.longitude * 1000).roundToInt() / 1000.0}",
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                
+
                 Text(
                     text = "Confidence: ${(destination.minConfidence * 100).roundToInt() / 100.0}",
                     style = MaterialTheme.typography.bodyLarge,
@@ -188,7 +182,7 @@ fun DestinationTargetItem(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            
+
             // Remove button
             TextButton(
                 onClick = onRemove,

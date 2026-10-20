@@ -23,8 +23,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.admoai.sample.ui.MainViewModel
 
@@ -32,27 +32,25 @@ import com.admoai.sample.ui.MainViewModel
  * Section to configure video ad options (shown only when Format = Video)
  */
 @Composable
-fun VideoOptionsSection(
-    viewModel: MainViewModel
-) {
+fun VideoOptionsSection(viewModel: MainViewModel) {
     val videoDelivery by viewModel.videoDelivery.collectAsState()
     val videoEndCard by viewModel.videoEndCard.collectAsState()
     val isSkippable by viewModel.isSkippable.collectAsState()
-    
+
     // Get available end card options based on delivery method
     val availableEndCards = when (videoDelivery) {
         "json" -> listOf("none", "native_endcard")
         "vast_tag", "vast_xml" -> listOf("none", "native_endcard", "vast_companion")
         else -> listOf("none")
     }
-    
+
     // Auto-adjust end card when delivery method changes
     LaunchedEffect(videoDelivery) {
         if (videoEndCard !in availableEndCards) {
             viewModel.setVideoEndCard(availableEndCards.first())
         }
     }
-    
+
     SectionContainer(title = "Video Options") {
         Column(
             modifier = Modifier
@@ -66,7 +64,7 @@ fun VideoOptionsSection(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -75,7 +73,7 @@ fun VideoOptionsSection(
                     FilterChip(
                         selected = videoDelivery == delivery,
                         onClick = { viewModel.setVideoDelivery(delivery) },
-                        label = { 
+                        label = {
                             Text(
                                 when (delivery) {
                                     "vast_tag" -> "VAST Tag"
@@ -83,14 +81,14 @@ fun VideoOptionsSection(
                                     "json" -> "JSON"
                                     else -> delivery
                                 }
-                            ) 
+                            )
                         }
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Delivery method description
             Text(
                 text = when (videoDelivery) {
@@ -102,9 +100,9 @@ fun VideoOptionsSection(
                 style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // Video Companion Ads
             Text(
                 text = "Video Companion Ads",
@@ -112,7 +110,7 @@ fun VideoOptionsSection(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -130,9 +128,9 @@ fun VideoOptionsSection(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Clarification about companion ad modes
             Text(
                 text = when (videoEndCard) {
@@ -141,11 +139,17 @@ fun VideoOptionsSection(
                     else -> "None: No companion ad will be displayed. The video plays without additional UI elements after completion."
                 },
                 style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                color = if (videoEndCard == "vast_companion") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (videoEndCard ==
+                    "vast_companion"
+                ) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // Skippable toggle
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -162,11 +166,11 @@ fun VideoOptionsSection(
                     onCheckedChange = { viewModel.setSkippable(it) }
                 )
             }
-            
+
             // Skip offset and helper text (shown only when skippable)
             if (isSkippable) {
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -176,7 +180,7 @@ fun VideoOptionsSection(
                         text = "Skip Offset",
                         style = MaterialTheme.typography.bodySmall
                     )
-                    
+
                     Text(
                         text = "5 seconds",
                         style = MaterialTheme.typography.bodySmall,
@@ -184,9 +188,9 @@ fun VideoOptionsSection(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 Text(
                     text = "Skippable and Skip Offset: Mainly for video ads before content (e.g., YouTube). Handled manually or via player/SDK depending on delivery method.",
                     style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
@@ -201,12 +205,9 @@ fun VideoOptionsSection(
  * Section to select video player implementation
  */
 @Composable
-fun VideoPlayerSection(
-    viewModel: MainViewModel,
-    onOpenUrl: (String) -> Unit = {}
-) {
+fun VideoPlayerSection(viewModel: MainViewModel, onOpenUrl: (String) -> Unit = {}) {
     val videoPlayer by viewModel.videoPlayer.collectAsState()
-    
+
     SectionContainer(title = "Video Player") {
         Column(
             modifier = Modifier
@@ -220,33 +221,33 @@ fun VideoPlayerSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
-            
+
             // Video Player selection - Vertical layout for better fit
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 data class PlayerOption(
-                    val value: String, 
-                    val label: String, 
+                    val value: String,
+                    val label: String,
                     val description: String,
                     val isCommercial: Boolean = false
                 )
-                
+
                 listOf(
                     PlayerOption(
-                        "exoplayer", 
-                        "Media3 ExoPlayer + IMA", 
+                        "exoplayer",
+                        "Media3 ExoPlayer + IMA",
                         "VAST Tag: auto-tracking. The rest is manual: tracking, end-cards, and skip"
                     ),
                     PlayerOption(
-                        "vast_client", 
-                        "Media3 ExoPlayer", 
+                        "vast_client",
+                        "Media3 ExoPlayer",
                         "Manual VAST parsing - All delivery methods with full control"
                     ),
                     PlayerOption(
-                        "jwplayer", 
-                        "JW Player", 
+                        "jwplayer",
+                        "JW Player",
                         "Professional-grade player (Commercial license required)",
                         isCommercial = true
                     )
@@ -254,7 +255,7 @@ fun VideoPlayerSection(
                     FilterChip(
                         selected = videoPlayer == option.value,
                         onClick = { viewModel.setVideoPlayer(option.value) },
-                        label = { 
+                        label = {
                             Column {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -283,7 +284,7 @@ fun VideoPlayerSection(
                     )
                 }
             }
-            
+
             // JW Player commercial notice
             if (videoPlayer == "jwplayer") {
                 Spacer(modifier = Modifier.height(12.dp))

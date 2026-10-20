@@ -5,12 +5,17 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.admoai.sample.config.AppConfig
+import com.admoai.sample.ui.model.CustomTargetItem
+import com.admoai.sample.ui.model.DestinationItem
+import com.admoai.sample.ui.model.GeoTargetItem
+import com.admoai.sample.ui.model.LocationItem
+import com.admoai.sample.ui.model.PlacementItem
 import com.admoai.sdk.Admoai
 import com.admoai.sdk.config.AppConfig as SdkAppConfig
 import com.admoai.sdk.config.DeviceConfig
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.config.UserConfig
-import io.ktor.client.engine.okhttp.OkHttp
 import com.admoai.sdk.model.request.Consent
 import com.admoai.sdk.model.request.CustomTargetingInfo
 import com.admoai.sdk.model.request.DecisionRequest
@@ -24,12 +29,8 @@ import com.admoai.sdk.model.response.ContentType
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sdk.model.response.TrackingInfo
-import com.admoai.sample.config.AppConfig
-import com.admoai.sample.ui.model.CustomTargetItem
-import com.admoai.sample.ui.model.DestinationItem
-import com.admoai.sample.ui.model.GeoTargetItem
-import com.admoai.sample.ui.model.LocationItem
-import com.admoai.sample.ui.model.PlacementItem
+import io.ktor.client.engine.okhttp.OkHttp
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -43,7 +44,6 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
-import java.util.UUID
 
 /**
  * Main ViewModel for the AdMoai sample application.
@@ -59,17 +59,49 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val placementKey = _placementKey.asStateFlow()
 
     // Available placements
-    private val _placements = MutableStateFlow(listOf(
-        PlacementItem(id = "home", name = "Home", key = "home", title = "Home", icon = "house"),
-        PlacementItem(id = "search", name = "Search", key = "search", title = "Search", icon = "magnifyingglass"),
-        PlacementItem(id = "menu", name = "Menu", key = "menu", title = "Menu", icon = "list.bullet"),
-        PlacementItem(id = "promotions", name = "Promotions", key = "promotions", title = "Promotions", icon = "tag"),
-        PlacementItem(id = "vehicleSelection", name = "Vehicle Selection", key = "vehicleSelection", title = "Vehicle Selection", icon = "car"),
-        PlacementItem(id = "rideSummary", name = "Ride Summary", key = "rideSummary", title = "Ride Summary", icon = "doc.text"),
-        PlacementItem(id = "waiting", name = "Waiting", key = "waiting", title = "Waiting", icon = "clock"),
-        PlacementItem(id = "freeMinutes", name = "Free Minutes", key = "freeMinutes", title = "Free Minutes", icon = "cardgiftcard"),
-        PlacementItem(id = "invalidPlacement", name = "Invalid Placement", key = "invalidPlacement", title = "Invalid Placement", icon = "exclamationmark.triangle")
-    ))
+    private val _placements = MutableStateFlow(
+        listOf(
+            PlacementItem(id = "home", name = "Home", key = "home", title = "Home", icon = "house"),
+            PlacementItem(id = "search", name = "Search", key = "search", title = "Search", icon = "magnifyingglass"),
+            PlacementItem(id = "menu", name = "Menu", key = "menu", title = "Menu", icon = "list.bullet"),
+            PlacementItem(
+                id = "promotions",
+                name = "Promotions",
+                key = "promotions",
+                title = "Promotions",
+                icon = "tag"
+            ),
+            PlacementItem(
+                id = "vehicleSelection",
+                name = "Vehicle Selection",
+                key = "vehicleSelection",
+                title = "Vehicle Selection",
+                icon = "car"
+            ),
+            PlacementItem(
+                id = "rideSummary",
+                name = "Ride Summary",
+                key = "rideSummary",
+                title = "Ride Summary",
+                icon = "doc.text"
+            ),
+            PlacementItem(id = "waiting", name = "Waiting", key = "waiting", title = "Waiting", icon = "clock"),
+            PlacementItem(
+                id = "freeMinutes",
+                name = "Free Minutes",
+                key = "freeMinutes",
+                title = "Free Minutes",
+                icon = "cardgiftcard"
+            ),
+            PlacementItem(
+                id = "invalidPlacement",
+                name = "Invalid Placement",
+                key = "invalidPlacement",
+                title = "Invalid Placement",
+                icon = "exclamationmark.triangle"
+            )
+        )
+    )
     val placements = _placements.asStateFlow()
 
     private val _userId = MutableStateFlow("user_123")
@@ -105,25 +137,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Video ad options
     private val _formatFilterEnabled = MutableStateFlow(false)
     val formatFilterEnabled = _formatFilterEnabled.asStateFlow()
-    
+
     private val _selectedFormat = MutableStateFlow<String?>(null) // null="Any", "native", "video"
     val selectedFormat = _selectedFormat.asStateFlow()
-    
+
     private val _videoDelivery = MutableStateFlow("vast_tag") // "vast_tag", "vast_xml", "json"
     val videoDelivery = _videoDelivery.asStateFlow()
-    
+
     private val _videoEndCard = MutableStateFlow("none") // "none", "native_endcard", "vast_companion"
     val videoEndCard = _videoEndCard.asStateFlow()
-    
+
     private val _videoPlayer = MutableStateFlow("") // "exoplayer", "vast_client", "jwplayer"
     val videoPlayer = _videoPlayer.asStateFlow()
-    
+
     private val _overlayAtPercent = MutableStateFlow(0.5f) // 0.0 to 1.0
     val overlayAtPercent = _overlayAtPercent.asStateFlow()
-    
+
     private val _isSkippable = MutableStateFlow(false)
     val isSkippable = _isSkippable.asStateFlow()
-    
+
     private val _skipOffset = MutableStateFlow("5") // seconds as string
     val skipOffset = _skipOffset.asStateFlow()
 
@@ -138,15 +170,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage = _errorMessage.asStateFlow()
-    
+
     // Decision response
     private val _decisionResponse = MutableStateFlow<DecisionResponse?>(null)
     val decisionResponse = _decisionResponse.asStateFlow()
-    
+
     // Formatted response for display
     private val _formattedResponse = MutableStateFlow("")
     val formattedResponse = _formattedResponse.asStateFlow()
-    
+
     // Video demo scenario tracking
     private val _videoDemoScenario = MutableStateFlow<String?>(null)
     val videoDemoScenario = _videoDemoScenario.asStateFlow()
@@ -157,11 +189,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         PlacementItem(id = "search", name = "Search", key = "search", title = "Search", icon = "magnifyingglass"),
         PlacementItem(id = "menu", name = "Menu", key = "menu", title = "Menu", icon = "list.bullet"),
         PlacementItem(id = "promotions", name = "Promotions", key = "promotions", title = "Promotions", icon = "tag"),
-        PlacementItem(id = "vehicleSelection", name = "Vehicle Selection", key = "vehicleSelection", title = "Vehicle Selection", icon = "car"),
-        PlacementItem(id = "rideSummary", name = "Ride Summary", key = "rideSummary", title = "Ride Summary", icon = "doc.text"),
+        PlacementItem(
+            id = "vehicleSelection",
+            name = "Vehicle Selection",
+            key = "vehicleSelection",
+            title = "Vehicle Selection",
+            icon = "car"
+        ),
+        PlacementItem(
+            id = "rideSummary",
+            name = "Ride Summary",
+            key = "rideSummary",
+            title = "Ride Summary",
+            icon = "doc.text"
+        ),
         PlacementItem(id = "waiting", name = "Waiting", key = "waiting", title = "Waiting", icon = "clock"),
-        PlacementItem(id = "freeMinutes", name = "Free Minutes", key = "freeMinutes", title = "Free Minutes", icon = "cardgiftcard"),
-        PlacementItem(id = "invalidPlacement", name = "Invalid Placement", key = "invalidPlacement", title = "Invalid Placement", icon = "exclamationmark.triangle")
+        PlacementItem(
+            id = "freeMinutes",
+            name = "Free Minutes",
+            key = "freeMinutes",
+            title = "Free Minutes",
+            icon = "cardgiftcard"
+        ),
+        PlacementItem(
+            id = "invalidPlacement",
+            name = "Invalid Placement",
+            key = "invalidPlacement",
+            title = "Invalid Placement",
+            icon = "exclamationmark.triangle"
+        )
     )
 
     // Cities for geo targeting with their numeric IDs
@@ -196,11 +252,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Ad tracking functionality
     private val _showingCreativeDetail = MutableStateFlow(false)
     val showingCreativeDetail = _showingCreativeDetail.asStateFlow()
-    
+
     // Selected ad data for detailed view
     private val _selectedAdData = MutableStateFlow<AdData?>(null)
     val selectedAdData = _selectedAdData.asStateFlow()
-    
+
     fun trackAdEvent(eventType: String, trackingUrl: String) {
         viewModelScope.launch {
             try {
@@ -218,6 +274,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                     }
+
                     "click" -> {
                         _response.value?.data?.flatMap { it.creatives.orEmpty() }?.forEach { creative ->
                             if (creative.tracking.clicks != null) {
@@ -237,12 +294,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-    
+
     fun showCreativeDetail(adData: AdData?) {
         _selectedAdData.value = adData
         _showingCreativeDetail.value = true
     }
-    
+
     fun hideCreativeDetail() {
         _showingCreativeDetail.value = false
     }
@@ -278,10 +335,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
         sdk = Admoai.getInstance()
         Admoai.initialize(config)
-        
+
         // Set user config
         sdk.setUserConfig(newUserConfig = UserConfig(id = _userId.value))
-        
+
         // Set app config for data collection
         val appConfig = SdkAppConfig(
             appName = appName,
@@ -291,7 +348,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             language = appLanguage
         )
         sdk.setAppConfig(appConfig)
-        
+
         // Set device config for data collection
         val deviceConfig = DeviceConfig(
             model = android.os.Build.MODEL,
@@ -306,7 +363,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             language = deviceLanguage
         )
         sdk.setDeviceConfig(deviceConfig)
-        
+
         // Initialize mock geo targeting items
         _geoTargets.value = availableCities
     }
@@ -356,7 +413,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val newLocation = LocationItem(latitude = latitude, longitude = longitude)
         _locationTargets.value = _locationTargets.value + newLocation
     }
-    
+
     /**
      * Update location targets with a new list.
      */
@@ -428,7 +485,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearCustomTargets() {
         _customTargets.value = emptyList()
     }
-    
+
     /**
      * Update custom targets with a new list.
      */
@@ -472,7 +529,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setVideoEndCard(endCard: String) {
         _videoEndCard.value = endCard
     }
-    
+
     /**
      * Set video player type.
      */
@@ -508,18 +565,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Determine placement format based on filter
         // When filter is enabled, always include format (never null)
         val placementFormat = when {
-            !_formatFilterEnabled.value -> null // Filter disabled = no format restriction
+            !_formatFilterEnabled.value -> null
+
+            // Filter disabled = no format restriction
             _selectedFormat.value == "native" -> PlacementFormat.NATIVE
+
             _selectedFormat.value == "video" -> PlacementFormat.VIDEO
+
             else -> PlacementFormat.NATIVE // Default to native if somehow null when enabled
         }
-        
+
         // Create request builder with placement including format
         val builder = sdk.createRequestBuilder()
-            .addPlacement(Placement(
-                key = _placementKey.value,
-                format = placementFormat
-            ))
+            .addPlacement(
+                Placement(
+                    key = _placementKey.value,
+                    format = placementFormat
+                )
+            )
             .setUserIp(_userIp.value)
             .setUserId(_userId.value)
             .setUserTimezone(_userTimezone.value)
@@ -535,7 +598,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Add location targeting if any
         if (_locationTargets.value.isNotEmpty()) {
-            val locations = _locationTargets.value.map { 
+            val locations = _locationTargets.value.map {
                 LocationTargetingInfo(latitude = it.latitude, longitude = it.longitude)
             }
             builder.setLocationTargets(locations)
@@ -544,13 +607,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Add destination targeting if any
         if (_destinationTargets.value.isNotEmpty()) {
             val destinations = _destinationTargets.value.map {
-                DestinationTargetingInfo(latitude = it.latitude, longitude = it.longitude, minConfidence = it.minConfidence)
+                DestinationTargetingInfo(
+                    latitude = it.latitude,
+                    longitude = it.longitude,
+                    minConfidence = it.minConfidence
+                )
             }
             builder.setDestinationTargets(destinations)
         }
 
         if (_customTargets.value.isNotEmpty()) {
-            val customTargetList = _customTargets.value.map { 
+            val customTargetList = _customTargets.value.map {
                 CustomTargetingInfo(it.key, JsonPrimitive(it.value))
             }
             builder.setCustomTargets(customTargetList)
@@ -566,31 +633,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         return builder.build()
     }
-    
+
     @OptIn(ExperimentalSerializationApi::class)
     fun updatePlacementPreviewJson(placementKey: String) {
         viewModelScope.launch {
             try {
                 // Create a builder with minimal info to avoid property reference issues
                 val builder = sdk.createRequestBuilder()
-                
+
                 // Add the placement with only the key (simplest approach)
                 builder.addPlacement(placementKey)
-                
+
                 // Add targeting if available
                 if (_geoTargets.value.any { it.isSelected }) {
                     val selectedGeos = _geoTargets.value.filter { it.isSelected }
                     val geoIds = selectedGeos.map { it.id.toInt() }
                     builder.setGeoTargets(geoIds)
                 }
-                
+
                 if (_locationTargets.value.isNotEmpty()) {
-                    val locations = _locationTargets.value.map { 
-                        LocationTargetingInfo(it.latitude, it.longitude) 
+                    val locations = _locationTargets.value.map {
+                        LocationTargetingInfo(it.latitude, it.longitude)
                     }
                     builder.setLocationTargets(locations)
                 }
-                
+
                 // Add destination targeting if any
                 if (_destinationTargets.value.isNotEmpty()) {
                     val destinations = _destinationTargets.value.map {
@@ -598,26 +665,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     builder.setDestinationTargets(destinations)
                 }
-                
+
                 if (_customTargets.value.isNotEmpty()) {
                     val customTargeting = _customTargets.value.map { item ->
                         CustomTargetingInfo(item.key, JsonPrimitive(item.value))
                     }
                     builder.setCustomTargets(customTargeting)
                 }
-                
+
                 // Build initial request and set collection flags
                 val initialRequest = builder.build()
                     .copy(
                         collectAppData = _collectAppData.value,
                         collectDeviceData = _collectDeviceData.value
                     )
-                
+
                 // Process through SDK to add app/device as top-level fields
                 val finalRequest = sdk.prepareFinalDecisionRequest(initialRequest)
-                
-                val prettyJson = Json { 
-                    prettyPrint = true 
+
+                val prettyJson = Json {
+                    prettyPrint = true
                     encodeDefaults = false
                     explicitNulls = false
                 }
@@ -679,7 +746,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-    
+
     /**
      * Update the request JSON preview for UI display.
      */
@@ -692,9 +759,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Then pass it through the SDK's prepareFinalDecisionRequest to get the complete request
                 // with app and device objects added as top-level fields
                 val finalRequest = sdk.prepareFinalDecisionRequest(initialRequest)
-                
-                val prettyJson = Json { 
-                    prettyPrint = true 
+
+                val prettyJson = Json {
+                    prettyPrint = true
                     encodeDefaults = false
                     explicitNulls = false
                 }
@@ -704,48 +771,46 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-    
+
     /**
      * Get the complete HTTP request representation.
      */
     @OptIn(ExperimentalSerializationApi::class)
-    fun getHttpRequest(): String {
-        return try {
-            val initialRequest = buildRequest()
-            // Use the SDK's prepareFinalDecisionRequest to get the complete request
-            // with app and device objects added as top-level fields
-            val finalRequest = sdk.prepareFinalDecisionRequest(initialRequest)
-            
-            val prettyJson = Json { 
-                prettyPrint = true
-                encodeDefaults = false
-                explicitNulls = false
-            }
-            val requestBody = prettyJson.encodeToString(finalRequest)
-            
-            // Use same host and endpoint for all requests (video and native)
-            val targetHost = AppConfig.API_BASE_URL.replace(Regex("^https?://"), "")
-            val endpoint = "/v1/decision"
-            
-            // Format as an HTTP request with headers
-            val sb = StringBuilder()
-            sb.append("POST $endpoint HTTP/1.1\n")
-            sb.append("Host: $targetHost\n")
-            sb.append("Content-Type: application/json\n")
-            sb.append("User-Agent: AdmoaiExample/Android\n")
-            
-            // Add X-Decision-Version header for all requests (as configured in SDK)
-            sb.append("X-Decision-Version: 2025-11-01\n")
-            
-            sb.append("\n")
-            sb.append(requestBody)
-            
-            sb.toString()
-        } catch (e: Exception) {
-            "Error generating HTTP request: ${e.message}"
+    fun getHttpRequest(): String = try {
+        val initialRequest = buildRequest()
+        // Use the SDK's prepareFinalDecisionRequest to get the complete request
+        // with app and device objects added as top-level fields
+        val finalRequest = sdk.prepareFinalDecisionRequest(initialRequest)
+
+        val prettyJson = Json {
+            prettyPrint = true
+            encodeDefaults = false
+            explicitNulls = false
         }
+        val requestBody = prettyJson.encodeToString(finalRequest)
+
+        // Use same host and endpoint for all requests (video and native)
+        val targetHost = AppConfig.API_BASE_URL.replace(Regex("^https?://"), "")
+        val endpoint = "/v1/decision"
+
+        // Format as an HTTP request with headers
+        val sb = StringBuilder()
+        sb.append("POST $endpoint HTTP/1.1\n")
+        sb.append("Host: $targetHost\n")
+        sb.append("Content-Type: application/json\n")
+        sb.append("User-Agent: AdmoaiExample/Android\n")
+
+        // Add X-Decision-Version header for all requests (as configured in SDK)
+        sb.append("X-Decision-Version: 2025-11-01\n")
+
+        sb.append("\n")
+        sb.append(requestBody)
+
+        sb.toString()
+    } catch (e: Exception) {
+        "Error generating HTTP request: ${e.message}"
     }
-    
+
     /**
      * Format response to pretty JSON for display.
      */
@@ -753,8 +818,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun formatResponseToJson(response: DecisionResponse?): String {
         if (response == null) return ""
         return try {
-            val prettyJson = Json { 
-                prettyPrint = true 
+            val prettyJson = Json {
+                prettyPrint = true
                 encodeDefaults = false
                 explicitNulls = false
             }
@@ -839,9 +904,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Get first creative from the response.
      */
-    fun getFirstCreative(): Creative? {
-        return _response.value?.data?.firstOrNull()?.creatives?.firstOrNull()
-    }
+    fun getFirstCreative(): Creative? = _response.value?.data?.firstOrNull()?.creatives?.firstOrNull()
 
     /**
      * Clear the current response.
@@ -856,14 +919,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearError() {
         _errorMessage.value = null
     }
-    
+
     /**
      * Get a placement by its key.
      */
-    fun getPlacementByKey(placementKey: String): PlacementItem? {
-        return availablePlacements.find { it.key == placementKey }
-    }
-    
+    fun getPlacementByKey(placementKey: String): PlacementItem? = availablePlacements.find { it.key == placementKey }
+
     /**
      * Get ad data for a specific placement from the current response.
      * Returns null if creatives are null or empty.
@@ -871,21 +932,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun getAdDataForPlacement(placementKey: String): AdData? {
         val response = _decisionResponse.value ?: return null
         val data = response.data
-        
+
         // Match by placement key (works for both video and native formats)
         val adData = data?.find { adData ->
             adData.placement == placementKey
         }
-        
+
         // Return null if creatives is null or empty
         if (adData != null && adData.creatives.isEmpty()) {
             android.util.Log.d(TAG, "No creatives found for placement $placementKey, returning null")
             return null
         }
-        
+
         return adData
     }
-    
+
     /**
      * Check if a creative is a video creative.
      * A creative is considered video if it has VIDEO content type or has a delivery method set.
@@ -893,13 +954,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun isVideoCreative(creative: Creative): Boolean {
         // Check if any content is of type VIDEO
         val hasVideoContent = creative.contents.any { it.type == ContentType.VIDEO }
-        
+
         // Check if delivery method is set (indicates video ad)
         val hasDelivery = creative.delivery != null
-        
+
         return hasVideoContent || hasDelivery
     }
-    
+
     /**
      * Check if ad data contains video creatives.
      */
@@ -907,7 +968,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (adData == null) return false
         return adData.creatives.any { isVideoCreative(it) }
     }
-    
+
     /**
      * Set a demo response from the Video Ad Demo feature.
      * This temporarily replaces the current response for demo purposes.
@@ -918,14 +979,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _formattedResponse.value = formatResponseToJson(demoResponse)
         _videoDemoScenario.value = scenario
     }
-    
+
     /**
      * Get the video demo HTTP request for display.
      */
     @OptIn(ExperimentalSerializationApi::class)
     fun getVideoDemoHttpRequest(): String {
         val scenario = _videoDemoScenario.value ?: return "No scenario data available"
-        
+
         return try {
             val requestBody = """
 {
@@ -937,7 +998,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
   ]
 }
             """.trimIndent()
-            
+
             // Format as an HTTP request with headers
             val host = AppConfig.API_BASE_URL.replace(Regex("^https?://"), "").replace(Regex(":[0-9]+$"), "")
             val sb = StringBuilder()
@@ -948,7 +1009,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             sb.append("X-Decision-Version: ${AppConfig.API_VERSION}\n")
             sb.append("\n")
             sb.append(requestBody)
-            
+
             sb.toString()
         } catch (e: Exception) {
             "Error generating video demo HTTP request: ${e.message}"

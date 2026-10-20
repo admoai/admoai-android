@@ -9,7 +9,4 @@ import kotlinx.serialization.Serializable
  * @property xmlBase64 Base64 encoded VAST XML content
  */
 @Serializable
-data class VastData(
-    val tagUrl: String? = null,
-    val xmlBase64: String? = null
-)
+data class VastData(val tagUrl: String? = null, val xmlBase64: String? = null)

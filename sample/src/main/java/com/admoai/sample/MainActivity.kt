@@ -20,12 +20,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -36,13 +36,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.admoai.sdk.Admoai
-import com.admoai.sdk.config.SDKConfig
-import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sample.Routes
 import com.admoai.sample.config.AppConfig
 import com.admoai.sample.ui.MainViewModel
-import io.ktor.client.engine.okhttp.OkHttp
+import com.admoai.sample.ui.screens.ComposeIntegrationScreen
+import com.admoai.sample.ui.screens.CreativeDetailScreen
 import com.admoai.sample.ui.screens.CustomTargetingScreen
 import com.admoai.sample.ui.screens.DecisionRequestScreen
 import com.admoai.sample.ui.screens.DestinationTargetingScreen
@@ -52,9 +50,9 @@ import com.admoai.sample.ui.screens.PlacementPickerScreen
 import com.admoai.sample.ui.screens.RequestPreviewScreen
 import com.admoai.sample.ui.screens.ResponseDetailsScreen
 import com.admoai.sample.ui.screens.TimezonePickerScreen
-import com.admoai.sample.ui.screens.CreativeDetailScreen
 import com.admoai.sample.ui.screens.VideoAdDemoScreen
-import com.admoai.sample.ui.screens.ComposeIntegrationScreen
+import com.admoai.sample.ui.screens.VideoPreviewScreen
+import com.admoai.sample.ui.screens.previews.FreeMinutesPreviewScreen
 import com.admoai.sample.ui.screens.previews.HomePreviewScreen
 import com.admoai.sample.ui.screens.previews.MenuPreviewScreen
 import com.admoai.sample.ui.screens.previews.PromotionsPreviewScreen
@@ -62,9 +60,11 @@ import com.admoai.sample.ui.screens.previews.RideSummaryPreviewScreen
 import com.admoai.sample.ui.screens.previews.SearchPreviewScreen
 import com.admoai.sample.ui.screens.previews.VehicleSelectionPreviewScreen
 import com.admoai.sample.ui.screens.previews.WaitingPreviewScreen
-import com.admoai.sample.ui.screens.previews.FreeMinutesPreviewScreen
-import com.admoai.sample.ui.screens.VideoPreviewScreen
 import com.admoai.sample.ui.theme.AdmoaikotlinTheme
+import com.admoai.sdk.Admoai
+import com.admoai.sdk.config.SDKConfig
+import com.admoai.sdk.model.response.DecisionResponse
+import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -107,7 +107,7 @@ object Routes {
     const val TIMEZONE_PICKER = "timezone_picker"
     const val VIDEO_AD_DEMO = "video_ad_demo"
     const val COMPOSE_INTEGRATION = "compose_integration"
-    
+
     const val PROMOTIONS_PREVIEW = "promotions_preview"
     const val HOME_PREVIEW = "home_preview"
     const val SEARCH_PREVIEW = "search_preview"
@@ -122,10 +122,10 @@ object Routes {
 @Composable
 fun AdMoaiNavHost(viewModel: MainViewModel) {
     val navController = rememberNavController()
-    
+
     val showingCreativeDetail = viewModel.showingCreativeDetail.collectAsState()
     val selectedAdData = viewModel.selectedAdData.collectAsState()
-    
+
     if (showingCreativeDetail.value) {
         CreativeDetailScreen(
             adData = selectedAdData.value,
@@ -133,7 +133,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             onTrackEvent = { eventType, url -> viewModel.trackAdEvent(eventType, url) }
         )
     }
-    
+
     NavHost(
         navController = navController,
         startDestination = Routes.DECISION_REQUEST
@@ -150,13 +150,23 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                     val placementKey = viewModel.placementKey.value
                     when (placementKey) {
                         "home" -> navController.navigate("${Routes.HOME_PREVIEW}/$placementKey")
+
                         "search" -> navController.navigate("${Routes.SEARCH_PREVIEW}/$placementKey")
+
                         "menu" -> navController.navigate("${Routes.MENU_PREVIEW}/$placementKey")
+
                         "promotions" -> navController.navigate("${Routes.PROMOTIONS_PREVIEW}/$placementKey")
+
                         "waiting" -> navController.navigate("${Routes.WAITING_PREVIEW}/$placementKey")
+
                         "freeMinutes" -> navController.navigate("${Routes.FREE_MINUTES_PREVIEW}/$placementKey")
-                        "vehicleSelection" -> navController.navigate("${Routes.VEHICLE_SELECTION_PREVIEW}/$placementKey")
+
+                        "vehicleSelection" -> navController.navigate(
+                            "${Routes.VEHICLE_SELECTION_PREVIEW}/$placementKey"
+                        )
+
                         "rideSummary" -> navController.navigate("${Routes.RIDE_SUMMARY_PREVIEW}/$placementKey")
+
                         else -> navController.navigate("${Routes.HOME_PREVIEW}/$placementKey")
                     }
                 },
@@ -188,7 +198,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 }
             )
         }
-        
+
         composable(Routes.PLACEMENT_PICKER) {
             PlacementPickerScreen(
                 viewModel = viewModel,
@@ -197,7 +207,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 }
             )
         }
-        
+
         composable(Routes.GEO_TARGETING) {
             GeoTargetingScreen(
                 viewModel = viewModel,
@@ -206,7 +216,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 }
             )
         }
-        
+
         composable(Routes.LOCATION_TARGETING) {
             LocationTargetingScreen(
                 viewModel = viewModel,
@@ -215,7 +225,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 }
             )
         }
-        
+
         composable(Routes.DESTINATION_TARGETING) {
             DestinationTargetingScreen(
                 viewModel = viewModel,
@@ -224,7 +234,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 }
             )
         }
-        
+
         composable(Routes.CUSTOM_TARGETING) {
             CustomTargetingScreen(
                 viewModel = viewModel,
@@ -233,7 +243,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 }
             )
         }
-        
+
         composable(Routes.TIMEZONE_PICKER) {
             TimezonePickerScreen(
                 viewModel = viewModel,
@@ -242,7 +252,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 }
             )
         }
-        
+
         composable(Routes.REQUEST_PREVIEW) {
             RequestPreviewScreen(
                 viewModel = viewModel,
@@ -251,7 +261,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 }
             )
         }
-        
+
         composable(Routes.RESPONSE_DETAILS) {
             ResponseDetailsScreen(
                 viewModel = viewModel,
@@ -260,7 +270,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 }
             )
         }
-        
+
         composable(
             route = "${Routes.PROMOTIONS_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
@@ -268,10 +278,10 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             val placementKey = backStackEntry.arguments?.getString("placementKey") ?: ""
             val placement = viewModel.getPlacementByKey(placementKey)
             val adData = viewModel.getAdDataForPlacement(placementKey)
-            
+
             // Observe loading state
             val isLoading by viewModel.isLoading.collectAsState()
-            
+
             placement?.let {
                 PromotionsPreviewScreen(
                     viewModel = viewModel,
@@ -286,7 +296,7 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 )
             }
         }
-        
+
         composable(
             route = "${Routes.HOME_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
@@ -294,10 +304,10 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             val placementKey = backStackEntry.arguments?.getString("placementKey") ?: ""
             val placement = viewModel.getPlacementByKey(placementKey)
             val adData = viewModel.getAdDataForPlacement(placementKey)
-            
+
             // Observe loading state
             val isLoading by viewModel.isLoading.collectAsState()
-            
+
             placement?.let {
                 HomePreviewScreen(
                     viewModel = viewModel,
@@ -321,10 +331,10 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             val placementKey = backStackEntry.arguments?.getString("placementKey") ?: ""
             val placement = viewModel.getPlacementByKey(placementKey)
             val adData = viewModel.getAdDataForPlacement(placementKey)
-            
+
             // Observe loading state
             val isLoading by viewModel.isLoading.collectAsState()
-            
+
             placement?.let {
                 SearchPreviewScreen(
                     viewModel = viewModel,
@@ -346,10 +356,10 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             val placementKey = backStackEntry.arguments?.getString("placementKey") ?: ""
             val placement = viewModel.getPlacementByKey(placementKey)
             val adData = viewModel.getAdDataForPlacement(placementKey)
-            
+
             // Observe loading state
             val isLoading by viewModel.isLoading.collectAsState()
-            
+
             placement?.let {
                 MenuPreviewScreen(
                     viewModel = viewModel,
@@ -372,10 +382,10 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             val placementKey = backStackEntry.arguments?.getString("placementKey") ?: ""
             val placement = viewModel.getPlacementByKey(placementKey)
             val adData = viewModel.getAdDataForPlacement(placementKey)
-            
+
             // Observe loading state
             val isLoading by viewModel.isLoading.collectAsState()
-            
+
             placement?.let {
                 WaitingPreviewScreen(
                     viewModel = viewModel,
@@ -399,10 +409,10 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             val placementKey = backStackEntry.arguments?.getString("placementKey") ?: ""
             val placement = viewModel.getPlacementByKey(placementKey)
             val adData = viewModel.getAdDataForPlacement(placementKey)
-            
+
             // Observe loading state
             val isLoading by viewModel.isLoading.collectAsState()
-            
+
             placement?.let {
                 FreeMinutesPreviewScreen(
                     viewModel = viewModel,
@@ -427,10 +437,10 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             val placementKey = backStackEntry.arguments?.getString("placementKey") ?: ""
             val placement = viewModel.getPlacementByKey(placementKey)
             val adData = viewModel.getAdDataForPlacement(placementKey)
-            
+
             // Observe loading state
             val isLoading by viewModel.isLoading.collectAsState()
-            
+
             placement?.let {
                 VehicleSelectionPreviewScreen(
                     viewModel = viewModel,
@@ -456,28 +466,28 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
                 }
             )
         }
-        
+
         composable(Routes.COMPOSE_INTEGRATION) {
             ComposeIntegrationScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        
+
         // Video preview screen
         composable(
             route = "${Routes.VIDEO_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
         ) { backStackEntry ->
             val placementKey = backStackEntry.arguments?.getString("placementKey") ?: ""
-            
+
             VideoPreviewScreen(
                 viewModel = viewModel,
                 placementKey = placementKey,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        
+
         composable(
             route = "${Routes.RIDE_SUMMARY_PREVIEW}/{placementKey}",
             arguments = listOf(navArgument("placementKey") { type = NavType.StringType })
@@ -485,10 +495,10 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
             val placementKey = backStackEntry.arguments?.getString("placementKey") ?: ""
             val placement = viewModel.getPlacementByKey(placementKey)
             val adData = viewModel.getAdDataForPlacement(placementKey)
-            
+
             // Observe loading state
             val isLoading by viewModel.isLoading.collectAsState()
-            
+
             placement?.let {
                 RideSummaryPreviewScreen(
                     viewModel = viewModel,
@@ -513,47 +523,47 @@ fun AdMoaiNavHost(viewModel: MainViewModel) {
 private fun formatResponse(response: DecisionResponse): String {
     val sb = StringBuilder()
     sb.append("Response success: ${response.success}\n")
-    
+
     response.data?.let { data ->
         if (data.isEmpty()) {
             sb.append("No ads received.")
             return sb.toString()
         }
-        
+
         sb.append("Ads received: ${data.size}\n\n")
-        
+
         data.forEachIndexed { index, adData ->
-        sb.append("Ad #${index + 1}\n")
-        sb.append("  Placement: ${adData.placement}\n")
-        
-        if (adData.creatives.isNotEmpty()) {
-            sb.append("  Creatives: ${adData.creatives.size}\n")
-            
-            adData.creatives.forEachIndexed { creativeIndex, creative ->
-                sb.append("  Creative #${creativeIndex + 1}:\n")
-                
-                // Format the advertiser info if available
-                sb.append("    Advertiser: ${creative.advertiser.name}\n")
-                
-                // Format the content items
-                sb.append("    Contents: ${creative.contents.size} items\n")
-                creative.contents.forEach { content ->
-                    sb.append("      - Type: ${content.type}, Value: ${content.value}\n")
+            sb.append("Ad #${index + 1}\n")
+            sb.append("  Placement: ${adData.placement}\n")
+
+            if (adData.creatives.isNotEmpty()) {
+                sb.append("  Creatives: ${adData.creatives.size}\n")
+
+                adData.creatives.forEachIndexed { creativeIndex, creative ->
+                    sb.append("  Creative #${creativeIndex + 1}:\n")
+
+                    // Format the advertiser info if available
+                    sb.append("    Advertiser: ${creative.advertiser.name}\n")
+
+                    // Format the content items
+                    sb.append("    Contents: ${creative.contents.size} items\n")
+                    creative.contents.forEach { content ->
+                        sb.append("      - Type: ${content.type}, Value: ${content.value}\n")
+                    }
+
+                    // Format the tracking info
+                    val tracking = creative.tracking
+                    sb.append("    Tracking URLs:\n")
+                    sb.append("      - Impression URLs: ${tracking.impressions?.size ?: 0}\n")
+                    sb.append("      - Click URLs: ${tracking.clicks?.size ?: 0}\n")
                 }
-                
-                // Format the tracking info
-                val tracking = creative.tracking
-                sb.append("    Tracking URLs:\n")
-                sb.append("      - Impression URLs: ${tracking.impressions?.size ?: 0}\n")
-                sb.append("      - Click URLs: ${tracking.clicks?.size ?: 0}\n")
+            } else {
+                sb.append("  No creative data\n")
             }
-        } else {
-            sb.append("  No creative data\n")
+
+            sb.append("\n")
         }
-        
-        sb.append("\n")
-    }
     } ?: sb.append("No ads received.")
-    
+
     return sb.toString()
 }

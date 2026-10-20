@@ -22,11 +22,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.admoai.sdk.model.response.AdData
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
+import com.admoai.sdk.model.response.AdData
 import kotlinx.coroutines.delay
 
 /**
@@ -48,13 +48,13 @@ fun RideSummaryPreviewScreen(
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
     onAdClick: (AdData) -> Unit = {},
-    onTrackEvent: (String, String) -> Unit = {_, _ -> },
+    onTrackEvent: (String, String) -> Unit = { _, _ -> },
     @Suppress("UNUSED_PARAMETER") onThemeToggle: () -> Unit
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
     var isCardVisible by remember { mutableStateOf(adData != null) }
     val density = LocalDensity.current
-    
+
     // Card entry animation (slide in from right)
     val cardOffsetX by animateDpAsState(
         targetValue = if (isCardVisible) 0.dp else 300.dp,
@@ -64,7 +64,7 @@ fun RideSummaryPreviewScreen(
         ),
         label = "card_offset_x"
     )
-    
+
     val cardAlpha by animateFloatAsState(
         targetValue = if (isCardVisible) 1f else 0f,
         animationSpec = tween(durationMillis = 300),
@@ -82,14 +82,14 @@ fun RideSummaryPreviewScreen(
             onRefreshClick()
         }
     }
-    
+
     // Reset isRefreshing when loading completes
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
         }
     }
-    
+
     // Show/hide card when ad data changes (both initial load and refresh)
     LaunchedEffect(adData) {
         if (adData != null && !isLoading && !isRefreshing) {
@@ -129,7 +129,7 @@ fun RideSummaryPreviewScreen(
                 onRefreshClick = { isRefreshing = true },
                 isRefreshing = isRefreshing
             )
-            
+
             // Rating stars
             Row(
                 modifier = Modifier
@@ -149,7 +149,7 @@ fun RideSummaryPreviewScreen(
                     )
                 }
             }
-            
+
             Text(
                 text = "Thanks for riding with us!",
                 style = MaterialTheme.typography.titleSmall,
@@ -159,7 +159,7 @@ fun RideSummaryPreviewScreen(
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
             )
-            
+
             // Receipt list
             Card(
                 modifier = Modifier
@@ -177,7 +177,7 @@ fun RideSummaryPreviewScreen(
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    
+
                     // Origin-destination info
                     Row(
                         modifier = Modifier
@@ -195,7 +195,7 @@ fun RideSummaryPreviewScreen(
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
-                        
+
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "DROPOFF",
@@ -208,16 +208,16 @@ fun RideSummaryPreviewScreen(
                             )
                         }
                     }
-                    
+
                     HorizontalDivider()
-                    
+
                     // Receipt items
                     receiptItems.forEach { item ->
                         ReceiptItemRow(item)
                     }
                 }
             }
-            
+
             // Payment info
             Card(
                 modifier = Modifier
@@ -238,17 +238,17 @@ fun RideSummaryPreviewScreen(
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(end = 16.dp)
                     )
-                    
+
                     Text(
                         text = "Charged to Visa •••• 1234",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
-            
+
             // Add spacing before ad card
             Spacer(modifier = Modifier.height(6.dp))
-            
+
             // Ad card with slide-in animation from right
             // Only show ad card when adData is available
             if (adData != null) {
@@ -266,10 +266,10 @@ fun RideSummaryPreviewScreen(
                     val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
                         viewModel.isVideoCreative(creative)
                     } ?: false
-                    
+
                     // Check if this is normal_videos template (video with companion content in one card)
                     val isNormalVideos = com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(adData)
-                    
+
                     if (isNormalVideos) {
                         // Render VideoAdCard for normal_videos template (video + companion in unified card)
                         com.admoai.sample.ui.components.VideoAdCard(
@@ -279,50 +279,46 @@ fun RideSummaryPreviewScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                     } else if (isVideoAd) {
-                    // Render standalone video player for other video ads
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(16f / 9f)
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-                    ) {
-                        com.admoai.sample.ui.components.VideoPlayerForPlacement(
-                            creative = adData.creatives.first(),
-                            viewModel = viewModel,
-                            modifier = Modifier.fillMaxSize()
+                        // Render standalone video player for other video ads
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16f / 9f)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                        ) {
+                            com.admoai.sample.ui.components.VideoPlayerForPlacement(
+                                creative = adData.creatives.first(),
+                                viewModel = viewModel,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    } else {
+                        // Render native ad card for native ads
+                        AdCard(
+                            adData = adData,
+                            placementKey = placement.key,
+                            onAdClick = { clickedAdData ->
+                                onAdClick(clickedAdData)
+                            },
+                            onTrackImpression = { url ->
+                                onTrackEvent("impression", url)
+                            },
+                            onTrackClick = { url ->
+                                onTrackEvent("click", url)
+                            },
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
-                } else {
-                    // Render native ad card for native ads
-                    AdCard(
-                        adData = adData,
-                        placementKey = placement.key,
-                        onAdClick = { clickedAdData -> 
-                            onAdClick(clickedAdData)
-                        },
-                        onTrackImpression = { url ->
-                            onTrackEvent("impression", url)
-                        },
-                        onTrackClick = { url ->
-                            onTrackEvent("click", url)
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
                 }
             }
-            
+
             // Spacer at bottom for padding
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
 
-data class ReceiptItem(
-    val description: String,
-    val amount: String,
-    val isTotal: Boolean = false
-)
+data class ReceiptItem(val description: String, val amount: String, val isTotal: Boolean = false)
 
 @Composable
 fun ReceiptItemRow(item: ReceiptItem) {
@@ -337,14 +333,14 @@ fun ReceiptItemRow(item: ReceiptItem) {
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (item.isTotal) FontWeight.SemiBold else FontWeight.Normal
         )
-        
+
         Text(
             text = item.amount,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (item.isTotal) FontWeight.SemiBold else FontWeight.Normal
         )
     }
-    
+
     if (item.isTotal) {
         HorizontalDivider(
             modifier = Modifier.padding(vertical = 2.dp),

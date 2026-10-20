@@ -14,20 +14,16 @@ data class SDKConfig(
     val networkSocketTimeoutMs: Long = 10000L
 ) : Clearable<SDKConfig> {
 
-    override fun resetToDefaults(): SDKConfig {
-        return SDKConfig(
-            baseUrl = this.baseUrl,
-            apiVersion = this.apiVersion,
-            enableLogging = false,
-            defaultLanguage = null,
-            networkClientEngine = this.networkClientEngine,
-            networkRequestTimeoutMs = 10000L,
-            networkConnectTimeoutMs = 10000L,
-            networkSocketTimeoutMs = 10000L
-        )
-    }
+    override fun resetToDefaults(): SDKConfig = SDKConfig(
+        baseUrl = this.baseUrl,
+        apiVersion = this.apiVersion,
+        enableLogging = false,
+        defaultLanguage = null,
+        networkClientEngine = this.networkClientEngine,
+        networkRequestTimeoutMs = 10000L,
+        networkConnectTimeoutMs = 10000L,
+        networkSocketTimeoutMs = 10000L
+    )
 
-    override fun clear(): SDKConfig {
-        return resetToDefaults()
-    }
+    override fun clear(): SDKConfig = resetToDefaults()
 }

@@ -42,12 +42,9 @@ import kotlin.math.roundToInt
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LocationTargetingScreen(
-    viewModel: MainViewModel,
-    onNavigateBack: () -> Unit
-) {
+fun LocationTargetingScreen(viewModel: MainViewModel, onNavigateBack: () -> Unit) {
     val locationTargets by viewModel.locationTargets.collectAsState()
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -83,7 +80,7 @@ fun LocationTargetingScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp)
             )
-            
+
             // Add random location button
             Button(
                 onClick = { viewModel.addRandomLocation() },
@@ -98,7 +95,7 @@ fun LocationTargetingScreen(
                 )
                 Text("Add Random Location")
             }
-            
+
             if (locationTargets.isEmpty()) {
                 // Show empty state
                 Box(
@@ -139,10 +136,7 @@ fun LocationTargetingScreen(
 }
 
 @Composable
-fun LocationTargetItem(
-    location: LocationItem,
-    onRemove: () -> Unit
-) {
+fun LocationTargetItem(location: LocationItem, onRemove: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -162,7 +156,7 @@ fun LocationTargetItem(
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(end = 16.dp)
             )
-            
+
             // Location info
             Column(
                 modifier = Modifier.weight(1f)
@@ -173,7 +167,7 @@ fun LocationTargetItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                
+
                 Text(
                     text = "Lng: ${(location.longitude * 1000).roundToInt() / 1000.0}",
                     style = MaterialTheme.typography.bodyLarge,
@@ -181,7 +175,7 @@ fun LocationTargetItem(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            
+
             // Remove button
             TextButton(
                 onClick = onRemove,

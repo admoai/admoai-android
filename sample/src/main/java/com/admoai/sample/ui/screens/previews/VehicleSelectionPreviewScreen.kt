@@ -8,8 +8,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsBike
-import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material3.*
@@ -25,7 +25,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.admoai.sdk.model.response.AdData
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
 import com.admoai.sample.ui.components.HorizontalAdCard
@@ -33,6 +32,7 @@ import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.components.SearchAdCard
 import com.admoai.sample.ui.mapper.AdTemplateMapper
 import com.admoai.sample.ui.model.PlacementItem
+import com.admoai.sdk.model.response.AdData
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -63,7 +63,7 @@ fun VehicleSelectionPreviewScreen(
     var isCardVisible by remember { mutableStateOf(adData != null) }
     val density = LocalDensity.current
     // No need for coroutine scope as we're using LaunchedEffect for animations
-    
+
     // Animation values for card refresh effect
     val cardOffsetY by animateDpAsState(
         targetValue = if (isCardVisible) 0.dp else 20.dp,
@@ -73,16 +73,16 @@ fun VehicleSelectionPreviewScreen(
         ),
         label = "card_offset"
     )
-    
+
     val cardAlpha by animateFloatAsState(
         targetValue = if (isCardVisible) 1f else 0.5f,
         animationSpec = tween(durationMillis = 300),
         label = "card_alpha"
     )
-    
+
     // Pulse animation for vehicle icons
     val vehicleIconAlpha = remember { Animatable(1f) }
-    
+
     // Handle refresh button click with vehicle pulse animation
     LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
@@ -103,14 +103,14 @@ fun VehicleSelectionPreviewScreen(
             onRefreshClick()
         }
     }
-    
+
     // Reset isRefreshing when loading completes
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
         }
     }
-    
+
     // Show/hide card when ad data changes (both initial load and refresh)
     LaunchedEffect(adData) {
         if (adData != null && !isLoading && !isRefreshing) {
@@ -130,7 +130,7 @@ fun VehicleSelectionPreviewScreen(
         Icons.Filled.Flight,
         Icons.AutoMirrored.Filled.DirectionsWalk
     )
-    
+
     // Vehicle types corresponding to icons
     val vehicleTypes = listOf(
         "Car",
@@ -139,7 +139,7 @@ fun VehicleSelectionPreviewScreen(
         "Plane",
         "Walk"
     )
-    
+
     // Main screen layout
     Box(
         modifier = Modifier
@@ -154,7 +154,7 @@ fun VehicleSelectionPreviewScreen(
         ) {
             // Spacer for the nav bar with extra padding for visual separation
             Spacer(modifier = Modifier.height(120.dp))
-            
+
             // Ad Card with animation
             if (adData != null) {
                 Box(
@@ -171,7 +171,7 @@ fun VehicleSelectionPreviewScreen(
                     val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
                         viewModel.isVideoCreative(creative)
                     } ?: false
-                    
+
                     if (isVideoAd) {
                         // Render video player for video ads
                         Box(
@@ -202,6 +202,7 @@ fun VehicleSelectionPreviewScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
+
                             // For wideImageOnly template (any style including "default")
                             AdTemplateMapper.isWideImageOnlyTemplate(adData) -> {
                                 // Use HorizontalAdCard which properly handles posterImage for wideImageOnly
@@ -218,6 +219,7 @@ fun VehicleSelectionPreviewScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
+
                             // Default fallback
                             else -> {
                                 AdCard(
@@ -233,7 +235,7 @@ fun VehicleSelectionPreviewScreen(
                     }
                 }
             }
-            
+
             // Vehicle icons row
             Row(
                 modifier = Modifier
@@ -251,10 +253,10 @@ fun VehicleSelectionPreviewScreen(
                     )
                 }
             }
-            
+
             // Spacer to push route summary to bottom
             Spacer(modifier = Modifier.weight(1f))
-            
+
             // Route summary card at the bottom
             Card(
                 modifier = Modifier
@@ -272,7 +274,7 @@ fun VehicleSelectionPreviewScreen(
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -285,13 +287,13 @@ fun VehicleSelectionPreviewScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f)
                         )
-                        
+
                         Text(
                             text = "→",
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.padding(horizontal = 8.dp)
                         )
-                        
+
                         Text(
                             text = "Destination",
                             style = MaterialTheme.typography.bodyMedium,
@@ -299,7 +301,7 @@ fun VehicleSelectionPreviewScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -311,7 +313,7 @@ fun VehicleSelectionPreviewScreen(
                             style = MaterialTheme.typography.titleSmall,
                             modifier = Modifier.weight(1f)
                         )
-                        
+
                         Text(
                             text = "7.2 miles",
                             style = MaterialTheme.typography.titleSmall,
@@ -322,7 +324,7 @@ fun VehicleSelectionPreviewScreen(
                 }
             }
         }
-        
+
         // Navigation bar with title - placed on top with high z-index
         Box(
             modifier = Modifier
@@ -337,17 +339,13 @@ fun VehicleSelectionPreviewScreen(
                 isRefreshing = isRefreshing
             )
         }
-        
+
         // Theme toggle circles removed to avoid overlaying navigation buttons
     }
 }
 
 @Composable
-fun VehicleIcon(
-    icon: ImageVector,
-    label: String,
-    isSelected: Boolean
-) {
+fun VehicleIcon(icon: ImageVector, label: String, isSelected: Boolean) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -358,8 +356,11 @@ fun VehicleIcon(
                 .size(56.dp)
                 .clip(CircleShape)
                 .background(
-                    if (isSelected) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.surfaceVariant
+                    if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    }
                 )
         ) {
             Icon(
@@ -369,13 +370,16 @@ fun VehicleIcon(
                 modifier = Modifier.size(28.dp)
             )
         }
-        
+
         // Label
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            color = if (isSelected) MaterialTheme.colorScheme.primary 
-                   else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (isSelected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
             modifier = Modifier.padding(top = 4.dp)
         )
     }

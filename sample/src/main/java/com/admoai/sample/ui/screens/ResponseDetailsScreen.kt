@@ -45,39 +45,36 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
+import com.admoai.sample.ui.MainViewModel
 import com.admoai.sdk.model.response.Content
 import com.admoai.sdk.model.response.ContentType
-import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sdk.model.response.CreativeMetadata
+import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sdk.model.response.TrackingInfo
-import com.admoai.sample.ui.MainViewModel
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import androidx.compose.ui.platform.LocalUriHandler
 
 /**
  * Screen that displays the response details after requesting ads
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ResponseDetailsScreen(
-    viewModel: MainViewModel,
-    onNavigateBack: () -> Unit
-) {
+fun ResponseDetailsScreen(viewModel: MainViewModel, onNavigateBack: () -> Unit) {
     val decisionResponse by viewModel.decisionResponse.collectAsState()
     val formattedResponse by viewModel.formattedResponse.collectAsState()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    
+
     val tabs = listOf("Contents", "Info", "Tracking", "Validation", "JSON")
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -107,18 +104,18 @@ fun ResponseDetailsScreen(
                     Tab(
                         selected = selectedTabIndex == index,
                         onClick = { selectedTabIndex = index },
-                        text = { 
+                        text = {
                             Text(
                                 text = title,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
-                            ) 
+                            )
                         },
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
                 }
             }
-            
+
             when (selectedTabIndex) {
                 0 -> ContentsTab(decisionResponse)
                 1 -> InfoTab(decisionResponse)
@@ -173,7 +170,7 @@ fun ContentsTab(decisionResponse: DecisionResponse?) {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
-            
+
             if (decisionResponse != null) {
                 val dataList = decisionResponse.data
                 if (dataList != null && dataList.isNotEmpty()) {
@@ -228,17 +225,21 @@ private fun ContentItem(content: Content) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             val contentValue = (content.value as? JsonPrimitive)?.contentOrNull
-            val isImage = content.type == ContentType.IMAGE || 
-                         (content.key?.contains("image", ignoreCase = true) == true) ||
-                         (contentValue?.let { url ->
-                             url.contains("http") && (url.contains(".jpg") || url.contains(".jpeg") || 
-                             url.contains(".png") || url.contains(".gif") || url.contains(".webp"))
-                         } == true)
-            
+            val isImage = content.type == ContentType.IMAGE ||
+                (content.key?.contains("image", ignoreCase = true) == true) ||
+                (
+                    contentValue?.let { url ->
+                        url.contains("http") && (
+                            url.contains(".jpg") || url.contains(".jpeg") ||
+                                url.contains(".png") || url.contains(".gif") || url.contains(".webp")
+                            )
+                    } == true
+                    )
+
             when {
                 isImage && !contentValue.isNullOrBlank() -> {
                     SubcomposeAsyncImage(
@@ -261,6 +262,7 @@ private fun ContentItem(content: Content) {
                                     )
                                 }
                             }
+
                             is coil.compose.AsyncImagePainter.State.Error -> {
                                 Box(
                                     modifier = Modifier
@@ -286,10 +288,11 @@ private fun ContentItem(content: Content) {
                                     }
                                 }
                             }
+
                             else -> SubcomposeAsyncImageContent()
                         }
                     }
-                    
+
                     // Show URL below image for reference
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -302,6 +305,7 @@ private fun ContentItem(content: Content) {
                         maxLines = 2
                     )
                 }
+
                 content.type == ContentType.COLOR -> {
                     val colorValue = (content.value as? JsonPrimitive)?.contentOrNull ?: "#000000"
                     val color = try {
@@ -309,7 +313,7 @@ private fun ContentItem(content: Content) {
                     } catch (e: Exception) {
                         MaterialTheme.colorScheme.primary
                     }
-                    
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -320,9 +324,9 @@ private fun ContentItem(content: Content) {
                                 .background(color)
                                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
                         )
-                        
+
                         Spacer(modifier = Modifier.width(12.dp))
-                        
+
                         Text(
                             text = colorValue,
                             style = MaterialTheme.typography.bodyMedium,
@@ -330,6 +334,7 @@ private fun ContentItem(content: Content) {
                         )
                     }
                 }
+
                 content.type == ContentType.TEXT -> {
                     Text(
                         text = (content.value as? JsonPrimitive)?.contentOrNull ?: "No text value",
@@ -337,6 +342,7 @@ private fun ContentItem(content: Content) {
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+
                 content.type == ContentType.URL -> {
                     val urlValue = (content.value as? JsonPrimitive)?.contentOrNull ?: "No URL"
                     Text(
@@ -347,6 +353,7 @@ private fun ContentItem(content: Content) {
                         textDecoration = TextDecoration.Underline
                     )
                 }
+
                 else -> {
                     Text(
                         text = (content.value as? JsonPrimitive)?.contentOrNull ?: "No value",
@@ -377,7 +384,7 @@ fun InfoTab(decisionResponse: DecisionResponse?) {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
-            
+
             if (decisionResponse != null) {
                 // Response level info
                 Card(
@@ -401,7 +408,7 @@ fun InfoTab(decisionResponse: DecisionResponse?) {
                         InfoRow("Warnings Count", "${decisionResponse.warnings?.size ?: 0}")
                     }
                 }
-                
+
                 // Ad level info
                 decisionResponse.data?.forEachIndexed { index, ad ->
                     Card(
@@ -421,7 +428,7 @@ fun InfoTab(decisionResponse: DecisionResponse?) {
                             )
                             InfoRow("Placement", ad.placement)
                             InfoRow("Creatives Count", "${ad.creatives.size}")
-                            
+
                             // Creative info
                             ad.creatives.forEachIndexed { creativeIndex, creative ->
                                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -433,12 +440,12 @@ fun InfoTab(decisionResponse: DecisionResponse?) {
                                 )
                                 InfoRow("Contents Count", "${creative.contents.size}")
                                 InfoRow("Advertiser", creative.advertiser.name ?: "Unknown")
-                                
+
                                 // Display template information using the new fields
                                 // Using safe calls to avoid smart cast issues across module boundaries
                                 val templateKey = creative.template?.key
                                 val templateStyle = creative.template?.style
-                                
+
                                 if (templateKey != null) {
                                     InfoRow("Template Key", templateKey)
                                     if (templateStyle != null) {
@@ -485,7 +492,7 @@ fun InfoRow(key: String, value: String) {
 @Composable
 fun TrackingTab(decisionResponse: DecisionResponse?) {
     val uriHandler = LocalUriHandler.current
-    
+
     Surface(
         modifier = Modifier
             .fillMaxSize()
@@ -502,7 +509,7 @@ fun TrackingTab(decisionResponse: DecisionResponse?) {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
-            
+
             if (decisionResponse != null) {
                 val dataList = decisionResponse.data
                 if (dataList != null && dataList.isNotEmpty()) {
@@ -523,7 +530,7 @@ fun TrackingTab(decisionResponse: DecisionResponse?) {
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.padding(bottom = 12.dp)
                                     )
-                                    
+
                                     // Impression tracking
                                     creative.tracking.impressions?.forEach { trackingDetail ->
                                         TrackingUrlItem(
@@ -532,7 +539,7 @@ fun TrackingTab(decisionResponse: DecisionResponse?) {
                                             onClick = { uriHandler.openUri(trackingDetail.url) }
                                         )
                                     }
-                                    
+
                                     // Click tracking
                                     creative.tracking.clicks?.forEach { trackingDetail ->
                                         TrackingUrlItem(
@@ -541,7 +548,7 @@ fun TrackingTab(decisionResponse: DecisionResponse?) {
                                             onClick = { uriHandler.openUri(trackingDetail.url) }
                                         )
                                     }
-                                    
+
                                     // Custom tracking
                                     creative.tracking.custom?.forEach { trackingDetail ->
                                         TrackingUrlItem(
@@ -565,11 +572,7 @@ fun TrackingTab(decisionResponse: DecisionResponse?) {
 }
 
 @Composable
-fun TrackingUrlItem(
-    label: String,
-    url: String,
-    onClick: () -> Unit
-) {
+fun TrackingUrlItem(label: String, url: String, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -628,7 +631,7 @@ fun ValidationTab(decisionResponse: DecisionResponse?) {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
-            
+
             if (decisionResponse != null) {
                 // Success status
                 Card(
@@ -636,10 +639,11 @@ fun ValidationTab(decisionResponse: DecisionResponse?) {
                         .fillMaxWidth()
                         .padding(bottom = 16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (decisionResponse.success) 
-                            MaterialTheme.colorScheme.primaryContainer 
-                        else 
+                        containerColor = if (decisionResponse.success) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
                             MaterialTheme.colorScheme.errorContainer
+                        }
                     )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -652,14 +656,15 @@ fun ValidationTab(decisionResponse: DecisionResponse?) {
                         Text(
                             text = if (decisionResponse.success) "Success" else "Failed",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (decisionResponse.success) 
-                                MaterialTheme.colorScheme.onPrimaryContainer 
-                            else 
+                            color = if (decisionResponse.success) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
                                 MaterialTheme.colorScheme.onErrorContainer
+                            }
                         )
                     }
                 }
-                
+
                 // Errors
                 val errorsList = decisionResponse.errors
                 if (errorsList != null && errorsList.isNotEmpty()) {
@@ -690,7 +695,7 @@ fun ValidationTab(decisionResponse: DecisionResponse?) {
                         }
                     }
                 }
-                
+
                 // Warnings
                 val warningsList = decisionResponse.warnings
                 if (warningsList != null && warningsList.isNotEmpty()) {
@@ -721,7 +726,7 @@ fun ValidationTab(decisionResponse: DecisionResponse?) {
                         }
                     }
                 }
-                
+
                 // Response metadata and summary
                 Card(
                     modifier = Modifier
@@ -738,13 +743,13 @@ fun ValidationTab(decisionResponse: DecisionResponse?) {
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
-                        
+
                         Text(
                             text = "Data Count: ${decisionResponse.data?.size ?: 0}",
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(bottom = 4.dp)
                         )
-                        
+
                         decisionResponse.metadata?.let { _ ->
                             Text(
                                 text = "Metadata: Available",

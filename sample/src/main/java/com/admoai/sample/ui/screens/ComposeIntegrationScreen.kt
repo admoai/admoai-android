@@ -13,13 +13,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.admoai.sample.ui.MainViewModel
+import com.admoai.sample.ui.components.AdCard
 import com.admoai.sdk.Admoai
 import com.admoai.sdk.compose.AdState
 import com.admoai.sdk.compose.rememberAdState
 import com.admoai.sdk.model.request.DecisionRequest
 import com.admoai.sdk.model.request.Placement
-import com.admoai.sample.ui.MainViewModel
-import com.admoai.sample.ui.components.AdCard
 
 /**
  * Screen demonstrating SDK's Compose integration with rememberAdState
@@ -27,10 +27,7 @@ import com.admoai.sample.ui.components.AdCard
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ComposeIntegrationScreen(
-    viewModel: MainViewModel,
-    onNavigateBack: () -> Unit
-) {
+fun ComposeIntegrationScreen(viewModel: MainViewModel, onNavigateBack: () -> Unit) {
     // Use a native ad placement (home) for this demo - video ads don't render well in AdCard
     // The demo is about showing rememberAdState usage, not video playback
     val decisionRequest = remember {
@@ -38,7 +35,7 @@ fun ComposeIntegrationScreen(
             .addPlacement(Placement(key = "home", format = null)) // Native ad placement
             .build()
     }
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -67,24 +64,24 @@ fun ComposeIntegrationScreen(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = "This screen demonstrates how to use the AdMoai SDK's declarative Compose integration with rememberAdState.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             // SDK Compose Integration Demo
             ComposeApproachDemo(
                 decisionRequest = decisionRequest
             )
-            
+
             Spacer(modifier = Modifier.height(32.dp))
-            
+
             // Comparison with ViewModel approach
             ViewModelApproachDemo(
                 viewModel = viewModel,
@@ -98,12 +95,10 @@ fun ComposeIntegrationScreen(
  * Demonstrates the SDK's declarative Compose approach using rememberAdState
  */
 @Composable
-private fun ComposeApproachDemo(
-    decisionRequest: DecisionRequest
-) {
+private fun ComposeApproachDemo(decisionRequest: DecisionRequest) {
     // Track reload key to trigger new ad requests
     var reloadKey by remember { mutableStateOf(0) }
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -121,17 +116,17 @@ private fun ComposeApproachDemo(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = "Using rememberAdState composable:",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // This is the key demonstration: Using the SDK's Compose integration
             // The reloadKey changes to trigger new ad requests
             val adState = rememberAdState(
@@ -139,7 +134,7 @@ private fun ComposeApproachDemo(
                 decisionRequest = decisionRequest,
                 key = reloadKey // This key changes to trigger reload
             )
-            
+
             when (adState) {
                 is AdState.Idle -> {
                     Text(
@@ -150,7 +145,7 @@ private fun ComposeApproachDemo(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
-                
+
                 is AdState.Loading -> {
                     Box(
                         modifier = Modifier.fillMaxWidth(),
@@ -171,7 +166,7 @@ private fun ComposeApproachDemo(
                         }
                     }
                 }
-                
+
                 is AdState.Success -> {
                     Column {
                         Text(
@@ -180,17 +175,17 @@ private fun ComposeApproachDemo(
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         Text(
                             text = "Ads: ${adState.response.data?.size ?: 0}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         // Display the ad using the existing AdCard component
                         val adData = adState.response.data?.firstOrNull()
                         if (adData != null) {
@@ -202,7 +197,7 @@ private fun ComposeApproachDemo(
                         }
                     }
                 }
-                
+
                 is AdState.Error -> {
                     Column {
                         Text(
@@ -211,9 +206,9 @@ private fun ComposeApproachDemo(
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.error
                         )
-                        
+
                         Spacer(modifier = Modifier.height(4.dp))
-                        
+
                         Text(
                             text = adState.exception.message ?: "Unknown error",
                             style = MaterialTheme.typography.bodySmall,
@@ -222,12 +217,12 @@ private fun ComposeApproachDemo(
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             // Add reload button for Compose approach
             Button(
-                onClick = { 
+                onClick = {
                     reloadKey++ // Increment key to trigger reload
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -243,19 +238,16 @@ private fun ComposeApproachDemo(
  * Shows the traditional ViewModel approach for comparison
  */
 @Composable
-private fun ViewModelApproachDemo(
-    viewModel: MainViewModel,
-    decisionRequest: DecisionRequest
-) {
+private fun ViewModelApproachDemo(viewModel: MainViewModel, decisionRequest: DecisionRequest) {
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val adResponse by viewModel.response.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
-    
+
     // Load ads using the provided decision request
     LaunchedEffect(decisionRequest) {
         viewModel.loadAds(decisionRequest)
     }
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -273,17 +265,17 @@ private fun ViewModelApproachDemo(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = "Using ViewModel + StateFlow (current sample approach):",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             when {
                 isLoading -> {
                     Box(
@@ -306,7 +298,7 @@ private fun ViewModelApproachDemo(
                         }
                     }
                 }
-                
+
                 errorMessage != null -> {
                     Column {
                         Text(
@@ -315,9 +307,9 @@ private fun ViewModelApproachDemo(
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.error
                         )
-                        
+
                         Spacer(modifier = Modifier.height(4.dp))
-                        
+
                         Text(
                             text = errorMessage ?: "Unknown error",
                             style = MaterialTheme.typography.bodySmall,
@@ -325,7 +317,7 @@ private fun ViewModelApproachDemo(
                         )
                     }
                 }
-                
+
                 adResponse != null -> {
                     val response = adResponse // Create local variable to avoid smart cast issues
                     Column {
@@ -335,17 +327,17 @@ private fun ViewModelApproachDemo(
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         Text(
                             text = "Ads: ${response?.data?.size ?: 0}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         // Display the ad using the existing AdCard component
                         val adData = response?.data?.firstOrNull()
                         if (adData != null) {
@@ -357,7 +349,7 @@ private fun ViewModelApproachDemo(
                         }
                     }
                 }
-                
+
                 else -> {
                     Text(
                         text = "Ready to load ad via ViewModel",
@@ -368,9 +360,9 @@ private fun ViewModelApproachDemo(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             Button(
                 onClick = { viewModel.loadAds(decisionRequest) },
                 modifier = Modifier.fillMaxWidth(),

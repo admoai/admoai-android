@@ -11,7 +11,11 @@ import org.junit.Test
  */
 class JourneyMetadataTest {
 
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true; explicitNulls = false }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        explicitNulls = false
+    }
 
     @Test
     fun `parses impId, skipOffsetSeconds and endCardMode`() {

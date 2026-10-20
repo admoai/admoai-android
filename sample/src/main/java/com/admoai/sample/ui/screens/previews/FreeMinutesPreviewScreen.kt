@@ -1,11 +1,13 @@
 package com.admoai.sample.ui.screens.previews
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,34 +28,32 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import android.content.Intent
-import android.net.Uri
-import coil.compose.AsyncImage
-import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
-import com.admoai.sdk.model.response.AdData
+import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
+import com.admoai.sdk.model.response.AdData
 import kotlinx.coroutines.delay
 
 /**
  * Free Minutes placement preview screen
- * 
+ *
  * Features:
  * - Prize boxes at the top with notification badges (indicating available video ads)
  * - Ride history section at the bottom with greyed-out mock UI
@@ -75,7 +75,7 @@ fun FreeMinutesPreviewScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     var isContentVisible by remember { mutableStateOf(adData != null) }
     var showVideoPlayer by remember { mutableStateOf(false) }
-    
+
     // Animation for content visibility
     val contentAlpha by animateFloatAsState(
         targetValue = if (isContentVisible) 1f else 0.5f,
@@ -91,14 +91,14 @@ fun FreeMinutesPreviewScreen(
             onRefreshClick()
         }
     }
-    
+
     // Reset isRefreshing when loading completes
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
         }
     }
-    
+
     // Show content when ad data becomes available
     LaunchedEffect(adData) {
         if (adData != null && !isLoading && !isRefreshing) {
@@ -124,7 +124,7 @@ fun FreeMinutesPreviewScreen(
                 isRefreshing = isRefreshing,
                 showRefreshButton = false
             )
-            
+
             // Content
             Column(
                 modifier = Modifier
@@ -139,7 +139,7 @@ fun FreeMinutesPreviewScreen(
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)
                 )
-                
+
                 // Prize boxes row with notification badges
                 Row(
                     modifier = Modifier
@@ -160,9 +160,9 @@ fun FreeMinutesPreviewScreen(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
-                
+
                 // Ride History section (greyed-out mock UI)
                 Column(
                     modifier = Modifier
@@ -176,7 +176,7 @@ fun FreeMinutesPreviewScreen(
                         color = Color.Gray.copy(alpha = 0.8f),
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
-                    
+
                     // Grid of ride history cards
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
@@ -192,7 +192,7 @@ fun FreeMinutesPreviewScreen(
                 }
             }
         }
-        
+
         // Fullscreen video player overlay
         if (showVideoPlayer && adData != null) {
             FullscreenVideoPlayer(
@@ -205,11 +205,7 @@ fun FreeMinutesPreviewScreen(
 }
 
 @Composable
-private fun RowScope.PrizeBox(
-    hasNotification: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+private fun RowScope.PrizeBox(hasNotification: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     // Subtle pulse animation
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val scale by infiniteTransition.animateFloat(
@@ -221,7 +217,7 @@ private fun RowScope.PrizeBox(
         ),
         label = "scale"
     )
-    
+
     Box(
         modifier = modifier
             .aspectRatio(1f)
@@ -246,9 +242,9 @@ private fun RowScope.PrizeBox(
                 modifier = Modifier.size(36.dp),
                 tint = Color(0xFF6750A4) // Vibrant purple
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Text
             Text(
                 text = "Free\nMinutes",
@@ -259,7 +255,7 @@ private fun RowScope.PrizeBox(
                 lineHeight = 16.sp
             )
         }
-        
+
         // Notification badge (only on first box)
         if (hasNotification) {
             Badge(
@@ -315,9 +311,9 @@ private fun RideHistoryCard(index: Int) {
                     modifier = Modifier.size(20.dp)
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Date mock
             Box(
                 modifier = Modifier
@@ -325,9 +321,9 @@ private fun RideHistoryCard(index: Int) {
                     .height(12.dp)
                     .background(Color.LightGray.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
             )
-            
+
             Spacer(modifier = Modifier.height(6.dp))
-            
+
             // Route info mock
             Box(
                 modifier = Modifier
@@ -335,9 +331,9 @@ private fun RideHistoryCard(index: Int) {
                     .height(14.dp)
                     .background(Color.LightGray.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
             )
-            
+
             Spacer(modifier = Modifier.height(6.dp))
-            
+
             // Price mock
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -350,7 +346,7 @@ private fun RideHistoryCard(index: Int) {
                         .height(16.dp)
                         .background(Color.LightGray.copy(alpha = 0.18f), RoundedCornerShape(4.dp))
                 )
-                
+
                 // Status indicator
                 Box(
                     modifier = Modifier
@@ -370,11 +366,7 @@ private fun RideHistoryCard(index: Int) {
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
-private fun FullscreenVideoPlayer(
-    adData: AdData,
-    viewModel: MainViewModel,
-    onClose: () -> Unit
-) {
+private fun FullscreenVideoPlayer(adData: AdData, viewModel: MainViewModel, onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showCloseButton by remember { mutableStateOf(true) }
@@ -382,16 +374,18 @@ private fun FullscreenVideoPlayer(
     var duration by remember { mutableStateOf(0f) }
     var hasCompleted by remember { mutableStateOf(false) }
     var firstFrameRendered by remember { mutableStateOf(false) }
-    
+
     // Extract creative and content from ad data
     val creative = adData.creatives.firstOrNull() ?: return
     val companionHeadline = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "companionHeadline")
-    val overlayPercentage = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "overlayAtPercentage")?.toFloatOrNull() ?: 1.0f
-    
+    val overlayPercentage =
+        com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "overlayAtPercentage")?.toFloatOrNull()
+            ?: 1.0f
+
     // Extract video URL from creative
     var videoUrl by remember { mutableStateOf<String?>(null) }
     var isLoadingVideo by remember { mutableStateOf(true) }
-    
+
     // Load video URL from VAST tag if present
     LaunchedEffect(creative.vast?.tagUrl) {
         creative.vast?.tagUrl?.let { tagUrl ->
@@ -400,15 +394,19 @@ private fun FullscreenVideoPlayer(
                     val connection = java.net.URL(tagUrl).openConnection() as java.net.HttpURLConnection
                     connection.requestMethod = "GET"
                     connection.connect()
-                    
+
                     val vastXml = connection.inputStream.bufferedReader().use { it.readText() }
-                    
+
                     // Parse VAST XML to extract video URL
-                    val mediaFileUrl = Regex("<MediaFile[^>]*>\\s*<!\\[CDATA\\[([^\\]]+)\\]\\]>\\s*</MediaFile>", RegexOption.IGNORE_CASE)
-                        .find(vastXml)?.groupValues?.get(1)?.trim()
-                        ?: Regex("<MediaFile[^>]*>([^<]+)</MediaFile>", RegexOption.IGNORE_CASE)
+                    val mediaFileUrl =
+                        Regex(
+                            "<MediaFile[^>]*>\\s*<!\\[CDATA\\[([^\\]]+)\\]\\]>\\s*</MediaFile>",
+                            RegexOption.IGNORE_CASE
+                        )
                             .find(vastXml)?.groupValues?.get(1)?.trim()
-                    
+                            ?: Regex("<MediaFile[^>]*>([^<]+)</MediaFile>", RegexOption.IGNORE_CASE)
+                                .find(vastXml)?.groupValues?.get(1)?.trim()
+
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         videoUrl = mediaFileUrl
                         isLoadingVideo = false
@@ -426,19 +424,19 @@ private fun FullscreenVideoPlayer(
             isLoadingVideo = false
         }
     }
-    
+
     // Create ExoPlayer with stable key to prevent recomposition
     val exoPlayer = remember(context) {
         ExoPlayer.Builder(context).build()
     }
-    
+
     // Setup media source when videoUrl is available
     LaunchedEffect(videoUrl) {
         videoUrl?.let { url ->
             val mediaItem = MediaItem.Builder()
                 .setUri(android.net.Uri.parse(url))
                 .build()
-            
+
             exoPlayer.apply {
                 setMediaItem(mediaItem)
                 prepare()
@@ -447,23 +445,23 @@ private fun FullscreenVideoPlayer(
             }
         }
     }
-    
+
     // Back button is shown immediately (no delay)
-    
+
     // Track video progress and completion
     LaunchedEffect(exoPlayer) {
         exoPlayer.addListener(object : Player.Listener {
             override fun onRenderedFirstFrame() {
                 firstFrameRendered = true
             }
-            
+
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) {
                     hasCompleted = true
                 }
             }
         })
-        
+
         while (true) {
             delay(100)
             if (exoPlayer.duration > 0) {
@@ -472,14 +470,14 @@ private fun FullscreenVideoPlayer(
             }
         }
     }
-    
+
     // Clean up player when composable is disposed
     DisposableEffect(Unit) {
         onDispose {
             exoPlayer.release()
         }
     }
-    
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -496,7 +494,7 @@ private fun FullscreenVideoPlayer(
             },
             modifier = Modifier.fillMaxSize()
         )
-        
+
         // Close button with message (hide when video completes)
         if (showCloseButton && !hasCompleted) {
             Row(
@@ -522,7 +520,7 @@ private fun FullscreenVideoPlayer(
                         modifier = Modifier.size(24.dp)
                     )
                 }
-                
+
                 // Message text from companionHeadline
                 if (!companionHeadline.isNullOrBlank()) {
                     Text(
@@ -536,7 +534,7 @@ private fun FullscreenVideoPlayer(
                 }
             }
         }
-        
+
         // Progress bar at the bottom (hide when video completes)
         if (!hasCompleted) {
             LinearProgressIndicator(
@@ -550,7 +548,7 @@ private fun FullscreenVideoPlayer(
                 trackColor = Color.White.copy(alpha = 0.3f)
             )
         }
-        
+
         // End-card (shows when video completes)
         if (hasCompleted) {
             EndCard(
@@ -566,18 +564,21 @@ private fun FullscreenVideoPlayer(
  * Uses companionEndcard* fields from ad response
  */
 @Composable
-private fun EndCard(
-    creative: com.admoai.sdk.model.response.Creative,
-    onClose: () -> Unit
-) {
+private fun EndCard(creative: com.admoai.sdk.model.response.Creative, onClose: () -> Unit) {
     val context = LocalContext.current
-    
+
     // Extract endcard content from creative
     val endcardImage = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "companionEndcardImage")
-    val endcardHeadline = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "companionEndcardHeadline")
+    val endcardHeadline = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(
+        creative,
+        "companionEndcardHeadline"
+    )
     val endcardCta = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "companionEndcardCta")
-    val endcardDestinationUrl = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(creative, "companionEndcardDestinationUrl")
-    
+    val endcardDestinationUrl = com.admoai.sample.ui.mapper.AdTemplateMapper.getContentValue(
+        creative,
+        "companionEndcardDestinationUrl"
+    )
+
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -590,7 +591,7 @@ private fun EndCard(
                 contentScale = ContentScale.Crop
             )
         }
-        
+
         // X close button with helper text at top
         Row(
             modifier = Modifier
@@ -612,9 +613,9 @@ private fun EndCard(
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
-            
+
             Spacer(modifier = Modifier.width(8.dp))
-            
+
             // X close button (RIGHT side)
             Box(
                 modifier = Modifier
@@ -632,7 +633,7 @@ private fun EndCard(
                 )
             }
         }
-        
+
         // CTA button at bottom-center from companionEndcardCta
         if (!endcardCta.isNullOrBlank() && !endcardDestinationUrl.isNullOrBlank()) {
             Button(

@@ -1,5 +1,8 @@
 package com.admoai.sample.ui.screens.previews
 
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -41,20 +44,17 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import android.content.Intent
-import android.net.Uri
-import android.util.Log
-import com.admoai.sdk.model.response.AdData
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
 import com.admoai.sample.ui.components.HorizontalAdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
+import com.admoai.sdk.model.response.AdData
 import kotlinx.coroutines.delay
 
 /**
  * Waiting placement preview screen
- * 
+ *
  * Shows:
  * - Grey background in main area (simulating map)
  * - Bottom sheet with loading indicator and ad card
@@ -70,7 +70,7 @@ fun WaitingPreviewScreen(
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
     onAdClick: (AdData) -> Unit = {},
-    onTrackEvent: (String, String) -> Unit = {_, _ -> },
+    onTrackEvent: (String, String) -> Unit = { _, _ -> },
     onThemeToggle: () -> Unit
 ) {
     val context = LocalContext.current
@@ -78,7 +78,7 @@ fun WaitingPreviewScreen(
     var isCardVisible by remember { mutableStateOf(adData != null) }
     var currentPage by remember { mutableIntStateOf(0) }
     val pageCount = 3 // Number of carousel pages
-    
+
     // Auto advance carousel pages
     LaunchedEffect(Unit) {
         while (true) {
@@ -86,7 +86,7 @@ fun WaitingPreviewScreen(
             currentPage = (currentPage + 1) % pageCount
         }
     }
-    
+
     // Animation for ad card visibility
     val cardAlpha by animateFloatAsState(
         targetValue = if (isCardVisible) 1f else 0f,
@@ -105,14 +105,14 @@ fun WaitingPreviewScreen(
             onRefreshClick()
         }
     }
-    
+
     // Reset isRefreshing when loading completes
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
         }
     }
-    
+
     // Show/hide card when ad data changes (both initial load and refresh)
     LaunchedEffect(adData) {
         if (adData != null && !isLoading && !isRefreshing) {
@@ -133,12 +133,13 @@ fun WaitingPreviewScreen(
                 .zIndex(1f)
         ) {
             // Wait background area (empty grey area)
-            Spacer(modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
             )
         }
-        
+
         // Navigation bar - placed with high z-index to ensure it's clickable
         Box(
             modifier = Modifier
@@ -153,7 +154,7 @@ fun WaitingPreviewScreen(
                 isRefreshing = isRefreshing
             )
         }
-        
+
         // Theme toggle circles removed to avoid overlaying navigation buttons
 
         // Fixed bottom layout - not a modal sheet
@@ -180,7 +181,7 @@ fun WaitingPreviewScreen(
                         .clip(RoundedCornerShape(2.dp))
                         .background(Color.LightGray)
                 )
-                
+
                 // Loading indicator row
                 Row(
                     modifier = Modifier
@@ -195,7 +196,7 @@ fun WaitingPreviewScreen(
                             .width(60.dp)
                             .padding(end = 12.dp)
                     )
-                    
+
                     // Looking for a driver text
                     Text(
                         text = "Looking for a driver...",
@@ -203,7 +204,7 @@ fun WaitingPreviewScreen(
                         color = Color.Gray
                     )
                 }
-                
+
                 // Ad card with animation
                 // Only show ad card when adData is available
                 if (adData != null) {
@@ -218,10 +219,10 @@ fun WaitingPreviewScreen(
                         val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
                             viewModel.isVideoCreative(creative)
                         } ?: false
-                        
+
                         // Check if this is normal_videos template (video with companion content in one card)
                         val isNormalVideos = com.admoai.sample.ui.mapper.AdTemplateMapper.isNormalVideosTemplate(adData)
-                        
+
                         if (isNormalVideos) {
                             // Render VideoAdCard for normal_videos template (video + companion in unified card)
                             com.admoai.sample.ui.components.VideoAdCard(
@@ -251,7 +252,7 @@ fun WaitingPreviewScreen(
                             AdCard(
                                 adData = adData,
                                 placementKey = "waiting",
-                                onAdClick = { clickedAdData -> 
+                                onAdClick = { clickedAdData ->
                                     onAdClick(clickedAdData)
                                 },
                                 onTrackImpression = { url ->
@@ -274,13 +275,13 @@ fun WaitingPreviewScreen(
                         }
                     }
                 }
-                
+
                 // Page indicators - Only show for native ads (not video ads)
                 if (adData != null) {
                     val isVideoAd = adData.creatives.firstOrNull()?.let { creative ->
                         viewModel.isVideoCreative(creative)
                     } ?: false
-                    
+
                     if (!isVideoAd) {
                         Row(
                             modifier = Modifier
@@ -296,8 +297,11 @@ fun WaitingPreviewScreen(
                                         .size(8.dp)
                                         .clip(CircleShape)
                                         .background(
-                                            if (isSelected) MaterialTheme.colorScheme.primary
-                                            else Color.LightGray
+                                            if (isSelected) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                Color.LightGray
+                                            }
                                         )
                                 )
                             }
@@ -316,7 +320,7 @@ fun WaitingPreviewScreen(
 fun LoadingProgressBar(modifier: Modifier = Modifier) {
     // Create an animatable to handle the animation
     val progress = remember { Animatable(0f) }
-    
+
     // Animation effect
     LaunchedEffect(Unit) {
         // Continuous animation loop
@@ -326,24 +330,26 @@ fun LoadingProgressBar(modifier: Modifier = Modifier) {
                 targetValue = 1f,
                 animationSpec = tween(3000, easing = LinearEasing)
             )
-            
+
             // Reset to start
             progress.snapTo(0f)
-            
+
             // Small pause before restarting
             delay(50)
         }
     }
-    
-    Box(modifier = modifier
-        .height(6.dp)
-        .clip(RoundedCornerShape(3.dp))
-        .background(Color.White.copy(alpha = 0.3f))
+
+    Box(
+        modifier = modifier
+            .height(6.dp)
+            .clip(RoundedCornerShape(3.dp))
+            .background(Color.White.copy(alpha = 0.3f))
     ) {
-        Box(modifier = Modifier
-            .fillMaxHeight()
-            .fillMaxWidth(progress.value)
-            .background(Color.White.copy(alpha = 0.8f))
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(progress.value)
+                .background(Color.White.copy(alpha = 0.8f))
         )
     }
 }

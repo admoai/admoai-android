@@ -33,10 +33,10 @@ fun TargetingSection(
     val locationTargets by viewModel.locationTargets.collectAsState()
     val destinationTargets by viewModel.destinationTargets.collectAsState()
     val customTargets by viewModel.customTargets.collectAsState()
-    
+
     // Count selected geo targets
     val selectedGeoCount = geoTargets.count { it.isSelected }
-    
+
     SectionContainer(title = "Targeting") {
         // Add descriptive text explaining targeting purpose
         Text(
@@ -49,7 +49,7 @@ fun TargetingSection(
         SectionRow(
             icon = Icons.Outlined.Public,
             label = "Geo Targeting",
-            value = { 
+            value = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = if (selectedGeoCount == 0) "None" else "$selectedGeoCount cities",
@@ -65,12 +65,12 @@ fun TargetingSection(
             },
             onClick = onGeoTargetingClick
         )
-        
+
         // Location Targeting row
         SectionRow(
             icon = Icons.Outlined.LocationOn,
             label = "Location Targeting",
-            value = { 
+            value = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = if (locationTargets.isEmpty()) "None" else "${locationTargets.size} locations",
@@ -86,12 +86,12 @@ fun TargetingSection(
             },
             onClick = onLocationTargetingClick
         )
-        
+
         // Destination Targeting row
         SectionRow(
             icon = Icons.Outlined.LocationOn,
             label = "Destination Targeting",
-            value = { 
+            value = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = if (destinationTargets.isEmpty()) "None" else "${destinationTargets.size} destinations",
@@ -107,12 +107,12 @@ fun TargetingSection(
             },
             onClick = onDestinationTargetingClick
         )
-        
+
         // Custom Targeting row
         SectionRow(
             icon = Icons.Outlined.Tune,
             label = "Custom Targeting",
-            value = { 
+            value = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = if (customTargets.isEmpty()) "None" else "${customTargets.size} pairs",

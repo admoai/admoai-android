@@ -6,21 +6,21 @@ import com.admoai.sdk.exception.AdMoaiConfigurationException
 import com.admoai.sdk.exception.AdMoaiValidationException
 import com.admoai.sdk.model.common.JourneyOpt
 import com.admoai.sdk.model.request.DistanceBounds
-import com.admoai.sdk.model.response.matchedPoints
 import com.admoai.sdk.model.request.PlacementFormat
 import com.admoai.sdk.model.response.Creative
+import com.admoai.sdk.model.response.MatchedPoint
 import com.admoai.sdk.model.response.getContent
 import com.admoai.sdk.model.response.hasContents
+import com.admoai.sdk.model.response.matchedPoints
 import com.admoai.sdk.utils.getSkipOffset
 import com.admoai.sdk.utils.getVastTagUrl
 import com.admoai.sdk.utils.getVastXmlBase64
 import com.admoai.sdk.utils.isJourneyAd
 import com.admoai.sdk.utils.isJourneyCompletion
-import com.admoai.sdk.utils.journeyInstanceId
 import com.admoai.sdk.utils.isSkippable
 import com.admoai.sdk.utils.isVastTagDelivery
 import com.admoai.sdk.utils.isVastXmlDelivery
-import com.admoai.sdk.model.response.MatchedPoint
+import com.admoai.sdk.utils.journeyInstanceId
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.cio.CIO
@@ -73,15 +73,13 @@ private fun loadManifest(): JsonObject {
     return manifestJson.parseToJsonElement(stream.bufferedReader().readText()).jsonObject
 }
 
-private fun JsonObject.str(key: String): String? =
-    (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
+private fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
 private fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.content?.toIntOrNull()
 
 private fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitive)?.booleanOrNull
 
-private fun JsonObject.dbl(key: String): Double? =
-    (this[key] as? JsonPrimitive)?.content?.toDoubleOrNull()
+private fun JsonObject.dbl(key: String): Double? = (this[key] as? JsonPrimitive)?.content?.toDoubleOrNull()
 
 internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) {
     val scenarios = loadManifest()["scenarios"]!!.jsonArray
@@ -93,11 +91,7 @@ internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) 
     }
 }
 
-private fun reconfigure(
-    baseUrl: String,
-    apiVersion: String?,
-    engine: HttpClientEngine = CIO.create(),
-) {
+private fun reconfigure(baseUrl: String, apiVersion: String?, engine: HttpClientEngine = CIO.create()) {
     // configure() rather than initialize(): it swaps config on the running singleton without
     // resetting session state, which is exactly the distinction Wave 2 introduced.
     runBlocking {
@@ -107,8 +101,8 @@ private fun reconfigure(
                 apiVersion = apiVersion,
                 enableLogging = false,
                 defaultLanguage = "en",
-                networkClientEngine = engine,
-            ),
+                networkClientEngine = engine
+            )
         )
     }
     Admoai.getInstance().logSink = { _, _, _ -> }
@@ -147,7 +141,7 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
                     else -> null
                 },
                 advertiserId = placement.str("advertiserId"),
-                templateId = placement.str("templateId"),
+                templateId = placement.str("templateId")
             )
         }
         (request["custom"] as? JsonArray)?.forEach {
@@ -172,16 +166,16 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
                         north = bounds.dbl("north")!!,
                         south = bounds.dbl("south")!!,
                         east = bounds.dbl("east")!!,
-                        west = bounds.dbl("west")!!,
+                        west = bounds.dbl("west")!!
                     ),
-                    limit = limit,
+                    limit = limit
                 )
             } else {
                 builder.setDistanceTargeting(
                     latitude = lat,
                     longitude = lng,
                     radiusMeters = d.dbl("radius")!!,
-                    limit = limit,
+                    limit = limit
                 )
             }
         }
@@ -204,7 +198,7 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
                 expectedError.int("code")?.let { code ->
                     expect(
                         e.errors.any { it.code == code },
-                        "the engine error code is $code (got ${e.errors.map { it.code }})",
+                        "the engine error code is $code (got ${e.errors.map { it.code }})"
                     )
                 }
                 return
@@ -220,7 +214,7 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
         expect.int("decisions")?.let {
             expect(
                 decisions.size == it,
-                "the response carries $it decision(s) (got ${decisions.size})",
+                "the response carries $it decision(s) (got ${decisions.size})"
             )
         }
         if (expect.bool("decisionsMatchRequest") == true) {
@@ -297,7 +291,8 @@ private object BeaconRecorder {
         expectSuccess = false
     }
 
-    private val unsafe = setOf(HttpHeaders.ContentLength, HttpHeaders.ContentType, HttpHeaders.Host, HttpHeaders.TransferEncoding)
+    private val unsafe =
+        setOf(HttpHeaders.ContentLength, HttpHeaders.ContentType, HttpHeaders.Host, HttpHeaders.TransferEncoding)
 
     fun clear() {
         sent.clear()
@@ -325,7 +320,7 @@ private object BeaconRecorder {
             respond(
                 content = upstream.readRawBytes(),
                 status = upstream.status,
-                headers = headersOf(HttpHeaders.ContentType, upstream.contentType()?.toString() ?: "application/json"),
+                headers = headersOf(HttpHeaders.ContentType, upstream.contentType()?.toString() ?: "application/json")
             )
         } catch (e: Exception) {
             answered += url to -1
@@ -338,7 +333,7 @@ private object BeaconRecorder {
 private fun runPinTracking(
     pinTracking: JsonObject,
     served: List<MatchedPoint>,
-    fetchAgain: () -> List<MatchedPoint>,
+    fetchAgain: () -> List<MatchedPoint>
 ): String {
     val sdk = Admoai.getInstance()
     val responses = mutableListOf(served)
@@ -416,18 +411,33 @@ private fun runPinTracking(
     }
     expect(
         sent.size == expectedTotal,
-        "exactly $expectedTotal tracking GETs reach the engine, nothing stray (got ${sent.size})",
+        "exactly $expectedTotal tracking GETs reach the engine, nothing stray (got ${sent.size})"
     )
     if (e.bool("newResponseHasNewViewUrls") == true) {
         expect(responses.size >= 2, "the steps fetched a second response")
-        val perResponse = responses.map { pins -> pins.flatMap { p -> p.tracking?.views.orEmpty().map { it.url } }.toSet() }
-        for (i in perResponse.indices) for (j in perResponse.indices) {
-            if (j > i) expect(perResponse[i].intersect(perResponse[j]).isEmpty(), "a new response mints new view URLs for the same pins")
+        val perResponse = responses.map { pins ->
+            pins.flatMap { p -> p.tracking?.views.orEmpty().map { it.url } }.toSet()
+        }
+        for (i in perResponse.indices) {
+            for (j in perResponse.indices) {
+                if (j >
+                    i
+                ) {
+                    expect(
+                        perResponse[i].intersect(perResponse[j]).isEmpty(),
+                        "a new response mints new view URLs for the same pins"
+                    )
+                }
+            }
         }
     }
     if (e.bool("engineAcceptsEveryBeacon") == true) {
         val answerDeadline = System.currentTimeMillis() + 10_000
-        while (BeaconRecorder.trackingAnswers().size < sent.size && System.currentTimeMillis() < answerDeadline) Thread.sleep(50)
+        while (BeaconRecorder.trackingAnswers().size < sent.size &&
+            System.currentTimeMillis() < answerDeadline
+        ) {
+            Thread.sleep(50)
+        }
         val answers = BeaconRecorder.trackingAnswers()
         expect(answers.size == sent.size, "the engine answered every beacon (${answers.size}/${sent.size})")
         val rejected = answers.filter { it.second !in 200..399 }
@@ -475,11 +485,12 @@ private fun assertCreative(creative: Creative, e: JsonObject) {
     when (e.str("impressions")) {
         "required" -> expect(
             !creative.tracking.impressions.isNullOrEmpty(),
-            "an impression URL is exposed",
+            "an impression URL is exposed"
         )
+
         "forbidden" -> expect(
             creative.tracking.impressions.isNullOrEmpty(),
-            "NO engine-side impression URL is exposed (VAST owns it; both would double-count)",
+            "NO engine-side impression URL is exposed (VAST owns it; both would double-count)"
         )
     }
     // --- Sponsored Pin --------------------------------------------------------------------
@@ -504,7 +515,7 @@ private fun assertCreative(creative: Creative, e: JsonObject) {
             expect(p.id.isNotEmpty(), "point id is non-empty")
             expect(
                 p.id.startsWith("advertiser_location_"),
-                "point id is an Advertiser Location public id (got ${p.id})",
+                "point id is an Advertiser Location public id (got ${p.id})"
             )
             expect(p.name.isNotEmpty(), "point ${p.id} has a name")
             expect(p.distance >= 0, "point ${p.name} has a non-negative distance")
@@ -540,7 +551,7 @@ private fun assertCreative(creative: Creative, e: JsonObject) {
         val events = creative.tracking.videoEvents.orEmpty()
         expect(
             events.size == it,
-            "exactly $it video event URL(s) exposed (got ${events.size}: ${events.map { v -> v.key }})",
+            "exactly $it video event URL(s) exposed (got ${events.size}: ${events.map { v -> v.key }})"
         )
     }
     (e["videoEventKeys"] as? JsonArray)?.let { keys ->
@@ -562,13 +573,13 @@ private fun assertCreative(creative: Creative, e: JsonObject) {
     e.bool("metadataIsSkippable")?.let {
         expect(
             creative.metadata?.isSkippable == it,
-            "metadata.isSkippable is $it (got ${creative.metadata?.isSkippable})",
+            "metadata.isSkippable is $it (got ${creative.metadata?.isSkippable})"
         )
     }
     e.int("skipOffsetSecondsEquals")?.let {
         expect(
             creative.metadata?.skipOffsetSeconds == it,
-            "metadata.skipOffsetSeconds is $it (got ${creative.metadata?.skipOffsetSeconds})",
+            "metadata.skipOffsetSeconds is $it (got ${creative.metadata?.skipOffsetSeconds})"
         )
     }
     e.bool("helperIsSkippable")?.let {
@@ -579,13 +590,13 @@ private fun assertCreative(creative: Creative, e: JsonObject) {
     e.str("helperSkipOffsetEquals")?.let {
         expect(
             creative.getSkipOffset() == it,
-            "getSkipOffset() is \"$it\" (got ${creative.getSkipOffset()})",
+            "getSkipOffset() is \"$it\" (got ${creative.getSkipOffset()})"
         )
     }
     e.str("endCardModeEquals")?.let {
         expect(
             creative.metadata?.endCardMode == it,
-            "metadata.endCardMode is \"$it\" (got ${creative.metadata?.endCardMode})",
+            "metadata.endCardMode is \"$it\" (got ${creative.metadata?.endCardMode})"
         )
     }
 }
@@ -620,15 +631,15 @@ internal fun wireShapeGroup(h: Harness, defaultVersion: String) {
 
         expect(
             headers["X-Decision-Version"] == defaultVersion,
-            "X-Decision-Version is $defaultVersion (got ${headers["X-Decision-Version"]})",
+            "X-Decision-Version is $defaultVersion (got ${headers["X-Decision-Version"]})"
         )
         expect(
             headers["User-Agent"].orEmpty().startsWith("AdMoaiSDK/"),
-            "a User-Agent identifying the SDK is sent (got ${headers["User-Agent"]})",
+            "a User-Agent identifying the SDK is sent (got ${headers["User-Agent"]})"
         )
         expect(
             headers["Content-Type"].orEmpty().startsWith("application/json"),
-            "Content-Type is application/json (got ${headers["Content-Type"]})",
+            "Content-Type is application/json (got ${headers["Content-Type"]})"
         )
     }
 
@@ -704,7 +715,7 @@ internal fun metricEmissionGroup(h: Harness) {
 
     h.scenario(
         "Y2",
-        "one journey clicked 3x and another not clicked at all — the Journey CTR case (adhub#2580)",
+        "one journey clicked 3x and another not clicked at all — the Journey CTR case (adhub#2580)"
     ) {
         // Journey A: three clicks in ONE instance. Journey CTR must count it ONCE.
         val sidA = freshSession("y2a")
@@ -731,13 +742,13 @@ internal fun metricEmissionGroup(h: Harness) {
         // Those must differ. They do not today — that is adhub#2580.
         expect(
             a.journeyInstanceId() != b.journeyInstanceId(),
-            "the two arms are separate journey instances, so per-journey reach is measurable",
+            "the two arms are separate journey instances, so per-journey reach is measurable"
         )
     }
 
     h.scenario(
         "Y3",
-        "a completed journey spans real wall-clock, so Avg Duration and Avg Attention Time are non-zero",
+        "a completed journey spans real wall-clock, so Avg Duration and Avg Attention Time are non-zero"
     ) {
         requireFixture(PLACEMENT_CPT_FINAL_EARLY, "adhub#2362")
         val sid = freshSession("y3")
@@ -757,7 +768,7 @@ internal fun metricEmissionGroup(h: Harness) {
             ?: skip("final stage did not serve")
         expect(
             complete.isJourneyCompletion(),
-            "the final stage of a final_stage deal flips isCompletion, which is what closes the instance",
+            "the final stage of a final_stage deal flips isCompletion, which is what closes the instance"
         )
         expectIngestionAccepted(complete.tracking.impressions!!.first().url)
 

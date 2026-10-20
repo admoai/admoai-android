@@ -1,7 +1,7 @@
 package com.admoai.sample.ui.components
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Key
@@ -18,6 +17,7 @@ import androidx.compose.material.icons.outlined.ViewModule
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,24 +35,21 @@ import com.admoai.sample.ui.MainViewModel
  * Section to configure the ad placement
  */
 @Composable
-fun PlacementSection(
-    viewModel: MainViewModel,
-    onPlacementClick: () -> Unit = {}
-) {
+fun PlacementSection(viewModel: MainViewModel, onPlacementClick: () -> Unit = {}) {
     val placementKey by viewModel.placementKey.collectAsState()
     val formatFilterEnabled by viewModel.formatFilterEnabled.collectAsState()
     val selectedFormat by viewModel.selectedFormat.collectAsState()
-    
+
     SectionContainer(title = "Placement") {
         // Placement key row (clickable to open picker)
         SectionRow(
             icon = Icons.Outlined.Key,
             label = "Key",
-            value = { 
+            value = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = viewModel.availablePlacements.firstOrNull { 
-                            it.key == placementKey 
+                        text = viewModel.availablePlacements.firstOrNull {
+                            it.key == placementKey
                         }?.name ?: placementKey,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -66,27 +63,27 @@ fun PlacementSection(
             },
             onClick = onPlacementClick
         )
-        
+
         // Format filter toggle row
         SectionRow(
             icon = Icons.Outlined.ViewModule,
             label = "Use Format Filter",
-            value = { 
+            value = {
                 Switch(
                     checked = formatFilterEnabled,
                     onCheckedChange = { viewModel.setFormatFilterEnabled(it) }
                 )
             }
         )
-        
+
         // Format picker row (shown only when filter is enabled)
         if (formatFilterEnabled) {
             var showFormatPicker by remember { mutableStateOf(false) }
-            
+
             SectionRow(
                 icon = Icons.Outlined.ViewModule,
                 label = "Format",
-                value = { 
+                value = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = when (selectedFormat) {
@@ -106,7 +103,7 @@ fun PlacementSection(
                 },
                 onClick = { showFormatPicker = true }
             )
-            
+
             // Simple inline format picker (only native and video)
             if (showFormatPicker) {
                 Column(
@@ -131,10 +128,11 @@ fun PlacementSection(
                             Text(
                                 text = label,
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = if (selectedFormat == value) 
-                                    MaterialTheme.colorScheme.primary 
-                                else 
+                                color = if (selectedFormat == value) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
                                     MaterialTheme.colorScheme.onSurface
+                                }
                             )
                         }
                     }
@@ -145,20 +143,20 @@ fun PlacementSection(
             SectionRow(
                 icon = Icons.Outlined.ViewModule,
                 label = "Format",
-                value = { 
+                value = {
                     Text(
-                        "Any (optional)", 
+                        "Any (optional)",
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    ) 
+                    )
                 }
             )
         }
-        
+
         // Help text
         Text(
             text = "This demo uses a single placement object, but you can include multiple ones. " +
-                  "Format is optional—when disabled, the server may return native or video ads. " +
-                  "Enable the filter to explicitly request a specific format.",
+                "Format is optional—when disabled, the server may return native or video ads. " +
+                "Enable the filter to explicitly request a specific format.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -170,10 +168,7 @@ fun PlacementSection(
  * Container for a section with iOS-style header and content
  */
 @Composable
-fun SectionContainer(
-    title: String,
-    content: @Composable () -> Unit
-) {
+fun SectionContainer(title: String, content: @Composable () -> Unit) {
     Column(modifier = Modifier.padding(bottom = 16.dp)) {
         // iOS-style section header
         Column(
@@ -185,7 +180,7 @@ fun SectionContainer(
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
             )
-            
+
             // Light divider
             Box(
                 modifier = Modifier
@@ -194,7 +189,7 @@ fun SectionContainer(
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             )
         }
-        
+
         // Section content with a more subtle background
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -212,12 +207,7 @@ fun SectionContainer(
  * Generic row for a section with icon, label and value
  */
 @Composable
-fun SectionRow(
-    icon: Any,
-    label: String,
-    value: @Composable () -> Unit,
-    onClick: () -> Unit = {}
-) {
+fun SectionRow(icon: Any, label: String, value: @Composable () -> Unit, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -235,15 +225,15 @@ fun SectionRow(
                 )
             }
         }
-        
+
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge
         )
-        
+
         // Spacer
         Column(modifier = Modifier.weight(1f)) {}
-        
+
         // Value content
         value()
     }

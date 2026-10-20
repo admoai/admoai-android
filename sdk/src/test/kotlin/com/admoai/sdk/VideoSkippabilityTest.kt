@@ -30,9 +30,8 @@ class VideoSkippabilityTest {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun creative(contents: String, metadata: String? = null): Creative =
-        json.decodeFromString(
-            """
+    private fun creative(contents: String, metadata: String? = null): Creative = json.decodeFromString(
+        """
             {
               "contents": [$contents],
               "advertiser": {},
@@ -41,8 +40,8 @@ class VideoSkippabilityTest {
               "delivery": "json"
               ${if (metadata != null) ", \"metadata\": $metadata" else ""}
             }
-            """.trimIndent()
-        )
+        """.trimIndent()
+    )
 
     private fun metadata(extra: String): String =
         """

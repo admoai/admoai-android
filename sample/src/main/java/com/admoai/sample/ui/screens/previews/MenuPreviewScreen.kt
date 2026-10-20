@@ -22,11 +22,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.admoai.sdk.model.response.AdData
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.AdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
+import com.admoai.sdk.model.response.AdData
 import kotlinx.coroutines.launch
 
 /**
@@ -47,13 +47,13 @@ fun MenuPreviewScreen(
     onDetailsClick: () -> Unit,
     onRefreshClick: () -> Unit,
     onAdClick: (AdData) -> Unit,
-    onTrackEvent: (String, String) -> Unit = {_, _ -> }
+    onTrackEvent: (String, String) -> Unit = { _, _ -> }
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
     var isCardVisible by remember { mutableStateOf(adData != null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    
+
     // Animation values for card refresh effect
     val cardAlpha by animateFloatAsState(
         targetValue = if (isCardVisible) 1f else 0.5f,
@@ -72,14 +72,14 @@ fun MenuPreviewScreen(
             onRefreshClick()
         }
     }
-    
+
     // Reset isRefreshing when loading completes
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
         }
     }
-    
+
     // Show/hide card when ad data changes (both initial load and refresh)
     LaunchedEffect(adData) {
         if (adData != null && !isLoading && !isRefreshing) {
@@ -96,7 +96,7 @@ fun MenuPreviewScreen(
         drawerContent = {
             MenuDrawerContent()
         },
-        drawerState = drawerState,
+        drawerState = drawerState
     ) {
         Scaffold(
             topBar = {
@@ -134,7 +134,7 @@ fun MenuPreviewScreen(
                 ) {
                     // Menu content - side drawer style menu
                     SideMenuContent()
-                    
+
                     // Ad banner at the bottom
                     // Only show ad card when adData is available
                     if (adData != null) {
@@ -148,7 +148,7 @@ fun MenuPreviewScreen(
                             AdCard(
                                 adData = adData,
                                 placementKey = placement.key, // Add placement key
-                                onAdClick = { clickedAdData -> 
+                                onAdClick = { clickedAdData ->
                                     onAdClick(clickedAdData)
                                 },
                                 onTrackClick = { url ->
@@ -201,7 +201,7 @@ private fun MenuDrawerContent() {
             fontSize = 22.sp,
             modifier = Modifier.padding(bottom = 24.dp)
         )
-        
+
         val categories = listOf(
             "All Items",
             "Appetizers",
@@ -209,7 +209,7 @@ private fun MenuDrawerContent() {
             "Beverages",
             "Desserts"
         )
-        
+
         categories.forEach { category ->
             Row(
                 modifier = Modifier
@@ -227,15 +227,15 @@ private fun MenuDrawerContent() {
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.weight(1f))
-        
+
         Text(
             "Price Range",
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(vertical = 8.dp)
         )
-        
+
         Slider(
             value = 0.7f,
             onValueChange = { /* Update price range */ },
@@ -256,7 +256,7 @@ private fun SideMenuContent() {
         "Customer Support",
         "About"
     )
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -264,11 +264,11 @@ private fun SideMenuContent() {
     ) {
         // Add some spacing at the top
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // Create the menu items
         menuItems.forEachIndexed { index, item ->
             SideMenuItem(item)
-            
+
             // Add divider between items (except after the last item)
             if (index < menuItems.size - 1) {
                 HorizontalDivider(
@@ -299,7 +299,7 @@ private fun SideMenuItem(text: String) {
         ) {
             // Empty circle as a placeholder
         }
-        
+
         // Menu item text
         Text(
             text = text,
@@ -308,7 +308,7 @@ private fun SideMenuItem(text: String) {
                 .padding(start = 16.dp)
                 .weight(1f)
         )
-        
+
         // Chevron/arrow right icon
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -336,7 +336,7 @@ private fun MenuContentList() {
             MenuItem("Cheesecake", "$7.99", "New York style with berry compote")
         )
     )
-    
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -352,7 +352,7 @@ private fun MenuContentList() {
                     modifier = Modifier.padding(16.dp)
                 )
             }
-            
+
             // Menu items for this category
             items.forEach { menuItem ->
                 item {
@@ -395,7 +395,7 @@ private fun MenuItemCard(menuItem: MenuItem) {
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            
+
             Text(
                 text = menuItem.description,
                 style = MaterialTheme.typography.bodyMedium,
@@ -408,8 +408,4 @@ private fun MenuItemCard(menuItem: MenuItem) {
     }
 }
 
-private data class MenuItem(
-    val name: String,
-    val price: String,
-    val description: String
-)
+private data class MenuItem(val name: String, val price: String, val description: String)

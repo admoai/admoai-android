@@ -1,8 +1,8 @@
 package com.admoai.sdk.config
 
-import com.admoai.sdk.core.Clearable
 import android.content.Context
 import android.os.Build
+import com.admoai.sdk.core.Clearable
 import java.util.TimeZone
 
 /**
@@ -24,7 +24,8 @@ data class DeviceConfig(
     val timezone: String? = null, // e.g., "Europe/London"
     val deviceId: String? = null, // e.g., Advertising ID
     val manufacturer: String? = null, // e.g., "Google", "Samsung"
-    val language: String? = null // e.g., "en-US"
+    // e.g., "en-US"
+    val language: String? = null
 ) : Clearable<DeviceConfig> {
 
     /**
@@ -36,7 +37,7 @@ data class DeviceConfig(
      * Returns a new instance with all properties set to null.
      */
     override fun clear(): DeviceConfig = DeviceConfig()
-    
+
     companion object {
         /**
          * Creates a DeviceConfig with system default values automatically populated from the device.
@@ -51,16 +52,14 @@ data class DeviceConfig(
          * @return A DeviceConfig instance populated with system information
          */
         @JvmStatic
-        fun systemDefault(androidId: String? = null): DeviceConfig {
-            return DeviceConfig(
-                model = Build.MODEL,
-                osName = "Android",
-                osVersion = Build.VERSION.RELEASE,
-                timezone = TimeZone.getDefault().id,
-                deviceId = androidId,
-                manufacturer = Build.MANUFACTURER,
-                language = java.util.Locale.getDefault().toLanguageTag()
-            )
-        }
+        fun systemDefault(androidId: String? = null): DeviceConfig = DeviceConfig(
+            model = Build.MODEL,
+            osName = "Android",
+            osVersion = Build.VERSION.RELEASE,
+            timezone = TimeZone.getDefault().id,
+            deviceId = androidId,
+            manufacturer = Build.MANUFACTURER,
+            language = java.util.Locale.getDefault().toLanguageTag()
+        )
     }
 }

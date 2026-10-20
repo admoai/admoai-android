@@ -40,20 +40,12 @@ data class DestinationItem(
 /**
  * UI model for custom targeting key-value pair
  */
-data class CustomTargetItem(
-    val id: String = java.util.UUID.randomUUID().toString(),
-    val key: String,
-    val value: String
-)
+data class CustomTargetItem(val id: String = java.util.UUID.randomUUID().toString(), val key: String, val value: String)
 
 /**
  * UI model for a city in geo targeting
  */
-data class GeoTargetItem(
-    val id: String,
-    val name: String,
-    val isSelected: Boolean = false
-)
+data class GeoTargetItem(val id: String, val name: String, val isSelected: Boolean = false)
 
 /**
  * Tabs for the response details screen

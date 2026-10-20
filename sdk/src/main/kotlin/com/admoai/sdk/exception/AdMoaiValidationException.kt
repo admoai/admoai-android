@@ -13,10 +13,7 @@ import com.admoai.sdk.model.common.Error
  * This now extends [AdMoaiException] like every other SDK exception. It previously extended
  * `Exception` directly, so `catch (e: AdMoaiException)` silently did not catch it.
  */
-class AdMoaiValidationException(
-    message: String,
-    val errors: List<Error> = emptyList()
-) : AdMoaiException(message) {
+class AdMoaiValidationException(message: String, val errors: List<Error> = emptyList()) : AdMoaiException(message) {
 
     /**
      * Builds an exception from the engine's parsed error envelope, formatting code/message pairs
@@ -27,11 +24,10 @@ class AdMoaiValidationException(
     constructor(errors: List<Error>) : this(formatErrors(errors), errors)
 
     private companion object {
-        fun formatErrors(errors: List<Error>): String =
-            if (errors.isEmpty()) {
-                "Validation error: Unknown"
-            } else {
-                "Validation errors:\n" + errors.joinToString("\n") { "[${it.code}] ${it.message}" }
-            }
+        fun formatErrors(errors: List<Error>): String = if (errors.isEmpty()) {
+            "Validation error: Unknown"
+        } else {
+            "Validation errors:\n" + errors.joinToString("\n") { "[${it.code}] ${it.message}" }
+        }
     }
 }

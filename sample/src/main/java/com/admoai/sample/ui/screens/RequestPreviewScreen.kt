@@ -29,14 +29,11 @@ import com.admoai.sample.ui.MainViewModel
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RequestPreviewScreen(
-    viewModel: MainViewModel,
-    onNavigateBack: () -> Unit = {}
-) {
+fun RequestPreviewScreen(viewModel: MainViewModel, onNavigateBack: () -> Unit = {}) {
     // Use getHttpRequest() for complete HTTP representation including headers
     val requestJson by viewModel.requestJson.collectAsState() // Keep this for reactivity and to check if empty
     val httpRequestText = viewModel.getHttpRequest() // Get formatted HTTP request
-    
+
     Scaffold(
         topBar = {
             TopAppBar(

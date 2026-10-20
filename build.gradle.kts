@@ -4,4 +4,14 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.android.library) apply false
+    alias(libs.plugins.ktlint) apply false
+}
+
+// ktlint on every module: `./gradlew ktlintCheck` is the CI gate, `./gradlew ktlintFormat`
+// fixes what it can. Style comes from .editorconfig (ktlint_code_style = android_studio).
+subprojects {
+    apply(plugin = "org.jlleitschuh.gradle.ktlint")
+    configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+        version.set(rootProject.libs.versions.ktlint.get())
+    }
 }

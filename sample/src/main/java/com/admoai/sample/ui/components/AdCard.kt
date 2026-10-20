@@ -1,7 +1,13 @@
 package com.admoai.sample.ui.components
 
+import android.util.Log
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -11,25 +17,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Photo
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-// Removing duplicate background import as it's already imported on line 16
+import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.admoai.sample.R
-import com.admoai.sdk.model.response.AdData
-import com.admoai.sdk.model.response.Creative
-import com.admoai.sample.ui.components.SearchAdCard
 import com.admoai.sample.ui.components.MenuAdCard
+import com.admoai.sample.ui.components.SearchAdCard
 import com.admoai.sample.ui.mapper.AdTemplateMapper
 import com.admoai.sample.ui.model.AdContent
-import android.util.Log
+import com.admoai.sdk.model.response.AdData
+import com.admoai.sdk.model.response.Creative
 
 /**
  * Empty ad card placeholder shown when no ad data is available
@@ -68,9 +67,9 @@ fun EmptyAdCard(modifier: Modifier = Modifier) {
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Placeholder headline
             Box(
                 modifier = Modifier
@@ -79,9 +78,9 @@ fun EmptyAdCard(modifier: Modifier = Modifier) {
                     .clip(RoundedCornerShape(4.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Placeholder description
             Box(
                 modifier = Modifier
@@ -90,9 +89,9 @@ fun EmptyAdCard(modifier: Modifier = Modifier) {
                     .clip(RoundedCornerShape(4.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             )
-            
+
             Spacer(modifier = Modifier.height(4.dp))
-            
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.8f)
@@ -100,9 +99,9 @@ fun EmptyAdCard(modifier: Modifier = Modifier) {
                     .clip(RoundedCornerShape(4.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             // Placeholder CTA button
             Box(
                 modifier = Modifier
@@ -111,9 +110,9 @@ fun EmptyAdCard(modifier: Modifier = Modifier) {
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.primary)
             )
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             // Footer with brand and Ad pill
             Row(
                 modifier = Modifier
@@ -127,7 +126,7 @@ fun EmptyAdCard(modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                
+
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -147,7 +146,7 @@ fun EmptyAdCard(modifier: Modifier = Modifier) {
 
 /**
  * Shared Ad Card component used across all placement previews
- * 
+ *
  * Features:
  * - Delegates to appropriate specialized ad card component based on template key and style
  * - Uses AdTemplateMapper to determine the correct composable to render
@@ -169,29 +168,29 @@ fun AdCard(
         EmptyAdCard(modifier = modifier)
         return
     }
-    
+
     // Extract first creative if available
     val firstCreative = adData.creatives.firstOrNull()
-    
+
     // Use LaunchedEffect to ensure impression is tracked only once per ad instance
     // Using placement + creative metadata ID as stable keys to ensure we only track when the ad changes
     val adPlacement = adData.placement
     val creativeId = firstCreative?.metadata?.creativeId
-    
+
     // Create a stable key for impression tracking
     val impressionKey = remember(adPlacement, creativeId) {
         "${adPlacement}_${creativeId ?: "unknown"}"
     }
-    
+
     LaunchedEffect(impressionKey) {
         firstCreative?.tracking?.impressions?.find { it.key == "default" }?.let { impression ->
             onTrackImpression(impression.url)
         }
     }
-    
+
     // Use AdTemplateMapper to determine which card type to use
     val templateKey = AdTemplateMapper.getTemplateKey(adData) // This returns String?
-    
+
     // Select the appropriate ad card type based on template key and style
     when {
         // Handle home placement (wideWithCompanion template)
@@ -206,6 +205,7 @@ fun AdCard(
                 onTrackImpression = onTrackImpression
             )
         }
+
         // Handle search placement
         placementKey == "search" -> {
             SearchAdCard(
@@ -219,7 +219,7 @@ fun AdCard(
                 modifier = modifier
             )
         }
-        
+
         // Handle menu placement
         placementKey == "menu" || AdTemplateMapper.isTextOnlyTemplate(adData) -> {
             MenuAdCard(
@@ -233,6 +233,7 @@ fun AdCard(
                 modifier = modifier
             )
         }
+
         // Handle promotions or waiting placement with carousel
         placementKey == "promotions" || placementKey == "waiting" || AdTemplateMapper.isCarouselTemplate(adData) -> {
             PromotionsCarouselCard(
@@ -246,6 +247,7 @@ fun AdCard(
                 modifier = modifier
             )
         }
+
         // Handle rideSummary placement
         placementKey == "rideSummary" || AdTemplateMapper.isStandardTemplate(adData) -> {
             HorizontalAdCard(
@@ -257,6 +259,7 @@ fun AdCard(
                 onTrackImpression = onTrackImpression
             )
         }
+
         // Default fallback to standard vertical card layout
         else -> {
             // Use a vertical card as fallback (the old implementation would go here)

@@ -9,12 +9,7 @@ import kotlinx.serialization.Serializable
  * invariant rather than a special case; supporting it later is additive.
  */
 @Serializable
-data class DistanceBounds(
-    val north: Double,
-    val south: Double,
-    val east: Double,
-    val west: Double
-)
+data class DistanceBounds(val north: Double, val south: Double, val east: Double, val west: Double)
 
 /**
  * One Sponsored Pin search: a point, exactly one shape around it, and an optional cap.

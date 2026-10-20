@@ -33,8 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.rememberAsyncImagePainter
-import com.admoai.sdk.model.response.AdData
 import com.admoai.sample.ui.components.AdCard
+import com.admoai.sdk.model.response.AdData
 import kotlin.math.min
 
 /**
@@ -48,24 +48,20 @@ import kotlin.math.min
  * - Tracking for companionOpened event
  */
 @Composable
-fun CreativeDetailScreen(
-    adData: AdData?,
-    onDismiss: () -> Unit,
-    onTrackEvent: (String, String) -> Unit
-) {
+fun CreativeDetailScreen(adData: AdData?, onDismiss: () -> Unit, onTrackEvent: (String, String) -> Unit) {
     // Extract ad content from the first creative
     val firstCreative = adData?.creatives?.firstOrNull()
-    
+
     // Find specific content items by their keys (mapping API response keys to our expected keys)
     val headline = firstCreative?.contents?.find { it.key == "headline" }
     val body = firstCreative?.contents?.find { it.key == "body" }
-    val coverImage = firstCreative?.contents?.find { it.key == "coverImage" } 
+    val coverImage = firstCreative?.contents?.find { it.key == "coverImage" }
         ?: firstCreative?.contents?.find { it.key == "wideImage" }
     val cta = firstCreative?.contents?.find { it.key == "cta" }
     val buttonColor = firstCreative?.contents?.find { it.key == "buttonColor" }
     val buttonTextColor = firstCreative?.contents?.find { it.key == "buttonTextColor" }
     val clickThroughURL = firstCreative?.contents?.find { it.key == "clickThroughURL" }
-    
+
     // Extract string values and clean them up
     val headlineText = headline?.value.toString().removeSurrounding("\"")
     val bodyText = body?.value.toString().removeSurrounding("\"")
@@ -74,22 +70,22 @@ fun CreativeDetailScreen(
     val buttonColorValue = buttonColor?.value.toString().removeSurrounding("\"")
     val buttonTextColorValue = buttonTextColor?.value.toString().removeSurrounding("\"")
     val clickThroughURLText = clickThroughURL?.value.toString().removeSurrounding("\"")
-    
+
     // Parse colors, defaulting to primary if invalid
     val accentColor = try {
         Color(android.graphics.Color.parseColor(buttonColorValue))
     } catch (e: Exception) {
         MaterialTheme.colorScheme.primary
     }
-    
+
     val ctaTextColor = try {
         Color(android.graphics.Color.parseColor(buttonTextColorValue))
     } catch (e: Exception) {
         Color.White
     }
-    
+
     val uriHandler = LocalUriHandler.current
-    
+
     // Track companion opened event when first shown
     LaunchedEffect(adData) {
         if (adData != null) {
@@ -100,7 +96,7 @@ fun CreativeDetailScreen(
             }
         }
     }
-    
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -121,7 +117,7 @@ fun CreativeDetailScreen(
                     .blur(4.dp)
                     .clickable { onDismiss() }
             )
-            
+
             // Creative detail card with spring animation
             AnimatedVisibility(
                 visible = true,
@@ -148,7 +144,7 @@ fun CreativeDetailScreen(
                         .clickable(enabled = false) { /* Consume clicks */ },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
+                        containerColor = MaterialTheme.colorScheme.surface
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
@@ -169,7 +165,7 @@ fun CreativeDetailScreen(
                                 )
                             }
                         }
-                        
+
                         // Text content and CTA
                         Column(
                             modifier = Modifier
@@ -185,7 +181,7 @@ fun CreativeDetailScreen(
                                     modifier = Modifier.padding(bottom = 8.dp)
                                 )
                             }
-                            
+
                             // Body text
                             if (bodyText.isNotBlank() && bodyText != "null") {
                                 Text(
@@ -194,7 +190,7 @@ fun CreativeDetailScreen(
                                     modifier = Modifier.padding(bottom = 24.dp)
                                 )
                             }
-                            
+
                             // CTA button
                             if (ctaText.isNotBlank() && ctaText != "null") {
                                 Button(
@@ -203,11 +199,14 @@ fun CreativeDetailScreen(
                                         if (clickThroughURLText.isNotBlank() && clickThroughURLText != "null") {
                                             try {
                                                 // Find the click tracking URL in the first creative
-                                                val clickTracking = firstCreative?.tracking?.clicks?.find { it.key == "default" }
+                                                val clickTracking = firstCreative?.tracking?.clicks?.find {
+                                                    it.key ==
+                                                        "default"
+                                                }
                                                 clickTracking?.url?.let { url ->
                                                     onTrackEvent("click", url)
                                                 }
-                                                
+
                                                 // Open the click-through URL
                                                 uriHandler.openUri(clickThroughURLText)
                                             } catch (e: Exception) {
@@ -227,7 +226,7 @@ fun CreativeDetailScreen(
                                     Text(text = ctaText, style = MaterialTheme.typography.titleMedium)
                                 }
                             }
-                            
+
                             // Publisher info row
                             Row(
                                 modifier = Modifier
@@ -242,9 +241,9 @@ fun CreativeDetailScreen(
                                     modifier = Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                
+
                                 Spacer(modifier = Modifier.width(4.dp))
-                                
+
                                 // Publisher name
                                 Text(
                                     text = "AdMoai",
@@ -252,7 +251,7 @@ fun CreativeDetailScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.weight(1f)
                                 )
-                                
+
                                 // Ad pill
                                 Surface(
                                     shape = CircleShape,

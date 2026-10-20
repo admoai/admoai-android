@@ -17,10 +17,13 @@ import org.junit.Test
  */
 class JourneyNoAdTest {
 
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true; explicitNulls = false }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        explicitNulls = false
+    }
 
-    private fun firstAdData(body: String) =
-        json.decodeFromString<DecisionResponse>(body).data!!.first()
+    private fun firstAdData(body: String) = json.decodeFromString<DecisionResponse>(body).data!!.first()
 
     @Test
     fun `ordinary no-fill (creatives null) decodes to empty and reads as no-ad`() {

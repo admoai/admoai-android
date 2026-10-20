@@ -37,41 +37,40 @@ android {
     buildFeatures {
         compose = true
     }
-    
+
     lint {
         baseline = file("lint-baseline.xml")
     }
-    
 }
 
 dependencies {
     implementation(project(":sdk"))
-    
+
     // Core Android dependencies
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
-    
+
     // Compose BOM and UI dependencies
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    
+
     // Navigation Compose
     implementation("androidx.navigation:navigation-compose:2.7.6")
-    
+
     // Additional Material icon sets
     implementation("androidx.compose.material:material-icons-extended:1.6.7")
-    
+
     // Complete Compose Foundation - needed for GridItemSpan and Pager functionality
     implementation("androidx.compose.foundation:foundation:1.6.7")
-    
+
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.4.0")
-    
+
     // ExoPlayer with IMA extension for video playback (sample app only)
     implementation("androidx.media3:media3-exoplayer:1.2.1")
     implementation("androidx.media3:media3-ui:1.2.1")
@@ -79,15 +78,15 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.2.1") // HLS support for .m3u8
     implementation("androidx.media3:media3-exoplayer-dash:1.2.1") // DASH support
     implementation("androidx.media3:media3-datasource:1.2.1") // Data source support
-    
+
     // VAST parser for manual VAST handling (TODO: Add when implementing full VAST parsing)
     // implementation("com.github.InteractiveAdvertisingBureau:vast-client-java:1.0.0")
-    
+
     // Ktor and Serialization (for sample app usage)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp) // OkHttp engine for Ktor
     implementation(libs.kotlinx.serialization.json)
-    
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

@@ -12,6 +12,4 @@ import kotlinx.serialization.Serializable
  *   publisher call produced a different request body per platform, for identical engine behaviour.
  */
 @Serializable
-data class Consent(
-    val gdpr: Boolean = false
-)
+data class Consent(val gdpr: Boolean = false)

@@ -9,7 +9,4 @@ import kotlinx.serialization.Serializable
  * @property style The style variation of the template (e.g., "imageLeft", "wideImageOnly")
  */
 @Serializable
-data class TemplateInfo(
-    val key: String,
-    val style: String? = null
-)
+data class TemplateInfo(val key: String, val style: String? = null)

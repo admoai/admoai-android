@@ -3,9 +3,9 @@ package com.admoai.sample.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -19,13 +19,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
+import com.admoai.sample.ui.mapper.AdTemplateMapper
 import com.admoai.sdk.model.response.AdData
 import com.admoai.sdk.model.response.Creative
-import com.admoai.sample.ui.mapper.AdTemplateMapper
 
 /**
  * Composable for rendering search placement ads.
- * 
+ *
  * Supports two styles:
  * - imageLeft: Square image on the left, headline text on the right
  * - imageRight: Square image on the right, headline text on the left
@@ -35,21 +35,17 @@ import com.admoai.sample.ui.mapper.AdTemplateMapper
  * @param modifier Modifier for styling
  */
 @Composable
-fun SearchAdCard(
-    adData: AdData?,
-    onImpressionTracked: () -> Unit = {},
-    modifier: Modifier = Modifier
-) {
+fun SearchAdCard(adData: AdData?, onImpressionTracked: () -> Unit = {}, modifier: Modifier = Modifier) {
     if (adData == null) return
-    
+
     val creative = adData.creatives.firstOrNull() ?: return
     val isImageRightStyle = AdTemplateMapper.isImageRightStyle(adData)
-    
+
     // Get creative contents
     val imageUrl = AdTemplateMapper.getContentValue(creative, "squareImage")
     val headline = AdTemplateMapper.getContentValue(creative, "headline")
     val advertiserName = creative.advertiser.name
-    
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -61,13 +57,13 @@ fun SearchAdCard(
         val adPlacement = adData.placement
         val creativeId = creative.metadata?.creativeId ?: "unknown"
         val impressionKey = remember(adPlacement, creativeId) {
-            "${adPlacement}_${creativeId}"
+            "${adPlacement}_$creativeId"
         }
-        
+
         LaunchedEffect(impressionKey) {
             onImpressionTracked()
         }
-        
+
         if (isImageRightStyle) {
             // Layout for imageRight style
             Row(
@@ -92,7 +88,7 @@ fun SearchAdCard(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    
+
                     // Advertiser with Ad badge
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -105,7 +101,7 @@ fun SearchAdCard(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                             )
                         }
-                        
+
                         // Ad badge
                         Surface(
                             shape = RoundedCornerShape(2.dp),
@@ -122,7 +118,7 @@ fun SearchAdCard(
                         }
                     }
                 }
-                
+
                 // Image (Right)
                 Box(
                     modifier = Modifier
@@ -142,6 +138,7 @@ fun SearchAdCard(
                                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                                 }
                             }
+
                             is coil.compose.AsyncImagePainter.State.Error -> {
                                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Icon(
@@ -152,6 +149,7 @@ fun SearchAdCard(
                                     )
                                 }
                             }
+
                             else -> SubcomposeAsyncImageContent()
                         }
                     }
@@ -183,6 +181,7 @@ fun SearchAdCard(
                                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                                 }
                             }
+
                             is coil.compose.AsyncImagePainter.State.Error -> {
                                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Icon(
@@ -193,11 +192,12 @@ fun SearchAdCard(
                                     )
                                 }
                             }
+
                             else -> SubcomposeAsyncImageContent()
                         }
                     }
                 }
-                
+
                 // Content (Right)
                 Column(
                     modifier = Modifier
@@ -215,7 +215,7 @@ fun SearchAdCard(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    
+
                     // Advertiser with Ad badge
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -228,7 +228,7 @@ fun SearchAdCard(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                             )
                         }
-                        
+
                         // Ad badge
                         Surface(
                             shape = RoundedCornerShape(2.dp),

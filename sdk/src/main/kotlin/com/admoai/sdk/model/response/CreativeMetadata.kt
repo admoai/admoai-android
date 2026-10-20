@@ -33,9 +33,9 @@ internal object MetadataPrioritySerializer : KSerializer<MetadataPriority> {
         encoder.encodeString(
             when (value) {
                 MetadataPriority.SPONSORSHIP -> "sponsorship"
-                MetadataPriority.STANDARD    -> "standard"
-                MetadataPriority.HOUSE       -> "house"
-                MetadataPriority.UNKNOWN     -> "unknown"
+                MetadataPriority.STANDARD -> "standard"
+                MetadataPriority.HOUSE -> "house"
+                MetadataPriority.UNKNOWN -> "unknown"
             }
         )
     }
@@ -46,9 +46,9 @@ internal object MetadataPrioritySerializer : KSerializer<MetadataPriority> {
         val raw = runCatching { decoder.decodeString() }.getOrNull()
         return when (raw) {
             "sponsorship" -> MetadataPriority.SPONSORSHIP
-            "standard"    -> MetadataPriority.STANDARD
-            "house"       -> MetadataPriority.HOUSE
-            else          -> MetadataPriority.UNKNOWN
+            "standard" -> MetadataPriority.STANDARD
+            "house" -> MetadataPriority.HOUSE
+            else -> MetadataPriority.UNKNOWN
         }
     }
 }

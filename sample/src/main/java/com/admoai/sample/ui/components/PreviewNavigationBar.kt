@@ -1,5 +1,6 @@
 package com.admoai.sample.ui.components
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -13,7 +14,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.animation.core.*
 import com.admoai.sample.ui.model.PlacementItem
 
 /**
@@ -76,12 +76,12 @@ fun PreviewNavigationBar(
             // Document icon for response details
             IconButton(onClick = onDetailsClick) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.Article, 
+                    imageVector = Icons.AutoMirrored.Outlined.Article,
                     contentDescription = "Response Details",
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
-            
+
             // Refresh icon with animation (conditionally shown)
             if (showRefreshButton) {
                 IconButton(
@@ -92,7 +92,7 @@ fun PreviewNavigationBar(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Refresh Ad",
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.graphicsLayer { 
+                        modifier = Modifier.graphicsLayer {
                             rotationZ = rotation
                         }
                     )

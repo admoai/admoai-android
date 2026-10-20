@@ -53,10 +53,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
+import com.admoai.sample.ui.MainViewModel
+import com.admoai.sample.ui.model.AdContent
 import com.admoai.sdk.model.response.AdData
 import com.admoai.sdk.model.response.Creative
-import com.admoai.sample.ui.model.AdContent
-import com.admoai.sample.ui.MainViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -74,20 +74,20 @@ fun PromotionsCarouselCard(
 ) {
     // Extract creative
     val creative = adData.creatives.firstOrNull() ?: return
-    
+
     // Create a stable key for the main impression tracking
     val adPlacement = adData.placement
     val creativeId = creative.metadata?.creativeId ?: "unknown"
     val mainImpressionKey = remember(adPlacement, creativeId) {
         "${adPlacement}_${creativeId}_main"
     }
-    
+
     LaunchedEffect(mainImpressionKey) {
         creative.tracking.impressions?.find { it.key == "default" }?.let { impression ->
             onTrackImpression(impression.url)
         }
     }
-    
+
     val slides = remember(creative) {
         (1..3).map { index ->
             CarouselSlide(
@@ -100,13 +100,13 @@ fun PromotionsCarouselCard(
             )
         }
     }
-    
+
     // Set up pager state
     val pagerState = rememberPagerState { slides.size }
-    
+
     // Auto-advance setup (3 seconds interval as in iOS)
     var isUserSwiping by remember { mutableStateOf(false) }
-    
+
     // More reliable auto-scroll implementation with state machine approach
     LaunchedEffect(Unit) {
         while (true) {
@@ -114,10 +114,10 @@ fun PromotionsCarouselCard(
             if (!isUserSwiping) {
                 // Wait on each page
                 delay(3000)
-                
+
                 // Calculate next page and animate
                 val nextPage = (pagerState.currentPage + 1) % slides.size
-                
+
                 // Use stronger animation to ensure complete transition
                 pagerState.animateScrollToPage(
                     page = nextPage,
@@ -126,7 +126,7 @@ fun PromotionsCarouselCard(
                         easing = androidx.compose.animation.core.FastOutSlowInEasing
                     )
                 )
-                
+
                 // Wait for animation to fully complete before continuing cycle
                 delay(500)
             } else {
@@ -135,7 +135,7 @@ fun PromotionsCarouselCard(
             }
         }
     }
-    
+
     Column(modifier = modifier) {
         // Carousel pager
         HorizontalPager(
@@ -148,7 +148,7 @@ fun PromotionsCarouselCard(
             val slideImpressionKey = remember(adPlacement, creativeId, currentSlide.trackingKey) {
                 "${adPlacement}_${creativeId}_${currentSlide.trackingKey}"
             }
-            
+
             LaunchedEffect(slideImpressionKey, pagerState.currentPage) {
                 if (pagerState.currentPage == page) {
                     creative.tracking.impressions?.find { it.key == currentSlide.trackingKey }?.let { impression ->
@@ -165,7 +165,7 @@ fun PromotionsCarouselCard(
                 }
             )
         }
-        
+
         // Pagination indicators
         CarouselIndicators(
             count = slides.size,
@@ -193,11 +193,7 @@ private data class CarouselSlide(
  * Composable for a single carousel slide
  */
 @Composable
-private fun CarouselSlideContent(
-    slide: CarouselSlide,
-    onClick: () -> Unit = {},
-    modifier: Modifier = Modifier
-) {
+private fun CarouselSlideContent(slide: CarouselSlide, onClick: () -> Unit = {}, modifier: Modifier = Modifier) {
     // Wrap Card in Box to position "Ad" watermark
     Box(modifier = modifier.fillMaxWidth()) {
         Card(
@@ -225,6 +221,7 @@ private fun CarouselSlideContent(
                                     CircularProgressIndicator(modifier = Modifier.size(30.dp))
                                 }
                             }
+
                             is coil.compose.AsyncImagePainter.State.Error -> {
                                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Icon(
@@ -235,11 +232,12 @@ private fun CarouselSlideContent(
                                     )
                                 }
                             }
+
                             else -> SubcomposeAsyncImageContent()
                         }
                     }
                 }
-                
+
                 // Headline text
                 Text(
                     text = slide.headline,
@@ -251,7 +249,7 @@ private fun CarouselSlideContent(
                         .fillMaxWidth()
                         .padding(start = 16.dp, end = 16.dp, top = 16.dp)
                 )
-                
+
                 // CTA row with chevron
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -264,9 +262,9 @@ private fun CarouselSlideContent(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    
+
                     Spacer(modifier = Modifier.width(4.dp))
-                    
+
                     Icon(
                         imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight,
                         contentDescription = null,
@@ -276,7 +274,7 @@ private fun CarouselSlideContent(
                 }
             }
         }
-        
+
         // "Ad" watermark badge at bottom-right corner
         androidx.compose.material3.Surface(
             modifier = Modifier
@@ -300,11 +298,7 @@ private fun CarouselSlideContent(
  * Composable for carousel pagination indicators
  */
 @Composable
-private fun CarouselIndicators(
-    count: Int,
-    currentPage: Int,
-    modifier: Modifier = Modifier
-) {
+private fun CarouselIndicators(count: Int, currentPage: Int, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.Center
@@ -316,7 +310,7 @@ private fun CarouselIndicators(
             } else {
                 MaterialTheme.colorScheme.outline
             }
-            
+
             Box(
                 modifier = Modifier
                     .padding(horizontal = 4.dp)

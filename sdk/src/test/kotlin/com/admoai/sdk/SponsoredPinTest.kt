@@ -5,6 +5,7 @@ import com.admoai.sdk.model.request.DistanceBounds
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.matchedPoints
 import io.ktor.client.engine.cio.CIO
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -17,7 +18,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.util.concurrent.TimeUnit
 
 /**
  * Sponsored Pin Locations — distance requests, Matched Point models, point tracking.
@@ -110,7 +110,8 @@ class SponsoredPinTest {
     fun `AC1 - bounds search serializes and keeps the origin`() {
         val request = builder()
             .setDistanceTargeting(
-                latitude = -33.4175, longitude = -70.6065,
+                latitude = -33.4175,
+                longitude = -70.6065,
                 bounds = DistanceBounds(north = -33.38, south = -33.46, east = -70.54, west = -70.68)
             )
             .build()
@@ -177,7 +178,9 @@ class SponsoredPinTest {
     @Test(expected = IllegalArgumentException::class)
     fun `AC2 - refuses inverted bounds`() {
         builder().setDistanceTargeting(
-            0.0, 0.0, DistanceBounds(north = -33.46, south = -33.38, east = -70.54, west = -70.68)
+            0.0,
+            0.0,
+            DistanceBounds(north = -33.46, south = -33.38, east = -70.54, west = -70.68)
         )
     }
 
@@ -185,7 +188,9 @@ class SponsoredPinTest {
     @Test(expected = IllegalArgumentException::class)
     fun `AC2 - refuses antimeridian bounds`() {
         builder().setDistanceTargeting(
-            0.0, 179.0, DistanceBounds(north = 10.0, south = -10.0, east = -179.0, west = 179.0)
+            0.0,
+            179.0,
+            DistanceBounds(north = 10.0, south = -10.0, east = -179.0, west = 179.0)
         )
     }
 
@@ -212,7 +217,9 @@ class SponsoredPinTest {
     fun `AC3 - accepts bounds larger than the servers current ceiling`() {
         val encoded = Json.encodeToString(
             builder().setDistanceTargeting(
-                0.0, 0.0, DistanceBounds(north = 5.0, south = -5.0, east = 5.0, west = -5.0)
+                0.0,
+                0.0,
+                DistanceBounds(north = 5.0, south = -5.0, east = 5.0, west = -5.0)
             ).build()
         )
 
@@ -253,7 +260,10 @@ class SponsoredPinTest {
 
         val request = builder()
             .setDistanceTargeting(
-                latitude = -33.4175, longitude = -70.6065, radiusMeters = 8000.0, limit = 7
+                latitude = -33.4175,
+                longitude = -70.6065,
+                radiusMeters = 8000.0,
+                limit = 7
             )
             .build()
         Admoai.getInstance().requestAds(request).first()
@@ -517,7 +527,7 @@ class SponsoredPinTest {
         assertEquals(
             "the same screenful listed twice in one call is still one view each",
             50,
-            firedPaths(50).size,
+            firedPaths(50).size
         )
         assertNull(server.takeRequest(500, TimeUnit.MILLISECONDS))
     }

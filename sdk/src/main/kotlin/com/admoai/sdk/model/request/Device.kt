@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 /**
  * Represents device information included in ad requests.
  *
- * @property os Operating system name (e.g., "Android", "iOS") 
+ * @property os Operating system name (e.g., "Android", "iOS")
  * @property osVersion Operating system version
  * @property model Device model
  * @property manufacturer Device manufacturer

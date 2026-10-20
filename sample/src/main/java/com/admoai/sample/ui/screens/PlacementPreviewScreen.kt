@@ -12,8 +12,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,24 +30,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.admoai.sample.ui.MainViewModel
 import com.admoai.sdk.model.response.Content
 import com.admoai.sdk.model.response.ContentType
 import com.admoai.sdk.model.response.Creative
-import com.admoai.sample.ui.MainViewModel
 
 /**
  * Screen to display the placement-specific JSON preview and creative summary
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlacementPreviewScreen(
-    viewModel: MainViewModel,
-    placementKey: String,
-    onNavigateBack: () -> Unit = {}
-) {
+fun PlacementPreviewScreen(viewModel: MainViewModel, placementKey: String, onNavigateBack: () -> Unit = {}) {
     val requestJson by viewModel.requestJson.collectAsState()
     val response by viewModel.response.collectAsState()
-    
+
     // Generate placement-specific JSON preview when navigating to this screen
     LaunchedEffect(placementKey) {
         viewModel.updatePlacementPreviewJson(placementKey)
@@ -87,7 +83,7 @@ fun PlacementPreviewScreen(
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 if (!requestJson.isNullOrEmpty()) {
                     Card(
                         modifier = Modifier.fillMaxWidth()
@@ -124,7 +120,7 @@ fun PlacementPreviewScreen(
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 response?.data?.find { it.placement == placementKey }?.let { adData ->
                     adData.creatives.forEach { creative ->
                         CreativeSummaryCard(creative)
@@ -169,7 +165,7 @@ private fun CreativeSummaryCard(creative: Creative) {
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold
             )
-            
+
             creative.contents.forEach { content ->
                 val contentType = content.type.toString()
                 val contentValue = when (content.type) {
@@ -184,28 +180,28 @@ private fun CreativeSummaryCard(creative: Creative) {
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Tracking info
             Text(
                 text = "Tracking:",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold
             )
-            
+
             val impressions = creative.tracking.impressions ?: emptyList()
             Text(
                 text = "• ${impressions.size} impression URLs",
                 style = MaterialTheme.typography.bodyMedium
             )
-            
+
             val clicks = creative.tracking.clicks ?: emptyList()
             Text(
                 text = "• ${clicks.size} click URLs",
                 style = MaterialTheme.typography.bodyMedium
             )
-            
+
             val customEvents = creative.tracking.custom ?: emptyList()
             Text(
                 text = "• ${customEvents.size} custom event URLs",

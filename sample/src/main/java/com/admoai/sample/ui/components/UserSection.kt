@@ -10,11 +10,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -36,15 +36,12 @@ import com.admoai.sample.ui.MainViewModel
  * Section to configure user information
  */
 @Composable
-fun UserSection(
-    viewModel: MainViewModel,
-    onTimezonePickerClick: () -> Unit = {}
-) {
+fun UserSection(viewModel: MainViewModel, onTimezonePickerClick: () -> Unit = {}) {
     val userId by viewModel.userId.collectAsState()
     val userIp by viewModel.userIp.collectAsState()
     val userTimezone by viewModel.userTimezone.collectAsState()
     val gdprConsent by viewModel.gdprConsent.collectAsState()
-    
+
     SectionContainer(title = "User") {
         // User ID row
         SectionRow(
@@ -54,7 +51,7 @@ fun UserSection(
                 var text by remember(userId) { mutableStateOf(userId) }
                 OutlinedTextField(
                     value = text,
-                    onValueChange = { 
+                    onValueChange = {
                         text = it
                         viewModel.setUserId(it)
                     },
@@ -63,7 +60,7 @@ fun UserSection(
                 )
             }
         )
-        
+
         // User IP row
         SectionRow(
             icon = Icons.Outlined.Public,
@@ -72,7 +69,7 @@ fun UserSection(
                 var text by remember(userIp) { mutableStateOf(userIp) }
                 OutlinedTextField(
                     value = text,
-                    onValueChange = { 
+                    onValueChange = {
                         text = it
                         viewModel.setUserIp(it)
                     },
@@ -81,12 +78,12 @@ fun UserSection(
                 )
             }
         )
-        
+
         // User Timezone row
         SectionRow(
             icon = Icons.Outlined.AccessTime,
             label = "Timezone",
-            value = { 
+            value = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = userTimezone,
@@ -102,16 +99,16 @@ fun UserSection(
             },
             onClick = onTimezonePickerClick
         )
-        
+
         // Consent Settings row with expandable content
         var isConsentExpanded by remember { mutableStateOf(false) }
-        
+
         // Animate the expand/collapse arrow rotation
         val arrowRotation by animateFloatAsState(
             targetValue = if (isConsentExpanded) 90f else 0f,
             label = "arrow_rotation"
         )
-        
+
         // Clickable row to expand/collapse consent settings
         Row(
             modifier = Modifier
@@ -125,13 +122,13 @@ fun UserSection(
                 modifier = Modifier.padding(end = 16.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
-            
+
             Text(
                 text = "Consent Settings",
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.weight(1f)
             )
-            
+
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = if (isConsentExpanded) "Collapse" else "Expand",
@@ -139,7 +136,7 @@ fun UserSection(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        
+
         // Expandable consent settings content
         AnimatedVisibility(
             visible = isConsentExpanded,
@@ -158,23 +155,23 @@ fun UserSection(
                         )
                     }
                 )
-                
+
                 // GDPR consent help text
                 Text(
                     text = "GDPR consent toggles whether user consent information is sent with ad requests. " +
-                          "When enabled, requests will include consent data in compliance with EU regulations.",
+                        "When enabled, requests will include consent data in compliance with EU regulations.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 48.dp, end = 16.dp, bottom = 8.dp)
                 )
             }
         }
-        
+
         // Help text
         Text(
             text = "The user ID and IP address enable frequency capping and geo-targeting respectively. " +
-                  "The timezone enables day/hour parting for time-based ad delivery. " +
-                  "GDPR consent must be enabled to serve ads with frequency capping.",
+                "The timezone enables day/hour parting for time-based ad delivery. " +
+                "GDPR consent must be enabled to serve ads with frequency capping.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)

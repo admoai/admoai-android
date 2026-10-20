@@ -14,11 +14,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import com.admoai.sdk.model.response.AdData
 import com.admoai.sample.ui.MainViewModel
 import com.admoai.sample.ui.components.HorizontalAdCard
 import com.admoai.sample.ui.components.PreviewNavigationBar
 import com.admoai.sample.ui.model.PlacementItem
+import com.admoai.sdk.model.response.AdData
 import kotlinx.coroutines.delay
 
 /**
@@ -46,7 +46,7 @@ fun HomePreviewScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     var isCardVisible by remember { mutableStateOf(adData != null) }
     val density = LocalDensity.current
-    
+
     // Animation values for card refresh effect
     val cardOffsetY by animateDpAsState(
         targetValue = if (isCardVisible) 0.dp else 20.dp,
@@ -56,7 +56,7 @@ fun HomePreviewScreen(
         ),
         label = "card_offset"
     )
-    
+
     val cardAlpha by animateFloatAsState(
         targetValue = if (isCardVisible) 1f else 0.5f,
         animationSpec = tween(durationMillis = 300),
@@ -74,14 +74,14 @@ fun HomePreviewScreen(
             onRefreshClick()
         }
     }
-    
+
     // Reset isRefreshing when loading completes
     LaunchedEffect(isLoading) {
         if (!isLoading && isRefreshing) {
             isRefreshing = false
         }
     }
-    
+
     // Show/hide card when ad data changes (both initial load and refresh)
     LaunchedEffect(adData) {
         if (adData != null && !isLoading && !isRefreshing) {
@@ -110,7 +110,7 @@ fun HomePreviewScreen(
                 onRefreshClick = { isRefreshing = true },
                 isRefreshing = isRefreshing
             )
-            
+
             // Horizontal Ad Card with animation - iOS style
             // Only show ad card when adData is available
             if (adData != null) {
@@ -144,9 +144,9 @@ fun HomePreviewScreen(
                 }
             }
         }
-        
+
         // Theme toggle circles removed to avoid overlaying navigation buttons
-        
+
         // Bottom navigation bar with 4 circles (iOS style)
         Column(
             modifier = Modifier
@@ -182,7 +182,7 @@ fun HomePreviewScreen(
                 }
             }
         }
-        
+
         // Two stacked floating buttons in bottom right (iOS style)
         Column(
             modifier = Modifier

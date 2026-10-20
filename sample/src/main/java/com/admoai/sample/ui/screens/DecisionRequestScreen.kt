@@ -57,7 +57,7 @@ fun DecisionRequestScreen(
     onNavigateBack: () -> Unit = {}
 ) {
     val isLoading by viewModel.isLoading.collectAsState()
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -85,7 +85,7 @@ fun DecisionRequestScreen(
                 ) {
                     Text("View HTTP Request")
                 }
-                
+
                 // Request and Preview button
                 Button(
                     onClick = {
@@ -118,12 +118,12 @@ fun DecisionRequestScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(16.dp)
                 )
-                
+
                 PlacementSection(
                     viewModel = viewModel,
                     onPlacementClick = onPlacementClick
                 )
-                
+
                 // Targeting section
                 TargetingSection(
                     viewModel = viewModel,
@@ -132,24 +132,24 @@ fun DecisionRequestScreen(
                     onDestinationTargetingClick = onDestinationTargetingClick,
                     onCustomTargetingClick = onCustomTargetingClick
                 )
-                
+
                 // User section with integrated consent settings
                 UserSection(
                     viewModel = viewModel,
                     onTimezonePickerClick = onTimezonePickerClick
                 )
-                
+
                 // App info section (read only)
                 AppInfoSection(viewModel = viewModel)
-                
+
                 // Device info section (read only)
                 DeviceInfoSection(viewModel = viewModel)
-                
+
                 // Data collection section
                 DataCollectionSection(viewModel = viewModel)
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // Video Ad Demo Section
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -168,17 +168,17 @@ fun DecisionRequestScreen(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onTertiaryContainer
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         Text(
                             text = "Experiment with video ad overlay configurations in an interactive sandbox",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onTertiaryContainer
                         )
-                        
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         Button(
                             onClick = onVideoAdDemoClick,
                             modifier = Modifier.fillMaxWidth(),
@@ -190,9 +190,9 @@ fun DecisionRequestScreen(
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // SDK Compose Integration Demo
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -211,17 +211,17 @@ fun DecisionRequestScreen(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         Text(
                             text = "See how to use the SDK's declarative Compose API with rememberAdState",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         Button(
                             onClick = onComposeIntegrationClick,
                             modifier = Modifier.fillMaxWidth(),
@@ -233,7 +233,7 @@ fun DecisionRequestScreen(
                         }
                     }
                 }
-                
+
                 // Add some bottom padding to ensure content doesn't get hidden behind the fixed bottom buttons
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(80.dp))
             }

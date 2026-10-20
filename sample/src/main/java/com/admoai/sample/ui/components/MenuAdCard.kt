@@ -23,35 +23,31 @@ import com.admoai.sdk.model.response.MetadataPriority
  * No images are shown since this is a textOnly template.
  */
 @Composable
-fun MenuAdCard(
-    adData: AdData,
-    onImpressionTracked: () -> Unit = {},
-    modifier: Modifier = Modifier
-) {
+fun MenuAdCard(adData: AdData, onImpressionTracked: () -> Unit = {}, modifier: Modifier = Modifier) {
     // Extract content from ad data
     val creative = adData.creatives.firstOrNull() ?: return
-    
+
     // Extract text content directly
     val textContent = creative.contents.find { it.key == "text" }
     val text = textContent?.value?.toString()?.trim('"') ?: "Advertisement"
-    
+
     // Extract advertiser info (advertiser is non-nullable in Creative class)
     val advertiserName = creative.advertiser.name ?: "Sponsored"
-    
+
     // Determine if "Sponsored" label should be shown based on priority
     val showSponsoredLabel = creative.metadata?.priority == MetadataPriority.SPONSORSHIP
-    
+
     // Create a stable key for impression tracking based on placement and creative ID
     val adPlacement = adData.placement
     val creativeId = creative.metadata?.creativeId ?: "unknown"
     val impressionKey = remember(adPlacement, creativeId) {
-        "${adPlacement}_${creativeId}"
+        "${adPlacement}_$creativeId"
     }
-    
+
     LaunchedEffect(impressionKey) {
         onImpressionTracked()
     }
-    
+
     // Wrap Card in Box to position "Ad" watermark
     Box(
         modifier = modifier
@@ -64,7 +60,7 @@ fun MenuAdCard(
             shape = RoundedCornerShape(8.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
+                containerColor = MaterialTheme.colorScheme.surface
             )
         ) {
             Row(
@@ -83,7 +79,7 @@ fun MenuAdCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    
+
                     // Only show advertiser name if we have one
                     if (advertiserName != "Sponsored") {
                         Spacer(modifier = Modifier.height(4.dp))
@@ -94,7 +90,7 @@ fun MenuAdCard(
                         )
                     }
                 }
-                
+
                 // Sponsored badge - only show when priority is SPONSORSHIP
                 if (showSponsoredLabel) {
                     Spacer(modifier = Modifier.width(8.dp))
@@ -107,7 +103,7 @@ fun MenuAdCard(
                 }
             }
         }
-        
+
         // "Ad" watermark badge at bottom-right corner
         Surface(
             modifier = Modifier

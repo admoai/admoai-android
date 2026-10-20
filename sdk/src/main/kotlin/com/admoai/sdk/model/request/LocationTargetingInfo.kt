@@ -16,7 +16,4 @@ import kotlinx.serialization.Serializable
 // Let's create this placeholder for now, and refine it when we define Targeting.kt
 
 @Serializable
-data class LocationTargetingInfo(
-    val latitude: Double,
-    val longitude: Double
-)
+data class LocationTargetingInfo(val latitude: Double, val longitude: Double)
