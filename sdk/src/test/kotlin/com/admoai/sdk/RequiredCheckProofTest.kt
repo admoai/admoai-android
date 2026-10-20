@@ -1,7 +1,7 @@
 package com.admoai.sdk
 
-import kotlin.test.Test
-import kotlin.test.fail
+import org.junit.Assert.fail
+import org.junit.Test
 
 // Throwaway (#4342): proves a red CI blocks the merge. Never merged.
 class RequiredCheckProofTest {
