@@ -150,6 +150,22 @@ Run the linter before committing:
 ./gradlew ktlintFormat  # Auto-fix issues
 ```
 
+## When the API check fails
+
+`sdk/api/sdk.api` is the SDK's public API, one member per line with its JVM signature, and CI
+(`Public API check (:sdk)`) fails when the code no longer matches it. That is deliberate: a
+removed or changed public symbol breaks every integrator's build on their next Gradle refresh,
+so the change has to appear as a diff in the PR, where a reviewer who does not read Kotlin can
+still see it.
+
+1. Run `./gradlew :sdk:apiDump` and commit the updated `sdk/api/sdk.api`.
+2. Read the diff. Only `+` lines (new API) is a `feat:`. Any `-` or changed line (removed,
+   renamed, a signature or visibility change) is a **breaking change**: mark the PR `feat!:`
+   (or add a `BREAKING CHANGE:` footer) so release-please bumps the major version, and say in
+   the PR what integrators must change.
+3. If the surface changed by accident (a helper that should have been `internal`), fix the
+   visibility instead of updating the baseline.
+
 ## Security
 
 If you discover a security vulnerability:

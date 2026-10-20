@@ -1,0 +1,1554 @@
+public final class com/admoai/sdk/Admoai {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/Admoai$Companion;
+	public final fun clearAppConfig ()V
+	public final fun clearDeviceConfig ()V
+	public final fun clearSessionId ()V
+	public final fun clearUserConfig ()V
+	public final fun configure (Lcom/admoai/sdk/config/SDKConfig;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun createRequestBuilder ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun fireClick (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)V
+	public static synthetic fun fireClick$default (Lcom/admoai/sdk/Admoai;Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;ILjava/lang/Object;)V
+	public final fun fireCompletion (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)V
+	public final fun fireCustomEvent (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)V
+	public final fun fireImpression (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)V
+	public static synthetic fun fireImpression$default (Lcom/admoai/sdk/Admoai;Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;ILjava/lang/Object;)V
+	public final fun fireTracking (Ljava/lang/String;)V
+	public final fun fireVideoEvent (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)V
+	public final fun getAppConfig ()Lcom/admoai/sdk/config/AppConfig;
+	public final fun getDeviceConfig ()Lcom/admoai/sdk/config/DeviceConfig;
+	public final fun getHttpRequestData (Lcom/admoai/sdk/model/request/DecisionRequest;)Lcom/admoai/sdk/network/AdmoaiHttpRequest;
+	public static final fun getInstance ()Lcom/admoai/sdk/Admoai;
+	public final fun getSessionId ()Ljava/lang/String;
+	public final fun getUserConfig ()Lcom/admoai/sdk/config/UserConfig;
+	public static final fun initialize (Lcom/admoai/sdk/config/SDKConfig;)V
+	public static final fun initialize (Ljava/lang/String;)V
+	public static final fun initialize (Ljava/lang/String;Ljava/lang/String;)V
+	public static final fun initialize (Ljava/lang/String;Ljava/lang/String;Z)V
+	public static final fun initialize (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;)V
+	public static final fun initialize (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;)V
+	public final fun prepareFinalDecisionRequest (Lcom/admoai/sdk/model/request/DecisionRequest;)Lcom/admoai/sdk/model/request/DecisionRequest;
+	public final fun requestAds (Lcom/admoai/sdk/model/request/DecisionRequest;)Lkotlinx/coroutines/flow/Flow;
+	public final fun setAppConfig (Lcom/admoai/sdk/config/AppConfig;)V
+	public final fun setDeviceConfig (Lcom/admoai/sdk/config/DeviceConfig;)V
+	public final fun setSessionId (Ljava/lang/String;)V
+	public final fun setUserConfig (Lcom/admoai/sdk/config/UserConfig;)V
+	public final fun trackPointClick (Lcom/admoai/sdk/model/response/MatchedPoint;)V
+	public final fun trackPointTap (Lcom/admoai/sdk/model/response/MatchedPoint;)V
+	public final fun trackPointView (Lcom/admoai/sdk/model/response/MatchedPoint;)V
+	public final fun trackPointViews (Ljava/util/List;)V
+}
+
+public final class com/admoai/sdk/Admoai$Companion {
+	public final fun getInstance ()Lcom/admoai/sdk/Admoai;
+	public final fun initialize (Lcom/admoai/sdk/config/SDKConfig;)V
+	public final fun initialize (Ljava/lang/String;)V
+	public final fun initialize (Ljava/lang/String;Ljava/lang/String;)V
+	public final fun initialize (Ljava/lang/String;Ljava/lang/String;Z)V
+	public final fun initialize (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;)V
+	public final fun initialize (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;)V
+	public static synthetic fun initialize$default (Lcom/admoai/sdk/Admoai$Companion;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;ILjava/lang/Object;)V
+	public final fun isInitialized ()Z
+}
+
+public final class com/admoai/sdk/Admoai$LogLevel : java/lang/Enum {
+	public static final field DEBUG Lcom/admoai/sdk/Admoai$LogLevel;
+	public static final field ERROR Lcom/admoai/sdk/Admoai$LogLevel;
+	public static final field INFO Lcom/admoai/sdk/Admoai$LogLevel;
+	public static final field WARNING Lcom/admoai/sdk/Admoai$LogLevel;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/Admoai$LogLevel;
+	public static fun values ()[Lcom/admoai/sdk/Admoai$LogLevel;
+}
+
+public final class com/admoai/sdk/BuildConfig {
+	public static final field BUILD_TYPE Ljava/lang/String;
+	public static final field DEBUG Z
+	public static final field LIBRARY_PACKAGE_NAME Ljava/lang/String;
+	public static final field SDK_VERSION Ljava/lang/String;
+	public fun <init> ()V
+}
+
+public abstract class com/admoai/sdk/compose/AdState {
+	public static final field $stable I
+}
+
+public final class com/admoai/sdk/compose/AdState$Error : com/admoai/sdk/compose/AdState {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/Exception;)V
+	public final fun component1 ()Ljava/lang/Exception;
+	public final fun copy (Ljava/lang/Exception;)Lcom/admoai/sdk/compose/AdState$Error;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/compose/AdState$Error;Ljava/lang/Exception;ILjava/lang/Object;)Lcom/admoai/sdk/compose/AdState$Error;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getException ()Ljava/lang/Exception;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/compose/AdState$Idle : com/admoai/sdk/compose/AdState {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/compose/AdState$Idle;
+}
+
+public final class com/admoai/sdk/compose/AdState$Loading : com/admoai/sdk/compose/AdState {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/compose/AdState$Loading;
+}
+
+public final class com/admoai/sdk/compose/AdState$Success : com/admoai/sdk/compose/AdState {
+	public static final field $stable I
+	public fun <init> (Lcom/admoai/sdk/model/response/DecisionResponse;)V
+	public final fun component1 ()Lcom/admoai/sdk/model/response/DecisionResponse;
+	public final fun copy (Lcom/admoai/sdk/model/response/DecisionResponse;)Lcom/admoai/sdk/compose/AdState$Success;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/compose/AdState$Success;Lcom/admoai/sdk/model/response/DecisionResponse;ILjava/lang/Object;)Lcom/admoai/sdk/compose/AdState$Success;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getResponse ()Lcom/admoai/sdk/model/response/DecisionResponse;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/compose/AdmoaiComposeKt {
+	public static final fun rememberAdState (Lcom/admoai/sdk/Admoai;Lcom/admoai/sdk/model/request/DecisionRequest;Ljava/lang/Object;Landroidx/compose/runtime/Composer;II)Lcom/admoai/sdk/compose/AdState;
+}
+
+public final class com/admoai/sdk/config/AppConfig : com/admoai/sdk/core/Clearable {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/config/AppConfig$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun clear ()Lcom/admoai/sdk/config/AppConfig;
+	public synthetic fun clear ()Ljava/lang/Object;
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/config/AppConfig;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/config/AppConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/config/AppConfig;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAppName ()Ljava/lang/String;
+	public final fun getAppVersion ()Ljava/lang/String;
+	public final fun getBuildNumber ()Ljava/lang/String;
+	public final fun getLanguage ()Ljava/lang/String;
+	public final fun getPackageName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun resetToDefaults ()Lcom/admoai/sdk/config/AppConfig;
+	public synthetic fun resetToDefaults ()Ljava/lang/Object;
+	public static final fun systemDefault (Landroid/content/Context;)Lcom/admoai/sdk/config/AppConfig;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/config/AppConfig$Companion {
+	public final fun systemDefault (Landroid/content/Context;)Lcom/admoai/sdk/config/AppConfig;
+	public static synthetic fun systemDefault$default (Lcom/admoai/sdk/config/AppConfig$Companion;Landroid/content/Context;ILjava/lang/Object;)Lcom/admoai/sdk/config/AppConfig;
+}
+
+public final class com/admoai/sdk/config/DeviceConfig : com/admoai/sdk/core/Clearable {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/config/DeviceConfig$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun clear ()Lcom/admoai/sdk/config/DeviceConfig;
+	public synthetic fun clear ()Ljava/lang/Object;
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun component6 ()Ljava/lang/String;
+	public final fun component7 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/config/DeviceConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/config/DeviceConfig;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDeviceId ()Ljava/lang/String;
+	public final fun getLanguage ()Ljava/lang/String;
+	public final fun getManufacturer ()Ljava/lang/String;
+	public final fun getModel ()Ljava/lang/String;
+	public final fun getOsName ()Ljava/lang/String;
+	public final fun getOsVersion ()Ljava/lang/String;
+	public final fun getTimezone ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun resetToDefaults ()Lcom/admoai/sdk/config/DeviceConfig;
+	public synthetic fun resetToDefaults ()Ljava/lang/Object;
+	public static final fun systemDefault (Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/config/DeviceConfig$Companion {
+	public final fun systemDefault (Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
+	public static synthetic fun systemDefault$default (Lcom/admoai/sdk/config/DeviceConfig$Companion;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/config/DeviceConfig;
+}
+
+public final class com/admoai/sdk/config/SDKConfig : com/admoai/sdk/core/Clearable {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Lio/ktor/client/engine/HttpClientEngine;JJJ)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Lio/ktor/client/engine/HttpClientEngine;JJJILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun clear ()Lcom/admoai/sdk/config/SDKConfig;
+	public synthetic fun clear ()Ljava/lang/Object;
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Z
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Lio/ktor/client/engine/HttpClientEngine;
+	public final fun component6 ()J
+	public final fun component7 ()J
+	public final fun component8 ()J
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Lio/ktor/client/engine/HttpClientEngine;JJJ)Lcom/admoai/sdk/config/SDKConfig;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/config/SDKConfig;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Lio/ktor/client/engine/HttpClientEngine;JJJILjava/lang/Object;)Lcom/admoai/sdk/config/SDKConfig;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getApiVersion ()Ljava/lang/String;
+	public final fun getBaseUrl ()Ljava/lang/String;
+	public final fun getDefaultLanguage ()Ljava/lang/String;
+	public final fun getEnableLogging ()Z
+	public final fun getNetworkClientEngine ()Lio/ktor/client/engine/HttpClientEngine;
+	public final fun getNetworkConnectTimeoutMs ()J
+	public final fun getNetworkRequestTimeoutMs ()J
+	public final fun getNetworkSocketTimeoutMs ()J
+	public fun hashCode ()I
+	public fun resetToDefaults ()Lcom/admoai/sdk/config/SDKConfig;
+	public synthetic fun resetToDefaults ()Ljava/lang/Object;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/config/UserConfig : com/admoai/sdk/core/Clearable {
+	public static final field $stable I
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/Consent;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/Consent;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun clear ()Lcom/admoai/sdk/config/UserConfig;
+	public synthetic fun clear ()Ljava/lang/Object;
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Lcom/admoai/sdk/model/request/Consent;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/Consent;)Lcom/admoai/sdk/config/UserConfig;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/config/UserConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/Consent;ILjava/lang/Object;)Lcom/admoai/sdk/config/UserConfig;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getConsentData ()Lcom/admoai/sdk/model/request/Consent;
+	public final fun getId ()Ljava/lang/String;
+	public final fun getIp ()Ljava/lang/String;
+	public final fun getTimezone ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun resetToDefaults ()Lcom/admoai/sdk/config/UserConfig;
+	public synthetic fun resetToDefaults ()Ljava/lang/Object;
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class com/admoai/sdk/core/Clearable {
+	public abstract fun clear ()Ljava/lang/Object;
+	public abstract fun resetToDefaults ()Ljava/lang/Object;
+}
+
+public final class com/admoai/sdk/exception/AdMoaiConfigurationException : com/admoai/sdk/exception/AdMoaiException {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public final class com/admoai/sdk/exception/AdMoaiDataException : com/admoai/sdk/exception/AdMoaiException {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
+public class com/admoai/sdk/exception/AdMoaiException : java/lang/Exception {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
+public final class com/admoai/sdk/exception/AdMoaiNetworkException : com/admoai/sdk/exception/AdMoaiException {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;Ljava/lang/Integer;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getStatusCode ()Ljava/lang/Integer;
+}
+
+public final class com/admoai/sdk/exception/AdMoaiValidationException : com/admoai/sdk/exception/AdMoaiException {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;Ljava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/util/List;)V
+	public final fun getErrors ()Ljava/util/List;
+}
+
+public final class com/admoai/sdk/model/common/Error {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/common/Error$Companion;
+	public fun <init> (ILjava/lang/String;)V
+	public final fun component1 ()I
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (ILjava/lang/String;)Lcom/admoai/sdk/model/common/Error;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/common/Error;ILjava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/common/Error;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCode ()I
+	public final fun getMessage ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/common/Error$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/common/Error$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/common/Error;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/common/Error;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/common/Error$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/common/JourneyOpt : java/lang/Enum {
+	public static final field Companion Lcom/admoai/sdk/model/common/JourneyOpt$Companion;
+	public static final field OPT_IN Lcom/admoai/sdk/model/common/JourneyOpt;
+	public static final field OPT_OUT Lcom/admoai/sdk/model/common/JourneyOpt;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/model/common/JourneyOpt;
+	public static fun values ()[Lcom/admoai/sdk/model/common/JourneyOpt;
+}
+
+public final class com/admoai/sdk/model/common/JourneyOpt$Companion {
+	public final fun fromWire (Ljava/lang/String;)Lcom/admoai/sdk/model/common/JourneyOpt;
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/common/Warning {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/common/Warning$Companion;
+	public fun <init> (ILjava/lang/String;)V
+	public final fun component1 ()I
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (ILjava/lang/String;)Lcom/admoai/sdk/model/common/Warning;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/common/Warning;ILjava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/common/Warning;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCode ()I
+	public final fun getMessage ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/common/Warning$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/common/Warning$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/common/Warning;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/common/Warning;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/common/Warning$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/App {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/request/App$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/request/App;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/App;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/App;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBuildNumber ()Ljava/lang/String;
+	public final fun getIdentifier ()Ljava/lang/String;
+	public final fun getLanguage ()Ljava/lang/String;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getVersion ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/request/App$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/App$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/request/App;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/request/App;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/request/App$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/Consent {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/request/Consent$Companion;
+	public fun <init> ()V
+	public fun <init> (Z)V
+	public synthetic fun <init> (ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Z
+	public final fun copy (Z)Lcom/admoai/sdk/model/request/Consent;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/Consent;ZILjava/lang/Object;)Lcom/admoai/sdk/model/request/Consent;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getGdpr ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/request/Consent$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/Consent$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/request/Consent;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/request/Consent;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/request/Consent$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/CustomTargetingInfo {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/request/CustomTargetingInfo$Companion;
+	public fun <init> (Ljava/lang/String;Lkotlinx/serialization/json/JsonElement;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lkotlinx/serialization/json/JsonElement;
+	public final fun copy (Ljava/lang/String;Lkotlinx/serialization/json/JsonElement;)Lcom/admoai/sdk/model/request/CustomTargetingInfo;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/CustomTargetingInfo;Ljava/lang/String;Lkotlinx/serialization/json/JsonElement;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/CustomTargetingInfo;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKey ()Ljava/lang/String;
+	public final fun getValue ()Lkotlinx/serialization/json/JsonElement;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/request/CustomTargetingInfo$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/CustomTargetingInfo$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/request/CustomTargetingInfo;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/request/CustomTargetingInfo;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/request/CustomTargetingInfo$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/DecisionRequest {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/request/DecisionRequest$Companion;
+	public fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZ)V
+	public synthetic fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun component2 ()Lcom/admoai/sdk/model/request/Targeting;
+	public final fun component3 ()Lcom/admoai/sdk/model/request/User;
+	public final fun component4 ()Lcom/admoai/sdk/model/request/App;
+	public final fun component5 ()Lcom/admoai/sdk/model/request/Device;
+	public final fun component6 ()Ljava/lang/String;
+	public final fun component7 ()Lcom/admoai/sdk/model/common/JourneyOpt;
+	public final fun component8 ()Z
+	public final fun component9 ()Z
+	public final fun copy (Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZ)Lcom/admoai/sdk/model/request/DecisionRequest;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/DecisionRequest;Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZILjava/lang/Object;)Lcom/admoai/sdk/model/request/DecisionRequest;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getApp ()Lcom/admoai/sdk/model/request/App;
+	public final fun getCollectAppData ()Z
+	public final fun getCollectDeviceData ()Z
+	public final fun getDevice ()Lcom/admoai/sdk/model/request/Device;
+	public final fun getJourneyOpt ()Lcom/admoai/sdk/model/common/JourneyOpt;
+	public final fun getPlacements ()Ljava/util/List;
+	public final fun getSessionId ()Ljava/lang/String;
+	public final fun getTargeting ()Lcom/admoai/sdk/model/request/Targeting;
+	public final fun getUser ()Lcom/admoai/sdk/model/request/User;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/request/DecisionRequest$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/DecisionRequest$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/request/DecisionRequest;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/request/DecisionRequest;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/request/DecisionRequest$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/DecisionRequestBuilder {
+	public static final field $stable I
+	public fun <init> ()V
+	public final fun addCustomTarget (Ljava/lang/String;Ljava/lang/Number;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun addCustomTarget (Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun addCustomTarget (Ljava/lang/String;Lkotlinx/serialization/json/JsonElement;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun addCustomTarget (Ljava/lang/String;Z)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun addDestinationTarget (DDD)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun addGeoTarget (I)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun addLocationTarget (DD)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun addPlacement (Lcom/admoai/sdk/model/request/Placement;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun addPlacement (Ljava/lang/String;Ljava/lang/Integer;Lcom/admoai/sdk/model/request/PlacementFormat;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public static synthetic fun addPlacement$default (Lcom/admoai/sdk/model/request/DecisionRequestBuilder;Ljava/lang/String;Ljava/lang/Integer;Lcom/admoai/sdk/model/request/PlacementFormat;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun build ()Lcom/admoai/sdk/model/request/DecisionRequest;
+	public final fun clearAll ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun clearCustomTargeting ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun clearDestinationTargeting ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun clearDistanceTargeting ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun clearGeoTargeting ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun clearJourneyOpt ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun clearLocationTargeting ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun clearPlacements ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun clearSessionId ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun clearTargeting ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun clearUser ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun disableAppCollection ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun disableDeviceCollection ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setCustomTargets (Ljava/util/List;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setDestinationTargets (Ljava/util/List;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setDistanceTargeting (DDDLjava/lang/Integer;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setDistanceTargeting (DDLcom/admoai/sdk/model/request/DistanceBounds;Ljava/lang/Integer;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public static synthetic fun setDistanceTargeting$default (Lcom/admoai/sdk/model/request/DecisionRequestBuilder;DDDLjava/lang/Integer;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public static synthetic fun setDistanceTargeting$default (Lcom/admoai/sdk/model/request/DecisionRequestBuilder;DDLcom/admoai/sdk/model/request/DistanceBounds;Ljava/lang/Integer;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setGeoTargets (Ljava/util/List;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setJourneyOpt (Lcom/admoai/sdk/model/common/JourneyOpt;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setLocationTargets (Ljava/util/List;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setPlacements (Ljava/util/List;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setSessionId (Ljava/lang/String;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setUserConsent (Lcom/admoai/sdk/model/request/Consent;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setUserConsent (Ljava/lang/Boolean;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setUserId (Ljava/lang/String;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setUserIp (Ljava/lang/String;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setUserTimezone (Ljava/lang/String;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+}
+
+public final class com/admoai/sdk/model/request/DestinationTargetingInfo {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/request/DestinationTargetingInfo$Companion;
+	public fun <init> (DDD)V
+	public final fun component1 ()D
+	public final fun component2 ()D
+	public final fun component3 ()D
+	public final fun copy (DDD)Lcom/admoai/sdk/model/request/DestinationTargetingInfo;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/DestinationTargetingInfo;DDDILjava/lang/Object;)Lcom/admoai/sdk/model/request/DestinationTargetingInfo;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLatitude ()D
+	public final fun getLongitude ()D
+	public final fun getMinConfidence ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/request/DestinationTargetingInfo$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/DestinationTargetingInfo$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/request/DestinationTargetingInfo;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/request/DestinationTargetingInfo;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/request/DestinationTargetingInfo$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/Device {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/request/Device$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun component6 ()Ljava/lang/String;
+	public final fun component7 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/request/Device;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/Device;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getId ()Ljava/lang/String;
+	public final fun getLanguage ()Ljava/lang/String;
+	public final fun getManufacturer ()Ljava/lang/String;
+	public final fun getModel ()Ljava/lang/String;
+	public final fun getOs ()Ljava/lang/String;
+	public final fun getOsVersion ()Ljava/lang/String;
+	public final fun getTimezone ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/request/Device$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/Device$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/request/Device;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/request/Device;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/request/Device$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/Distance {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/request/Distance$Companion;
+	public fun <init> (DDLjava/lang/Double;Lcom/admoai/sdk/model/request/DistanceBounds;Ljava/lang/Integer;)V
+	public synthetic fun <init> (DDLjava/lang/Double;Lcom/admoai/sdk/model/request/DistanceBounds;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()D
+	public final fun component2 ()D
+	public final fun component3 ()Ljava/lang/Double;
+	public final fun component4 ()Lcom/admoai/sdk/model/request/DistanceBounds;
+	public final fun component5 ()Ljava/lang/Integer;
+	public final fun copy (DDLjava/lang/Double;Lcom/admoai/sdk/model/request/DistanceBounds;Ljava/lang/Integer;)Lcom/admoai/sdk/model/request/Distance;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/Distance;DDLjava/lang/Double;Lcom/admoai/sdk/model/request/DistanceBounds;Ljava/lang/Integer;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/Distance;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBounds ()Lcom/admoai/sdk/model/request/DistanceBounds;
+	public final fun getLatitude ()D
+	public final fun getLimit ()Ljava/lang/Integer;
+	public final fun getLongitude ()D
+	public final fun getRadius ()Ljava/lang/Double;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/request/Distance$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/Distance$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/request/Distance;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/request/Distance;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/request/Distance$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/DistanceBounds {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/request/DistanceBounds$Companion;
+	public fun <init> (DDDD)V
+	public final fun component1 ()D
+	public final fun component2 ()D
+	public final fun component3 ()D
+	public final fun component4 ()D
+	public final fun copy (DDDD)Lcom/admoai/sdk/model/request/DistanceBounds;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/DistanceBounds;DDDDILjava/lang/Object;)Lcom/admoai/sdk/model/request/DistanceBounds;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getEast ()D
+	public final fun getNorth ()D
+	public final fun getSouth ()D
+	public final fun getWest ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/request/DistanceBounds$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/DistanceBounds$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/request/DistanceBounds;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/request/DistanceBounds;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/request/DistanceBounds$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/LocationTargetingInfo {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/request/LocationTargetingInfo$Companion;
+	public fun <init> (DD)V
+	public final fun component1 ()D
+	public final fun component2 ()D
+	public final fun copy (DD)Lcom/admoai/sdk/model/request/LocationTargetingInfo;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/LocationTargetingInfo;DDILjava/lang/Object;)Lcom/admoai/sdk/model/request/LocationTargetingInfo;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLatitude ()D
+	public final fun getLongitude ()D
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/request/LocationTargetingInfo$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/LocationTargetingInfo$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/request/LocationTargetingInfo;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/request/LocationTargetingInfo;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/request/LocationTargetingInfo$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/Placement {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/request/Placement$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/Integer;Lcom/admoai/sdk/model/request/PlacementFormat;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Integer;Lcom/admoai/sdk/model/request/PlacementFormat;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/Integer;
+	public final fun component3 ()Lcom/admoai/sdk/model/request/PlacementFormat;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/Integer;Lcom/admoai/sdk/model/request/PlacementFormat;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/request/Placement;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/Placement;Ljava/lang/String;Ljava/lang/Integer;Lcom/admoai/sdk/model/request/PlacementFormat;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/Placement;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAdvertiserId ()Ljava/lang/String;
+	public final fun getCount ()Ljava/lang/Integer;
+	public final fun getFormat ()Lcom/admoai/sdk/model/request/PlacementFormat;
+	public final fun getKey ()Ljava/lang/String;
+	public final fun getTemplateId ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/request/Placement$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/Placement$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/request/Placement;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/request/Placement;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/request/Placement$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/PlacementFormat : java/lang/Enum {
+	public static final field Companion Lcom/admoai/sdk/model/request/PlacementFormat$Companion;
+	public static final field NATIVE Lcom/admoai/sdk/model/request/PlacementFormat;
+	public static final field VIDEO Lcom/admoai/sdk/model/request/PlacementFormat;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/model/request/PlacementFormat;
+	public static fun values ()[Lcom/admoai/sdk/model/request/PlacementFormat;
+}
+
+public final class com/admoai/sdk/model/request/PlacementFormat$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/Targeting {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/request/Targeting$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Lcom/admoai/sdk/model/request/Distance;)V
+	public synthetic fun <init> (Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Lcom/admoai/sdk/model/request/Distance;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Ljava/util/List;
+	public final fun component4 ()Ljava/util/List;
+	public final fun component5 ()Lcom/admoai/sdk/model/request/Distance;
+	public final fun copy (Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Lcom/admoai/sdk/model/request/Distance;)Lcom/admoai/sdk/model/request/Targeting;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/Targeting;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Lcom/admoai/sdk/model/request/Distance;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/Targeting;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCustom ()Ljava/util/List;
+	public final fun getDestination ()Ljava/util/List;
+	public final fun getDistance ()Lcom/admoai/sdk/model/request/Distance;
+	public final fun getGeo ()Ljava/util/List;
+	public final fun getLocation ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/request/Targeting$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/Targeting$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/request/Targeting;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/request/Targeting;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/request/Targeting$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/User {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/request/User$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/Consent;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/Consent;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Lcom/admoai/sdk/model/request/Consent;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/Consent;)Lcom/admoai/sdk/model/request/User;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/User;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/Consent;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/User;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getConsent ()Lcom/admoai/sdk/model/request/Consent;
+	public final fun getId ()Ljava/lang/String;
+	public final fun getIp ()Ljava/lang/String;
+	public final fun getTimezone ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/request/User$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/User$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/request/User;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/request/User;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/request/User$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/AdData {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/AdData$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/util/List;
+	public final fun copy (Ljava/lang/String;Ljava/util/List;)Lcom/admoai/sdk/model/response/AdData;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/AdData;Ljava/lang/String;Ljava/util/List;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/AdData;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCreatives ()Ljava/util/List;
+	public final fun getPlacement ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/AdData$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/AdData$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/AdData;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/AdData;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/AdData$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/AdDataKt {
+	public static final fun hasCreative (Lcom/admoai/sdk/model/response/AdData;)Z
+	public static final fun isNoAd (Lcom/admoai/sdk/model/response/AdData;)Z
+}
+
+public final class com/admoai/sdk/model/response/Advertiser {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/Advertiser$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/response/Advertiser;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/Advertiser;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/Advertiser;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getId ()Ljava/lang/String;
+	public final fun getLegalName ()Ljava/lang/String;
+	public final fun getLogoUrl ()Ljava/lang/String;
+	public final fun getName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/Advertiser$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/Advertiser$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/Advertiser;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/Advertiser;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/Advertiser$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/Content {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/Content$Companion;
+	public fun <init> (Ljava/lang/String;Lkotlinx/serialization/json/JsonElement;Lcom/admoai/sdk/model/response/ContentType;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Lkotlinx/serialization/json/JsonElement;Lcom/admoai/sdk/model/response/ContentType;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lkotlinx/serialization/json/JsonElement;
+	public final fun component3 ()Lcom/admoai/sdk/model/response/ContentType;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Lkotlinx/serialization/json/JsonElement;Lcom/admoai/sdk/model/response/ContentType;Ljava/lang/String;)Lcom/admoai/sdk/model/response/Content;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/Content;Ljava/lang/String;Lkotlinx/serialization/json/JsonElement;Lcom/admoai/sdk/model/response/ContentType;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/Content;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKey ()Ljava/lang/String;
+	public final fun getRawType ()Ljava/lang/String;
+	public final fun getType ()Lcom/admoai/sdk/model/response/ContentType;
+	public final fun getValue ()Lkotlinx/serialization/json/JsonElement;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/model/response/Content$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/ContentKt {
+	public static final fun contentTypeFromWire (Ljava/lang/String;)Lcom/admoai/sdk/model/response/ContentType;
+	public static final fun getContent (Ljava/util/List;Ljava/lang/String;)Lcom/admoai/sdk/model/response/Content;
+	public static final fun getWireName (Lcom/admoai/sdk/model/response/ContentType;)Ljava/lang/String;
+	public static final fun hasContents (Ljava/util/List;)Z
+	public static final fun isRawType (Ljava/util/List;Ljava/lang/String;Ljava/lang/String;)Z
+	public static final fun isType (Ljava/util/List;Ljava/lang/String;Lcom/admoai/sdk/model/response/ContentType;)Z
+}
+
+public final class com/admoai/sdk/model/response/ContentType : java/lang/Enum {
+	public static final field COLOR Lcom/admoai/sdk/model/response/ContentType;
+	public static final field Companion Lcom/admoai/sdk/model/response/ContentType$Companion;
+	public static final field DROPDOWN Lcom/admoai/sdk/model/response/ContentType;
+	public static final field FLOAT Lcom/admoai/sdk/model/response/ContentType;
+	public static final field HTML Lcom/admoai/sdk/model/response/ContentType;
+	public static final field IMAGE Lcom/admoai/sdk/model/response/ContentType;
+	public static final field IMAGES Lcom/admoai/sdk/model/response/ContentType;
+	public static final field INTEGER Lcom/admoai/sdk/model/response/ContentType;
+	public static final field MARKDOWN Lcom/admoai/sdk/model/response/ContentType;
+	public static final field NUMBER Lcom/admoai/sdk/model/response/ContentType;
+	public static final field TEXT Lcom/admoai/sdk/model/response/ContentType;
+	public static final field TEXTAREA Lcom/admoai/sdk/model/response/ContentType;
+	public static final field UNKNOWN Lcom/admoai/sdk/model/response/ContentType;
+	public static final field URL Lcom/admoai/sdk/model/response/ContentType;
+	public static final field VIDEO Lcom/admoai/sdk/model/response/ContentType;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/model/response/ContentType;
+	public static fun values ()[Lcom/admoai/sdk/model/response/ContentType;
+}
+
+public final class com/admoai/sdk/model/response/ContentType$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/Creative {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/Creative$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;)V
+	public synthetic fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun component2 ()Lcom/admoai/sdk/model/response/Advertiser;
+	public final fun component3 ()Lcom/admoai/sdk/model/response/TemplateInfo;
+	public final fun component4 ()Lcom/admoai/sdk/model/response/TrackingInfo;
+	public final fun component5 ()Lcom/admoai/sdk/model/response/CreativeMetadata;
+	public final fun component6 ()Ljava/lang/String;
+	public final fun component7 ()Lcom/admoai/sdk/model/response/VastData;
+	public final fun component8 ()Ljava/util/List;
+	public final fun component9 ()Lcom/admoai/sdk/model/response/CreativeJourney;
+	public final fun copy (Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;)Lcom/admoai/sdk/model/response/Creative;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/Creative;Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/Creative;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAdvertiser ()Lcom/admoai/sdk/model/response/Advertiser;
+	public final fun getContents ()Ljava/util/List;
+	public final fun getDelivery ()Ljava/lang/String;
+	public final fun getJourney ()Lcom/admoai/sdk/model/response/CreativeJourney;
+	public final fun getMetadata ()Lcom/admoai/sdk/model/response/CreativeMetadata;
+	public final fun getTemplate ()Lcom/admoai/sdk/model/response/TemplateInfo;
+	public final fun getTracking ()Lcom/admoai/sdk/model/response/TrackingInfo;
+	public final fun getVast ()Lcom/admoai/sdk/model/response/VastData;
+	public final fun getVerificationScriptResources ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/Creative$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/Creative$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/Creative;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/Creative;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/Creative$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/CreativeJourney {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/CreativeJourney$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;Ljava/lang/Boolean;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;Ljava/lang/Boolean;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component10 ()Ljava/lang/String;
+	public final fun component11 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun component6 ()Ljava/lang/String;
+	public final fun component7 ()Ljava/lang/String;
+	public final fun component8 ()Lcom/admoai/sdk/model/common/JourneyOpt;
+	public final fun component9 ()Ljava/lang/Boolean;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;Ljava/lang/Boolean;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/response/CreativeJourney;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/CreativeJourney;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;Ljava/lang/Boolean;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/CreativeJourney;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDealId ()Ljava/lang/String;
+	public final fun getDefinitionKey ()Ljava/lang/String;
+	public final fun getFallbackBillingMode ()Ljava/lang/String;
+	public final fun getInstanceId ()Ljava/lang/String;
+	public final fun getOptStatus ()Lcom/admoai/sdk/model/common/JourneyOpt;
+	public final fun getPricingModel ()Ljava/lang/String;
+	public final fun getSessionId ()Ljava/lang/String;
+	public final fun getStageId ()Ljava/lang/String;
+	public final fun getStageKey ()Ljava/lang/String;
+	public final fun getStageNodeId ()Ljava/lang/String;
+	public fun hashCode ()I
+	public final fun isCompletion ()Ljava/lang/Boolean;
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/CreativeJourney$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/CreativeJourney$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/CreativeJourney;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/CreativeJourney;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/CreativeJourney$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/CreativeMetadata {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/CreativeMetadata$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/response/MetadataPriority;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/Boolean;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/response/MetadataPriority;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/Boolean;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component10 ()Ljava/lang/Integer;
+	public final fun component11 ()Ljava/lang/String;
+	public final fun component12 ()Ljava/lang/Boolean;
+	public final fun component13 ()Ljava/lang/String;
+	public final fun component14 ()Ljava/lang/Integer;
+	public final fun component15 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun component6 ()Lcom/admoai/sdk/model/response/MetadataPriority;
+	public final fun component7 ()Ljava/lang/String;
+	public final fun component8 ()Ljava/lang/String;
+	public final fun component9 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/response/MetadataPriority;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/Boolean;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;)Lcom/admoai/sdk/model/response/CreativeMetadata;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/response/MetadataPriority;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;Ljava/lang/Boolean;Ljava/lang/String;Ljava/lang/Integer;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/CreativeMetadata;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAdId ()Ljava/lang/String;
+	public final fun getAdvertiserId ()Ljava/lang/String;
+	public final fun getAspectRatio ()Ljava/lang/String;
+	public final fun getCreativeId ()Ljava/lang/String;
+	public final fun getDuration ()Ljava/lang/Integer;
+	public final fun getEndCardMode ()Ljava/lang/String;
+	public final fun getFormat ()Ljava/lang/String;
+	public final fun getImpId ()Ljava/lang/String;
+	public final fun getLanguage ()Ljava/lang/String;
+	public final fun getPlacementId ()Ljava/lang/String;
+	public final fun getPriority ()Lcom/admoai/sdk/model/response/MetadataPriority;
+	public final fun getSkipOffsetSeconds ()Ljava/lang/Integer;
+	public final fun getStyle ()Ljava/lang/String;
+	public final fun getTemplateId ()Ljava/lang/String;
+	public fun hashCode ()I
+	public final fun isSkippable ()Ljava/lang/Boolean;
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/CreativeMetadata$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/CreativeMetadata$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/CreativeMetadata;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/CreativeMetadata;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/CreativeMetadata$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/DecisionResponse {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/DecisionResponse$Companion;
+	public fun <init> ()V
+	public fun <init> (ZLjava/util/List;Ljava/util/List;Ljava/util/List;Lkotlinx/serialization/json/JsonElement;)V
+	public synthetic fun <init> (ZLjava/util/List;Ljava/util/List;Ljava/util/List;Lkotlinx/serialization/json/JsonElement;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Z
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Ljava/util/List;
+	public final fun component4 ()Ljava/util/List;
+	public final fun component5 ()Lkotlinx/serialization/json/JsonElement;
+	public final fun copy (ZLjava/util/List;Ljava/util/List;Ljava/util/List;Lkotlinx/serialization/json/JsonElement;)Lcom/admoai/sdk/model/response/DecisionResponse;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/DecisionResponse;ZLjava/util/List;Ljava/util/List;Ljava/util/List;Lkotlinx/serialization/json/JsonElement;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/DecisionResponse;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getData ()Ljava/util/List;
+	public final fun getErrors ()Ljava/util/List;
+	public final fun getMetadata ()Lkotlinx/serialization/json/JsonElement;
+	public final fun getSuccess ()Z
+	public final fun getWarnings ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/DecisionResponse$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/DecisionResponse$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/DecisionResponse;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/DecisionResponse;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/DecisionResponse$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/MatchedPoint {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/MatchedPoint$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;DDILjava/lang/String;Lcom/admoai/sdk/model/response/MatchedPointTracking;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;DDILjava/lang/String;Lcom/admoai/sdk/model/response/MatchedPointTracking;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()D
+	public final fun component5 ()D
+	public final fun component6 ()I
+	public final fun component7 ()Ljava/lang/String;
+	public final fun component8 ()Lcom/admoai/sdk/model/response/MatchedPointTracking;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;DDILjava/lang/String;Lcom/admoai/sdk/model/response/MatchedPointTracking;)Lcom/admoai/sdk/model/response/MatchedPoint;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/MatchedPoint;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;DDILjava/lang/String;Lcom/admoai/sdk/model/response/MatchedPointTracking;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/MatchedPoint;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAddress ()Ljava/lang/String;
+	public final fun getClickUrl ()Ljava/lang/String;
+	public final fun getDistance ()I
+	public final fun getId ()Ljava/lang/String;
+	public final fun getLatitude ()D
+	public final fun getLongitude ()D
+	public final fun getName ()Ljava/lang/String;
+	public final fun getTracking ()Lcom/admoai/sdk/model/response/MatchedPointTracking;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/MatchedPoint$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/MatchedPoint$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/MatchedPoint;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/MatchedPoint;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/MatchedPoint$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/MatchedPointKt {
+	public static final fun getMatchedPoints (Lcom/admoai/sdk/model/response/Creative;)Ljava/util/List;
+}
+
+public final class com/admoai/sdk/model/response/MatchedPointTracking {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/MatchedPointTracking$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/util/List;Ljava/util/List;Ljava/util/List;)V
+	public synthetic fun <init> (Ljava/util/List;Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Ljava/util/List;
+	public final fun copy (Ljava/util/List;Ljava/util/List;Ljava/util/List;)Lcom/admoai/sdk/model/response/MatchedPointTracking;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/MatchedPointTracking;Ljava/util/List;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/MatchedPointTracking;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getClicks ()Ljava/util/List;
+	public final fun getTaps ()Ljava/util/List;
+	public final fun getViews ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/MatchedPointTracking$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/MatchedPointTracking$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/MatchedPointTracking;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/MatchedPointTracking;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/MatchedPointTracking$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/MetadataPriority : java/lang/Enum {
+	public static final field Companion Lcom/admoai/sdk/model/response/MetadataPriority$Companion;
+	public static final field HOUSE Lcom/admoai/sdk/model/response/MetadataPriority;
+	public static final field SPONSORSHIP Lcom/admoai/sdk/model/response/MetadataPriority;
+	public static final field STANDARD Lcom/admoai/sdk/model/response/MetadataPriority;
+	public static final field UNKNOWN Lcom/admoai/sdk/model/response/MetadataPriority;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/model/response/MetadataPriority;
+	public static fun values ()[Lcom/admoai/sdk/model/response/MetadataPriority;
+}
+
+public final class com/admoai/sdk/model/response/MetadataPriority$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/TemplateInfo {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/TemplateInfo$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/response/TemplateInfo;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/TemplateInfo;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/TemplateInfo;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKey ()Ljava/lang/String;
+	public final fun getStyle ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/TemplateInfo$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/TemplateInfo$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/TemplateInfo;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/TemplateInfo;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/TemplateInfo$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/ThirdPartyTracker {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/ThirdPartyTracker$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/response/ThirdPartyTracker;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/ThirdPartyTracker;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/ThirdPartyTracker;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getEventKey ()Ljava/lang/String;
+	public final fun getEventType ()Ljava/lang/String;
+	public final fun getMatchType ()Ljava/lang/String;
+	public final fun getTrackerId ()Ljava/lang/String;
+	public final fun getUrl ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/ThirdPartyTracker$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/ThirdPartyTracker$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/ThirdPartyTracker;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/ThirdPartyTracker;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/ThirdPartyTracker$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/TrackingDetail {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/TrackingDetail$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/response/TrackingDetail;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/TrackingDetail;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/TrackingDetail;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKey ()Ljava/lang/String;
+	public final fun getUrl ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/TrackingDetail$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/TrackingDetail$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/TrackingDetail;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/TrackingDetail;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/TrackingDetail$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/TrackingInfo {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/TrackingInfo$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;)V
+	public synthetic fun <init> (Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Ljava/util/List;
+	public final fun component4 ()Ljava/util/List;
+	public final fun component5 ()Ljava/util/List;
+	public final fun component6 ()Ljava/util/List;
+	public final fun copy (Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;)Lcom/admoai/sdk/model/response/TrackingInfo;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/TrackingInfo;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getClicks ()Ljava/util/List;
+	public final fun getCompletions ()Ljava/util/List;
+	public final fun getCustom ()Ljava/util/List;
+	public final fun getImpressions ()Ljava/util/List;
+	public final fun getThirdPartyTrackers ()Ljava/util/List;
+	public final fun getVideoEvents ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/TrackingInfo$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/TrackingInfo$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/TrackingInfo;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/TrackingInfo;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/TrackingInfo$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/TrackingInfoKt {
+	public static final fun getClickUrl (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)Ljava/lang/String;
+	public static synthetic fun getClickUrl$default (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;ILjava/lang/Object;)Ljava/lang/String;
+	public static final fun getCompletionUrl (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)Ljava/lang/String;
+	public static final fun getCustomUrl (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)Ljava/lang/String;
+	public static final fun getImpressionUrl (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)Ljava/lang/String;
+	public static synthetic fun getImpressionUrl$default (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;ILjava/lang/Object;)Ljava/lang/String;
+	public static final fun getTrackingUrl (Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/TrackingType;Ljava/lang/String;)Ljava/lang/String;
+	public static final fun getVideoEventUrl (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)Ljava/lang/String;
+	public static final fun hasTrackingFor (Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/TrackingType;Ljava/lang/String;)Z
+}
+
+public final class com/admoai/sdk/model/response/TrackingType : java/lang/Enum {
+	public static final field CLICK Lcom/admoai/sdk/model/response/TrackingType;
+	public static final field COMPLETION Lcom/admoai/sdk/model/response/TrackingType;
+	public static final field CUSTOM Lcom/admoai/sdk/model/response/TrackingType;
+	public static final field IMPRESSION Lcom/admoai/sdk/model/response/TrackingType;
+	public static final field VIDEO_EVENT Lcom/admoai/sdk/model/response/TrackingType;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/model/response/TrackingType;
+	public static fun values ()[Lcom/admoai/sdk/model/response/TrackingType;
+}
+
+public final class com/admoai/sdk/model/response/VastData {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/VastData$Companion;
+	public fun <init> ()V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/response/VastData;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/VastData;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/VastData;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getTagUrl ()Ljava/lang/String;
+	public final fun getXmlBase64 ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/VastData$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/VastData$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/VastData;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/VastData;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/VastData$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/response/VerificationScriptResource {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/response/VerificationScriptResource$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/response/VerificationScriptResource;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/VerificationScriptResource;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/VerificationScriptResource;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getScriptUrl ()Ljava/lang/String;
+	public final fun getVendorKey ()Ljava/lang/String;
+	public final fun getVerificationParameters ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/response/VerificationScriptResource$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/response/VerificationScriptResource$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/response/VerificationScriptResource;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/response/VerificationScriptResource;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/response/VerificationScriptResource$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public abstract interface class com/admoai/sdk/network/AdMoaiApiService {
+	public abstract fun fireTrackingUrl (Ljava/lang/String;)Lkotlinx/coroutines/flow/Flow;
+	public abstract fun getHttpRequestData (Lcom/admoai/sdk/model/request/DecisionRequest;)Lcom/admoai/sdk/network/AdmoaiHttpRequest;
+	public abstract fun requestAds (Lcom/admoai/sdk/model/request/DecisionRequest;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class com/admoai/sdk/network/AdmoaiHttpRequest {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/network/AdmoaiHttpRequest$Companion;
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Ljava/util/Map;
+	public final fun component4 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;Ljava/lang/String;)Lcom/admoai/sdk/network/AdmoaiHttpRequest;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/network/AdmoaiHttpRequest;Ljava/lang/String;Ljava/lang/String;Ljava/util/Map;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/network/AdmoaiHttpRequest;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBody ()Ljava/lang/String;
+	public final fun getHeaders ()Ljava/util/Map;
+	public final fun getMethod ()Ljava/lang/String;
+	public final fun getUrl ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/network/AdmoaiHttpRequest$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/network/AdmoaiHttpRequest$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/network/AdmoaiHttpRequest;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/network/AdmoaiHttpRequest;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/network/AdmoaiHttpRequest$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/utils/JourneyHelperKt {
+	public static final fun hasCompletionUrl (Lcom/admoai/sdk/model/response/Creative;)Z
+	public static final fun isJourneyAd (Lcom/admoai/sdk/model/response/Creative;)Z
+	public static final fun isJourneyCompletion (Lcom/admoai/sdk/model/response/Creative;)Z
+	public static final fun journeyDealId (Lcom/admoai/sdk/model/response/Creative;)Ljava/lang/String;
+	public static final fun journeyDefinitionKey (Lcom/admoai/sdk/model/response/Creative;)Ljava/lang/String;
+	public static final fun journeyFallbackBillingMode (Lcom/admoai/sdk/model/response/Creative;)Ljava/lang/String;
+	public static final fun journeyInstanceId (Lcom/admoai/sdk/model/response/Creative;)Ljava/lang/String;
+	public static final fun journeyOptStatus (Lcom/admoai/sdk/model/response/Creative;)Lcom/admoai/sdk/model/common/JourneyOpt;
+	public static final fun journeyPricingModel (Lcom/admoai/sdk/model/response/Creative;)Ljava/lang/String;
+	public static final fun journeySessionId (Lcom/admoai/sdk/model/response/Creative;)Ljava/lang/String;
+	public static final fun journeyStageId (Lcom/admoai/sdk/model/response/Creative;)Ljava/lang/String;
+	public static final fun journeyStageKey (Lcom/admoai/sdk/model/response/Creative;)Ljava/lang/String;
+	public static final fun journeyStageNodeId (Lcom/admoai/sdk/model/response/Creative;)Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/utils/OMHelperKt {
+	public static final fun getVerificationResources (Lcom/admoai/sdk/model/response/Creative;)Ljava/util/List;
+	public static final fun hasOMVerification (Lcom/admoai/sdk/model/response/Creative;)Z
+}
+
+public final class com/admoai/sdk/utils/VideoHelperKt {
+	public static final fun getSkipOffset (Lcom/admoai/sdk/model/response/Creative;)Ljava/lang/String;
+	public static final fun getVastTagUrl (Lcom/admoai/sdk/model/response/Creative;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+	public static synthetic fun getVastTagUrl$default (Lcom/admoai/sdk/model/response/Creative;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Ljava/lang/String;
+	public static final fun getVastXmlBase64 (Lcom/admoai/sdk/model/response/Creative;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+	public static synthetic fun getVastXmlBase64$default (Lcom/admoai/sdk/model/response/Creative;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Ljava/lang/String;
+	public static final fun isJsonDelivery (Lcom/admoai/sdk/model/response/Creative;)Z
+	public static final fun isSkippable (Lcom/admoai/sdk/model/response/Creative;)Z
+	public static final fun isVastTagDelivery (Lcom/admoai/sdk/model/response/Creative;)Z
+	public static final fun isVastXmlDelivery (Lcom/admoai/sdk/model/response/Creative;)Z
+}
+
