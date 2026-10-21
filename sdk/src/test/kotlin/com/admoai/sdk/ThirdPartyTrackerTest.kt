@@ -56,7 +56,11 @@ class ThirdPartyTrackerTest {
         eventKey: String? = null,
         url: String = "https://agency.example/imp"
     ) = ThirdPartyTracker(
-        trackerId = id, eventType = eventType, matchType = matchType, eventKey = eventKey, url = url
+        trackerId = id,
+        eventType = eventType,
+        matchType = matchType,
+        eventKey = eventKey,
+        url = url
     )
 
     private val testScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -154,11 +158,16 @@ class ThirdPartyTrackerTest {
     @Test
     fun `A8 - non-HTTPS urls are rejected`() {
         for (url in listOf(
-            "http://agency.example/imp", "ftp://agency.example/imp",
-            "javascript:alert(1)", "agency.example/imp", ""
+            "http://agency.example/imp",
+            "ftp://agency.example/imp",
+            "javascript:alert(1)",
+            "agency.example/imp",
+            ""
         )) {
-            assertNotNull("expected rejection for $url",
-                ThirdPartyTrackerDispatcher.rejectionReason(tracker(url = url)))
+            assertNotNull(
+                "expected rejection for $url",
+                ThirdPartyTrackerDispatcher.rejectionReason(tracker(url = url))
+            )
         }
     }
 
@@ -172,24 +181,28 @@ class ThirdPartyTrackerTest {
             "https://user@agency.example/imp",
             "https://agency.example/imp#frag"
         )) {
-            assertNotNull("expected rejection for credentialed/fragment url",
-                ThirdPartyTrackerDispatcher.rejectionReason(tracker(url = url)))
+            assertNotNull(
+                "expected rejection for credentialed/fragment url",
+                ThirdPartyTrackerDispatcher.rejectionReason(tracker(url = url))
+            )
         }
     }
 
     @Test
     fun `A9 A10 - unknown eventType or matchType and keyless specific clicks are rejected`() {
         assertNotNull(ThirdPartyTrackerDispatcher.rejectionReason(tracker(eventType = "conversion")))
-        assertNotNull(
-            ThirdPartyTrackerDispatcher.rejectionReason(tracker(eventType = "click", matchType = "fuzzy")))
-        assertNotNull(
-            ThirdPartyTrackerDispatcher.rejectionReason(tracker(eventType = "click", matchType = null)))
+        assertNotNull(ThirdPartyTrackerDispatcher.rejectionReason(tracker(eventType = "click", matchType = "fuzzy")))
+        assertNotNull(ThirdPartyTrackerDispatcher.rejectionReason(tracker(eventType = "click", matchType = null)))
         assertNotNull(
             ThirdPartyTrackerDispatcher.rejectionReason(
-                tracker(eventType = "click", matchType = "specific", eventKey = null)))
+                tracker(eventType = "click", matchType = "specific", eventKey = null)
+            )
+        )
         assertNotNull(
             ThirdPartyTrackerDispatcher.rejectionReason(
-                tracker(eventType = "click", matchType = "specific", eventKey = "")))
+                tracker(eventType = "click", matchType = "specific", eventKey = "")
+            )
+        )
     }
 
     @Test
@@ -197,11 +210,19 @@ class ThirdPartyTrackerTest {
         assertNull(ThirdPartyTrackerDispatcher.rejectionReason(tracker()))
         assertNull(
             ThirdPartyTrackerDispatcher.rejectionReason(
-                tracker(eventType = "click", matchType = "any", url = "https://a.example/c")))
+                tracker(eventType = "click", matchType = "any", url = "https://a.example/c")
+            )
+        )
         assertNull(
             ThirdPartyTrackerDispatcher.rejectionReason(
-                tracker(eventType = "click", matchType = "specific", eventKey = "cta_tap",
-                    url = "https://a.example/s")))
+                tracker(
+                    eventType = "click",
+                    matchType = "specific",
+                    eventKey = "cta_tap",
+                    url = "https://a.example/s"
+                )
+            )
+        )
     }
 
     @Test
@@ -209,12 +230,12 @@ class ThirdPartyTrackerTest {
         // %%CACHEBUSTER%% is an invalid percent-sequence: Ktor's URL parser throws on it,
         // and any normalization would corrupt what the agency counts — discard, never mutate.
         assertNotNull(
-            ThirdPartyTrackerDispatcher.rejectionReason(
-                tracker(url = "https://agency.example/imp?cb=%%CACHEBUSTER%%")))
+            ThirdPartyTrackerDispatcher.rejectionReason(tracker(url = "https://agency.example/imp?cb=%%CACHEBUSTER%%"))
+        )
         // A clean RFC-3986 URL round-trips and passes.
         assertNull(
-            ThirdPartyTrackerDispatcher.rejectionReason(
-                tracker(url = "https://agency.example/imp?b=2&a=1&ord=12345")))
+            ThirdPartyTrackerDispatcher.rejectionReason(tracker(url = "https://agency.example/imp?b=2&a=1&ord=12345"))
+        )
     }
 
     @Test
@@ -240,8 +261,11 @@ class ThirdPartyTrackerTest {
         val imp = tracker()
         val anyClick = tracker(eventType = "click", matchType = "any", url = "https://a.example/c")
         val specific = tracker(
-            eventType = "click", matchType = "specific", eventKey = "cta_tap",
-            url = "https://a.example/s")
+            eventType = "click",
+            matchType = "specific",
+            eventKey = "cta_tap",
+            url = "https://a.example/s"
+        )
 
         assertTrue(ThirdPartyTrackerDispatcher.matches(imp, ThirdPartyTrackerEvent.Impression))
         assertFalse(ThirdPartyTrackerDispatcher.matches(imp, ThirdPartyTrackerEvent.Click("default")))
@@ -255,8 +279,7 @@ class ThirdPartyTrackerTest {
     // MARK: §B/§C/§D/§E fan-out through the network (Ktor MockEngine)
 
     /** Requests the engine has served, most recent last. */
-    private fun MockEngine.requestUrls(): List<String> =
-        requestHistory.map { it.url.toString() }
+    private fun MockEngine.requestUrls(): List<String> = requestHistory.map { it.url.toString() }
 
     /**
      * Deterministic wait: every fire-and-forget coroutine (canonical fireTracking AND
@@ -264,13 +287,14 @@ class ThirdPartyTrackerTest {
      * scope's children is a complete, race-free barrier — no wall-clock polling, and
      * negative assertions become exact instead of "nothing arrived within 500 ms".
      */
-    private fun awaitFires(scope: CoroutineScope = Admoai.getInstance().sdkScope) =
-        runBlocking {
-            requireNotNull(scope.coroutineContext[Job]).children.toList().joinAll()
-        }
+    private fun awaitFires(scope: CoroutineScope = Admoai.getInstance().sdkScope) = runBlocking {
+        requireNotNull(scope.coroutineContext[Job]).children.toList().joinAll()
+    }
 
-    private fun newMockEngine(status: HttpStatusCode = HttpStatusCode.OK, headers: io.ktor.http.Headers = headersOf()): MockEngine =
-        MockEngine { respond(content = "", status = status, headers = headers) }
+    private fun newMockEngine(
+        status: HttpStatusCode = HttpStatusCode.OK,
+        headers: io.ktor.http.Headers = headersOf()
+    ): MockEngine = MockEngine { respond(content = "", status = status, headers = headers) }
 
     private fun initSdk(engine: MockEngine) {
         Admoai.initialize(
@@ -378,7 +402,13 @@ class ThirdPartyTrackerTest {
         val info = trackingInfo(
             listOf(
                 tracker(id = "tpt_any", eventType = "click", matchType = "any", url = "https://agency.example/any"),
-                tracker(id = "tpt_spec", eventType = "click", matchType = "specific", eventKey = "cta_tap", url = "https://agency.example/spec")
+                tracker(
+                    id = "tpt_spec",
+                    eventType = "click",
+                    matchType = "specific",
+                    eventKey = "cta_tap",
+                    url = "https://agency.example/spec"
+                )
             )
         )
         Admoai.getInstance().fireClick(info) // "default": any fires, specific does not
@@ -521,11 +551,9 @@ class ThirdPartyTrackerTest {
             )
         }
         val dispatcher = ThirdPartyTrackerDispatcher(engine, { testScope }) { _, _ -> }
-        dispatcher.dispatch(
-            listOf(tracker(url = "https://agency.example/imp")), ThirdPartyTrackerEvent.Impression)
+        dispatcher.dispatch(listOf(tracker(url = "https://agency.example/imp")), ThirdPartyTrackerEvent.Impression)
         awaitFires(testScope)
-        dispatcher.dispatch(
-            listOf(tracker(url = "https://agency.example/imp")), ThirdPartyTrackerEvent.Impression)
+        dispatcher.dispatch(listOf(tracker(url = "https://agency.example/imp")), ThirdPartyTrackerEvent.Impression)
         awaitFires(testScope)
         assertEquals(2, engine.requestHistory.size)
         assertNull(engine.requestHistory[1].headers[HttpHeaders.Cookie])

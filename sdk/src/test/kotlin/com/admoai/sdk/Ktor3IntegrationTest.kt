@@ -171,12 +171,20 @@ class Ktor3IntegrationTest {
                         Creative(
                             contents = listOf(
                                 Content(key = "headline", value = JsonPrimitive("Buy Now"), type = ContentType.TEXT),
-                                Content(key = "coverImage", value = JsonPrimitive("https://img.example.com/ad.jpg"), type = ContentType.IMAGE)
+                                Content(
+                                    key = "coverImage",
+                                    value = JsonPrimitive("https://img.example.com/ad.jpg"),
+                                    type = ContentType.IMAGE
+                                )
                             ),
                             advertiser = Advertiser(id = "adv-1", name = "Test Brand"),
                             tracking = TrackingInfo(
-                                impressions = listOf(TrackingDetail(key = "default", url = "https://track.example.com/imp")),
-                                clicks = listOf(TrackingDetail(key = "default", url = "https://track.example.com/click"))
+                                impressions = listOf(
+                                    TrackingDetail(key = "default", url = "https://track.example.com/imp")
+                                ),
+                                clicks = listOf(
+                                    TrackingDetail(key = "default", url = "https://track.example.com/click")
+                                )
                             ),
                             metadata = CreativeMetadata(
                                 adId = "ad-1",

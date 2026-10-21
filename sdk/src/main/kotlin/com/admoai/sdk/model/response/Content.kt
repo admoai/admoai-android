@@ -24,20 +24,28 @@ import kotlinx.serialization.json.JsonNull
 enum class ContentType {
     @SerialName("text")
     TEXT,
+
     @SerialName("textarea")
     TEXTAREA,
+
     @SerialName("markdown")
     MARKDOWN,
+
     @SerialName("html")
     HTML,
+
     @SerialName("image")
     IMAGE,
+
     @SerialName("images")
     IMAGES,
+
     @SerialName("integer")
     INTEGER,
+
     @SerialName("number")
     NUMBER,
+
     @SerialName("float")
     FLOAT,
 
@@ -51,8 +59,10 @@ enum class ContentType {
 
     @SerialName("url")
     URL,
+
     @SerialName("color")
     COLOR,
+
     @SerialName("video")
     VIDEO,
 
@@ -119,12 +129,10 @@ fun List<Content>.getContent(key: String): Content? = firstOrNull { it.key == ke
 
 fun List<Content>.hasContents(): Boolean = isNotEmpty()
 
-fun List<Content>.isType(key: String, type: ContentType): Boolean =
-    firstOrNull { it.key == key }?.type == type
+fun List<Content>.isType(key: String, type: ContentType): Boolean = firstOrNull { it.key == key }?.type == type
 
 /**
  * Matches on the raw wire type, for content types newer than this SDK version. Use this instead of
  * [isType] when handling a field type that decodes to [ContentType.UNKNOWN].
  */
-fun List<Content>.isRawType(key: String, rawType: String): Boolean =
-    firstOrNull { it.key == key }?.rawType == rawType
+fun List<Content>.isRawType(key: String, rawType: String): Boolean = firstOrNull { it.key == key }?.rawType == rawType

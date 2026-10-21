@@ -81,7 +81,8 @@ class DecisionRequestBuilder internal constructor(
         val currentDestination = targeting.destination?.toMutableList() ?: mutableListOf()
         if (currentDestination.none {
                 it.latitude == latitude && it.longitude == longitude && it.minConfidence == minConfidence
-            }) {
+            }
+        ) {
             currentDestination.add(DestinationTargetingInfo(latitude, longitude, minConfidence))
         }
         targeting = targeting.copy(destination = currentDestination)
@@ -139,8 +140,7 @@ class DecisionRequestBuilder internal constructor(
      * the engine has no unspecified state and treats an absent flag as false, so this makes the
      * wire body identical to iOS and Flutter for the same call.
      */
-    fun setUserConsent(gdpr: Boolean?) =
-        apply { user = user.copy(consent = Consent(gdpr = gdpr ?: false)) }
+    fun setUserConsent(gdpr: Boolean?) = apply { user = user.copy(consent = Consent(gdpr = gdpr ?: false)) }
 
     fun setUserConsent(consent: Consent?) = apply { user = user.copy(consent = consent) }
 
@@ -190,12 +190,7 @@ class DecisionRequestBuilder internal constructor(
      * @throws IllegalArgumentException on an impossible origin, a radius of zero or less, or a
      *   limit of zero or less.
      */
-    fun setDistanceTargeting(
-        latitude: Double,
-        longitude: Double,
-        radiusMeters: Double,
-        limit: Int? = null
-    ) = apply {
+    fun setDistanceTargeting(latitude: Double, longitude: Double, radiusMeters: Double, limit: Int? = null) = apply {
         requireDistanceOrigin(latitude, longitude)
         require(radiusMeters > 0) { "distance radius must be greater than 0 metres, was $radiusMeters" }
         requireDistanceLimit(limit)
@@ -214,15 +209,12 @@ class DecisionRequestBuilder internal constructor(
      * @throws IllegalArgumentException on an impossible origin, a rectangle that encloses
      *   nothing or crosses the antimeridian, or a limit of zero or less.
      */
-    fun setDistanceTargeting(
-        latitude: Double,
-        longitude: Double,
-        bounds: DistanceBounds,
-        limit: Int? = null
-    ) = apply {
+    fun setDistanceTargeting(latitude: Double, longitude: Double, bounds: DistanceBounds, limit: Int? = null) = apply {
         requireDistanceOrigin(latitude, longitude)
-        require(bounds.north in -90.0..90.0 && bounds.south in -90.0..90.0 &&
-            bounds.east in -180.0..180.0 && bounds.west in -180.0..180.0) {
+        require(
+            bounds.north in -90.0..90.0 && bounds.south in -90.0..90.0 &&
+                bounds.east in -180.0..180.0 && bounds.west in -180.0..180.0
+        ) {
             "distance bounds latitudes must be in [-90, 90] and longitudes in [-180, 180]"
         }
         require(bounds.north > bounds.south) {

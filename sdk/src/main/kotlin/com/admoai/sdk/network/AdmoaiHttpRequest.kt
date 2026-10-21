@@ -5,10 +5,11 @@ import kotlinx.serialization.Serializable
 /**
  * HTTP request details for debugging and inspection.
  */
-@Serializable 
+@Serializable
 data class AdmoaiHttpRequest(
     val method: String,
     val url: String,
     val headers: Map<String, String>,
-    val body: String? // JSON string for POST/PUT, null for GET
+    // JSON string for POST/PUT, null for GET
+    val body: String?
 )

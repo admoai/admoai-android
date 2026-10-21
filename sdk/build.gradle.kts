@@ -21,7 +21,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
-        
+
         // Add version info to manifest
         buildConfigField("String", "SDK_VERSION", "\"$sdkVersion\"")
     }
@@ -37,7 +37,7 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true  // Enable BuildConfig feature for custom fields
+        buildConfig = true // Enable BuildConfig feature for custom fields
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -45,7 +45,7 @@ android {
     }
     kotlinOptions {
         jvmTarget = "11"
-        freeCompilerArgs += "-opt-in=kotlinx.serialization.InternalSerializationApi" 
+        freeCompilerArgs += "-opt-in=kotlinx.serialization.InternalSerializationApi"
     }
     lint {
         disable.add("FlowOperatorInvokedInComposition")
@@ -109,7 +109,10 @@ afterEvaluate {
         // automatically, so the runner's classes are built without executing the JUnit suite.
         classpath = unitTest.classpath
         mainClass.set("com.admoai.sdk.e2e.JourneyE2eRunnerKt")
-        environment("ADMOAI_JOURNEY_E2E_BASE_URL", System.getenv("ADMOAI_JOURNEY_E2E_BASE_URL") ?: "http://127.0.0.1:8080/")
+        environment(
+            "ADMOAI_JOURNEY_E2E_BASE_URL",
+            System.getenv("ADMOAI_JOURNEY_E2E_BASE_URL") ?: "http://127.0.0.1:8080/"
+        )
         environment("ADMOAI_JOURNEY_E2E_VERSION", System.getenv("ADMOAI_JOURNEY_E2E_VERSION") ?: "2025-11-01")
     }
 }
@@ -126,16 +129,18 @@ afterEvaluate {
 
                 pom {
                     name.set("AdMoai Android SDK")
-                    description.set("Android SDK for AdMoai advertising platform with targeting, tracking, and analytics")
+                    description.set(
+                        "Android SDK for AdMoai advertising platform with targeting, tracking, and analytics"
+                    )
                     url.set("https://github.com/admoai/admoai-android")
-                    
+
                     licenses {
                         license {
                             name.set("MIT License")
                             url.set("https://opensource.org/licenses/MIT")
                         }
                     }
-                    
+
                     developers {
                         developer {
                             id.set("admoai")
@@ -143,7 +148,7 @@ afterEvaluate {
                             url.set("https://github.com/admoai")
                         }
                     }
-                    
+
                     scm {
                         connection.set("scm:git:git://github.com/admoai/admoai-android.git")
                         developerConnection.set("scm:git:ssh://git@github.com/admoai/admoai-android.git")
@@ -164,7 +169,7 @@ afterEvaluate {
             }
         }
     }
-    
+
     signing {
         val signingKey: String? = findProperty("signingKey") as String?
         val signingPassword: String? = findProperty("signingPassword") as String?
@@ -180,21 +185,21 @@ afterEvaluate {
 val createMavenCentralBundle by tasks.registering(Zip::class) {
     group = "publishing"
     description = "Creates Maven Central upload bundle"
-    
-    archiveFileName.set("${sdkArtifactId}-${sdkVersion}-maven-central-bundle.zip")
+
+    archiveFileName.set("$sdkArtifactId-$sdkVersion-maven-central-bundle.zip")
     destinationDirectory.set(layout.buildDirectory.dir("maven-central"))
-    
+
     dependsOn(tasks.publishToMavenLocal)
-    
+
     from(layout.buildDirectory.dir("repo")) {
         include("**/*")
     }
-    
+
     doFirst {
         val localRepo = File(System.getProperty("user.home"), ".m2/repository")
         val groupPath = sdkGroupId.replace(".", "/")
         val artifactPath = "$groupPath/$sdkArtifactId/$sdkVersion"
-        
+
         copy {
             from(File(localRepo, artifactPath))
             into(layout.buildDirectory.dir("repo/$artifactPath"))

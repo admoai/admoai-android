@@ -1,12 +1,12 @@
 package com.admoai.sdk.utils
 
+import android.util.Base64
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.CreativeMetadata
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
-import android.util.Base64
 
 fun Creative.isVastTagDelivery(): Boolean = delivery == "vast_tag"
 
@@ -19,7 +19,7 @@ fun Creative.getVastTagUrl(mediaType: String? = null, mediaDelivery: String? = n
     val queryParams = mutableListOf<String>()
     mediaType?.let { queryParams.add("mediaType=${java.net.URLEncoder.encode(it, "UTF-8")}") }
     mediaDelivery?.let { queryParams.add("mediaDelivery=${java.net.URLEncoder.encode(it, "UTF-8")}") }
-    
+
     return if (queryParams.isEmpty()) {
         baseUrl
     } else {
@@ -30,19 +30,23 @@ fun Creative.getVastTagUrl(mediaType: String? = null, mediaDelivery: String? = n
 
 fun Creative.getVastXmlBase64(mediaType: String? = null, mediaDelivery: String? = null): String? {
     val base64Xml = vast?.xmlBase64 ?: return null
-    
+
     if (mediaType == null && mediaDelivery == null) {
         return base64Xml
     }
-    
+
     return try {
         val decodedBytes = Base64.decode(base64Xml, Base64.DEFAULT)
         var xmlString = String(decodedBytes, Charsets.UTF_8)
-        val mediaFilePattern = """(<MediaFile[^>]*?)(\s+type="[^"]*")?([^>]*?)(\s+delivery="[^"]*")?([^>]*?>)""".toRegex()
-        
+        val mediaFilePattern =
+            (
+                """(<MediaFile[^>]*?)(\s+type="[^"]*")?""" +
+                    """([^>]*?)(\s+delivery="[^"]*")?([^>]*?>)"""
+                ).toRegex()
+
         xmlString = mediaFilePattern.replace(xmlString) { matchResult ->
             var result = matchResult.value
-            
+
             mediaType?.let { newType ->
                 result = if (result.contains("type=")) {
                     result.replace("""type="[^"]*"""".toRegex(), """type="$newType"""")
@@ -50,7 +54,7 @@ fun Creative.getVastXmlBase64(mediaType: String? = null, mediaDelivery: String? 
                     result.replace(">", " type=\"$newType\">")
                 }
             }
-            
+
             mediaDelivery?.let { newDelivery ->
                 result = if (result.contains("delivery=")) {
                     result.replace("""delivery="[^"]*"""".toRegex(), """delivery="$newDelivery"""")
@@ -58,10 +62,10 @@ fun Creative.getVastXmlBase64(mediaType: String? = null, mediaDelivery: String? 
                     result.replace(">", " delivery=\"$newDelivery\">")
                 }
             }
-            
+
             result
         }
-        
+
         Base64.encodeToString(xmlString.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
     } catch (e: Exception) {
         base64Xml

@@ -8,10 +8,10 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.http.URLBuilder
+import java.io.Closeable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import java.io.Closeable
 
 /**
  * The event a `fireImpression`/`fireClick` invocation reports, used to select which third-party
@@ -150,14 +150,18 @@ internal class ThirdPartyTrackerDispatcher(
             if (tracker.trackerId.isEmpty()) return "empty trackerId"
             when (tracker.eventType) {
                 "impression" -> Unit
+
                 "click" -> when (tracker.matchType) {
                     "any" -> Unit
+
                     "specific" ->
                         if (tracker.eventKey.isNullOrEmpty()) {
                             return "specific click tracker without an eventKey"
                         }
+
                     else -> return "unknown matchType"
                 }
+
                 else -> return "unknown eventType"
             }
             // Validate with the SAME parser that builds the wire request (Ktor's), so
@@ -194,13 +198,15 @@ internal class ThirdPartyTrackerDispatcher(
          * E06 matching: impressions fire on `fireImpression`; any-click trackers fire on every
          * valid click; specific-click trackers fire only when the reported key equals theirs.
          */
-        fun matches(tracker: ThirdPartyTracker, event: ThirdPartyTrackerEvent): Boolean =
-            when (event) {
-                is ThirdPartyTrackerEvent.Impression -> tracker.eventType == "impression"
-                is ThirdPartyTrackerEvent.Click ->
-                    tracker.eventType == "click" &&
-                        (tracker.matchType == "any" ||
-                            (tracker.matchType == "specific" && tracker.eventKey == event.key))
-            }
+        fun matches(tracker: ThirdPartyTracker, event: ThirdPartyTrackerEvent): Boolean = when (event) {
+            is ThirdPartyTrackerEvent.Impression -> tracker.eventType == "impression"
+
+            is ThirdPartyTrackerEvent.Click ->
+                tracker.eventType == "click" &&
+                    (
+                        tracker.matchType == "any" ||
+                            (tracker.matchType == "specific" && tracker.eventKey == event.key)
+                        )
+        }
     }
 }

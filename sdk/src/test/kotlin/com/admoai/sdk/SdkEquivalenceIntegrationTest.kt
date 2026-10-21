@@ -21,6 +21,7 @@ import com.admoai.sdk.model.response.hasContents
 import com.admoai.sdk.model.response.hasTrackingFor
 import com.admoai.sdk.model.response.isType
 import io.ktor.client.engine.cio.CIO
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -35,7 +36,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.util.concurrent.TimeUnit
 
 /**
  * End-to-end integration tests validating Android/iOS/Flutter SDK equivalence.
@@ -116,7 +116,11 @@ class SdkEquivalenceIntegrationTest {
         assertTrue(req.getHeader("User-Agent")!!.startsWith("AdMoaiSDK/"))
         assertEquals("Accept-Language on tracking must match config", "pt", req.getHeader("Accept-Language"))
         // Tracking version-routes on X-Tracking-Version; X-Decision-Version has no effect there.
-        assertEquals("X-Tracking-Version on tracking must match config", "2025-11-01", req.getHeader("X-Tracking-Version"))
+        assertEquals(
+            "X-Tracking-Version on tracking must match config",
+            "2025-11-01",
+            req.getHeader("X-Tracking-Version")
+        )
         assertNull("X-Decision-Version must not be sent on tracking", req.getHeader("X-Decision-Version"))
     }
 
@@ -144,14 +148,20 @@ class SdkEquivalenceIntegrationTest {
 
     @Test
     fun `gap 2 - advertiser id is null when server omits the field`() {
-        val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+        val json = Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
         val advertiser = json.decodeFromString<Advertiser>("""{"name":"Acme"}""")
         assertNull("id must be null when server omits it", advertiser.id)
     }
 
     @Test
     fun `gap 2 - advertiser id equals server value when provided`() {
-        val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+        val json = Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
         val advertiser = json.decodeFromString<Advertiser>("""{"id":"adv_01XYZ","name":"Acme"}""")
         assertEquals("adv_01XYZ", advertiser.id)
     }
@@ -212,10 +222,16 @@ class SdkEquivalenceIntegrationTest {
 
     @Test
     fun `gap 3 - getTrackingUrl dispatches to correct list by TrackingType`() {
-        assertEquals(richTracking.getImpressionUrl("default"), richTracking.getTrackingUrl(TrackingType.IMPRESSION, "default"))
+        assertEquals(
+            richTracking.getImpressionUrl("default"),
+            richTracking.getTrackingUrl(TrackingType.IMPRESSION, "default")
+        )
         assertEquals(richTracking.getClickUrl("default"), richTracking.getTrackingUrl(TrackingType.CLICK, "default"))
         assertEquals(richTracking.getCustomUrl("cta"), richTracking.getTrackingUrl(TrackingType.CUSTOM, "cta"))
-        assertEquals(richTracking.getVideoEventUrl("start"), richTracking.getTrackingUrl(TrackingType.VIDEO_EVENT, "start"))
+        assertEquals(
+            richTracking.getVideoEventUrl("start"),
+            richTracking.getTrackingUrl(TrackingType.VIDEO_EVENT, "start")
+        )
     }
 
     @Test
@@ -350,7 +366,7 @@ class SdkEquivalenceIntegrationTest {
             .addPlacement("p1")
             .addLocationTarget(51.5074, -0.1278)
             .addLocationTarget(51.5074, -0.1278) // exact duplicate
-            .addLocationTarget(48.8566, 2.3522)  // different — kept
+            .addLocationTarget(48.8566, 2.3522) // different — kept
             .build()
 
         assertEquals("Duplicate location must be removed", 2, request.targeting?.location?.size)
@@ -636,7 +652,10 @@ class SdkEquivalenceIntegrationTest {
 
         val impUrl = creative.tracking.getImpressionUrl()
         assertNotNull("getImpressionUrl must return url", impUrl)
-        assertTrue("hasTrackingFor IMPRESSION works", creative.tracking.hasTrackingFor(TrackingType.IMPRESSION, "default"))
+        assertTrue(
+            "hasTrackingFor IMPRESSION works",
+            creative.tracking.hasTrackingFor(TrackingType.IMPRESSION, "default")
+        )
 
         // Fire tracking — fire-and-forget, no collection needed
         Admoai.getInstance().fireImpression(creative.tracking)

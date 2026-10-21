@@ -1,5 +1,6 @@
 package com.admoai.sdk
 
+import java.security.MessageDigest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -7,7 +8,6 @@ import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.security.MessageDigest
 
 /**
  * The shared cross-SDK E2E scenario manifest is mirrored byte-identically into all three SDK repos.
@@ -36,7 +36,7 @@ class ManifestIntegrityTest {
             "e2e-scenarios.json changed. Mirror the edit into admoai-ios and admoai-flutter, " +
                 "then update expectedSha256 in all three repos.",
             expectedSha256,
-            digest,
+            digest
         )
     }
 

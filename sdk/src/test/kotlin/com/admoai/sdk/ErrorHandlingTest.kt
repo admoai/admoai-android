@@ -41,9 +41,9 @@ class ErrorHandlingTest {
         val placement = Placement("home")
         val request = DecisionRequest(placements = listOf(placement))
         val preparedRequest = admoai.prepareFinalDecisionRequest(request)
-        
+
         coEvery { mockApiService.requestAds(preparedRequest) } throws RuntimeException("Network error")
-        
+
         // When & Then: Requesting ad decisions with network failure should propagate error
         try {
             admoai.requestAds(request).first()
@@ -57,7 +57,7 @@ class ErrorHandlingTest {
     fun `given invalid configuration when initializing then accepts configuration without validation`() {
         // Given & When: SDK configuration with empty base URL (SDK doesn't validate during init)
         val configWithEmptyUrl = SDKConfig(baseUrl = "", enableLogging = true)
-        
+
         // Then: Should accept configuration without throwing exception (no validation during init)
         Admoai.initialize(configWithEmptyUrl)
         assertTrue("SDK should be initialized even with empty baseUrl", Admoai.isInitialized())
@@ -68,7 +68,7 @@ class ErrorHandlingTest {
     fun `given sdk not initialized when requesting ad then throws exception`() = runTest {
         // Given: SDK is not initialized
         Admoai.resetForTesting()
-        
+
         // When & Then: Accessing uninitialized SDK should throw exception
         Admoai.getInstance()
     }
@@ -79,10 +79,10 @@ class ErrorHandlingTest {
         Admoai.initialize(testConfig.copy(networkClientEngine = null))
         val admoai = Admoai.getInstance()
         admoai.apiService = null
-        
+
         val placement = Placement("home")
         val request = DecisionRequest(placements = listOf(placement))
-        
+
         // When & Then: Should throw configuration exception
         admoai.getHttpRequestData(request)
     }

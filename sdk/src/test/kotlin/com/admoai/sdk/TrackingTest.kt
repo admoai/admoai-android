@@ -3,8 +3,8 @@
 package com.admoai.sdk
 
 import com.admoai.sdk.config.SDKConfig
-import com.admoai.sdk.model.response.TrackingInfo
 import com.admoai.sdk.model.response.TrackingDetail
+import com.admoai.sdk.model.response.TrackingInfo
 import com.admoai.sdk.network.AdMoaiApiService
 import io.mockk.*
 import kotlinx.coroutines.flow.flowOf
@@ -34,27 +34,28 @@ class TrackingTest {
     }
 
     @Test
-    fun `given tracking info with impression when firing impression then sends tracking`() = runTest(UnconfinedTestDispatcher()) {
-        // Given: SDK initialized and tracking info with impression
-        Admoai.initialize(testConfig)
-        val admoaiInstance = Admoai.getInstance()
-        admoaiInstance.sdkScope = this
-        admoaiInstance.apiService = mockApiService
+    fun `given tracking info with impression when firing impression then sends tracking`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // Given: SDK initialized and tracking info with impression
+            Admoai.initialize(testConfig)
+            val admoaiInstance = Admoai.getInstance()
+            admoaiInstance.sdkScope = this
+            admoaiInstance.apiService = mockApiService
 
-        val trackingInfo = TrackingInfo(
-            impressions = listOf(TrackingDetail(key = "default", url = "https://track.admoai.com/impression"))
-        )
+            val trackingInfo = TrackingInfo(
+                impressions = listOf(TrackingDetail(key = "default", url = "https://track.admoai.com/impression"))
+            )
 
-        coEvery { mockApiService.fireTrackingUrl(any()) } returns flowOf(Unit)
+            coEvery { mockApiService.fireTrackingUrl(any()) } returns flowOf(Unit)
 
-        // When: Firing impression tracking (fire-and-forget, no collection needed)
-        admoaiInstance.fireImpression(trackingInfo)
+            // When: Firing impression tracking (fire-and-forget, no collection needed)
+            admoaiInstance.fireImpression(trackingInfo)
 
-        // Then: Should call tracking with correct URL
-        coVerify(exactly = 1) {
-            mockApiService.fireTrackingUrl("https://track.admoai.com/impression")
+            // Then: Should call tracking with correct URL
+            coVerify(exactly = 1) {
+                mockApiService.fireTrackingUrl("https://track.admoai.com/impression")
+            }
         }
-    }
 
     @Test
     fun `given tracking info with click when firing click then sends tracking`() = runTest(UnconfinedTestDispatcher()) {
@@ -80,68 +81,71 @@ class TrackingTest {
     }
 
     @Test
-    fun `given tracking info with custom event when firing custom event then sends tracking`() = runTest(UnconfinedTestDispatcher()) {
-        // Given: SDK initialized and tracking info with custom event
-        Admoai.initialize(testConfig)
-        val admoaiInstance = Admoai.getInstance()
-        admoaiInstance.sdkScope = this
-        admoaiInstance.apiService = mockApiService
+    fun `given tracking info with custom event when firing custom event then sends tracking`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // Given: SDK initialized and tracking info with custom event
+            Admoai.initialize(testConfig)
+            val admoaiInstance = Admoai.getInstance()
+            admoaiInstance.sdkScope = this
+            admoaiInstance.apiService = mockApiService
 
-        val trackingInfo = TrackingInfo(
-            custom = listOf(TrackingDetail(key = "video_start", url = "https://track.admoai.com/video_start"))
-        )
+            val trackingInfo = TrackingInfo(
+                custom = listOf(TrackingDetail(key = "video_start", url = "https://track.admoai.com/video_start"))
+            )
 
-        coEvery { mockApiService.fireTrackingUrl(any()) } returns flowOf(Unit)
+            coEvery { mockApiService.fireTrackingUrl(any()) } returns flowOf(Unit)
 
-        // When: Firing custom tracking event (fire-and-forget)
-        admoaiInstance.fireCustomEvent(trackingInfo, "video_start")
+            // When: Firing custom tracking event (fire-and-forget)
+            admoaiInstance.fireCustomEvent(trackingInfo, "video_start")
 
-        // Then: Should call tracking with correct URL
-        coVerify(exactly = 1) {
-            mockApiService.fireTrackingUrl("https://track.admoai.com/video_start")
+            // Then: Should call tracking with correct URL
+            coVerify(exactly = 1) {
+                mockApiService.fireTrackingUrl("https://track.admoai.com/video_start")
+            }
         }
-    }
 
     @Test
-    fun `given empty tracking info when firing impression then no request is made`() = runTest(UnconfinedTestDispatcher()) {
-        // Given: SDK initialized and empty tracking info
-        Admoai.initialize(testConfig)
-        val admoaiInstance = Admoai.getInstance()
-        admoaiInstance.sdkScope = this
-        admoaiInstance.apiService = mockApiService
+    fun `given empty tracking info when firing impression then no request is made`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // Given: SDK initialized and empty tracking info
+            Admoai.initialize(testConfig)
+            val admoaiInstance = Admoai.getInstance()
+            admoaiInstance.sdkScope = this
+            admoaiInstance.apiService = mockApiService
 
-        val trackingInfo = TrackingInfo(
-            impressions = emptyList(),
-            clicks = emptyList(),
-            custom = emptyList()
-        )
+            val trackingInfo = TrackingInfo(
+                impressions = emptyList(),
+                clicks = emptyList(),
+                custom = emptyList()
+            )
 
-        // When: Firing impression tracking on empty tracking (fire-and-forget)
-        admoaiInstance.fireImpression(trackingInfo)
+            // When: Firing impression tracking on empty tracking (fire-and-forget)
+            admoaiInstance.fireImpression(trackingInfo)
 
-        // Then: Should handle gracefully (no tracking calls)
-        coVerify(exactly = 0) { mockApiService.fireTrackingUrl(any()) }
-    }
+            // Then: Should handle gracefully (no tracking calls)
+            coVerify(exactly = 0) { mockApiService.fireTrackingUrl(any()) }
+        }
 
     @Test
-    fun `given network failure when firing impression then no exception thrown to caller`() = runTest(UnconfinedTestDispatcher()) {
-        // Given: SDK initialized with a service that throws
-        Admoai.initialize(testConfig)
-        val admoaiInstance = Admoai.getInstance()
-        admoaiInstance.sdkScope = this
-        admoaiInstance.apiService = mockApiService
+    fun `given network failure when firing impression then no exception thrown to caller`() =
+        runTest(UnconfinedTestDispatcher()) {
+            // Given: SDK initialized with a service that throws
+            Admoai.initialize(testConfig)
+            val admoaiInstance = Admoai.getInstance()
+            admoaiInstance.sdkScope = this
+            admoaiInstance.apiService = mockApiService
 
-        val trackingInfo = TrackingInfo(
-            impressions = listOf(TrackingDetail(key = "default", url = "https://track.admoai.com/impression"))
-        )
-        coEvery { mockApiService.fireTrackingUrl(any()) } throws RuntimeException("Network failure")
+            val trackingInfo = TrackingInfo(
+                impressions = listOf(TrackingDetail(key = "default", url = "https://track.admoai.com/impression"))
+            )
+            coEvery { mockApiService.fireTrackingUrl(any()) } throws RuntimeException("Network failure")
 
-        // When: Firing impression tracking — must not throw
-        admoaiInstance.fireImpression(trackingInfo)
+            // When: Firing impression tracking — must not throw
+            admoaiInstance.fireImpression(trackingInfo)
 
-        // Then: No exception propagated, tracking was attempted
-        coVerify(exactly = 1) { mockApiService.fireTrackingUrl(any()) }
-    }
+            // Then: No exception propagated, tracking was attempted
+            coVerify(exactly = 1) { mockApiService.fireTrackingUrl(any()) }
+        }
 
     @Test
     fun `given sdk not initialized when calling getInstance then throws exception`() {

@@ -7,18 +7,19 @@ import com.admoai.sdk.model.response.Advertiser
 import com.admoai.sdk.model.response.Content
 import com.admoai.sdk.model.response.ContentType
 import com.admoai.sdk.model.response.Creative
-import com.admoai.sdk.model.response.contentTypeFromWire
 import com.admoai.sdk.model.response.CreativeJourney
 import com.admoai.sdk.model.response.CreativeMetadata
-import com.admoai.sdk.model.response.TemplateInfo
 import com.admoai.sdk.model.response.MatchedPoint
+import com.admoai.sdk.model.response.TemplateInfo
 import com.admoai.sdk.model.response.ThirdPartyTracker
 import com.admoai.sdk.model.response.TrackingDetail
 import com.admoai.sdk.model.response.TrackingInfo
 import com.admoai.sdk.model.response.VastData
 import com.admoai.sdk.model.response.VerificationScriptResource
+import com.admoai.sdk.model.response.contentTypeFromWire
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
@@ -26,7 +27,6 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.nullable
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonElement
@@ -38,9 +38,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * → empty list. The Tolerant Reader "drop malformed list entries" primitive — one bad element never
  * aborts the whole response.
  */
-internal open class DropMalformedListSerializer<T>(
-    private val element: KSerializer<T>
-) : KSerializer<List<T>> {
+internal open class DropMalformedListSerializer<T>(private val element: KSerializer<T>) : KSerializer<List<T>> {
     private val delegate = ListSerializer(element)
     override val descriptor: SerialDescriptor = delegate.descriptor
 
@@ -59,10 +57,8 @@ internal open class DropMalformedListSerializer<T>(
  * Decodes a single object, returning [default] on any failure. Lets a required sub-object degrade
  * to a safe default instead of dropping its parent (keeps a renderable creative alive).
  */
-internal open class DefaultOnErrorSerializer<T>(
-    private val delegate: KSerializer<T>,
-    private val default: T
-) : KSerializer<T> {
+internal open class DefaultOnErrorSerializer<T>(private val delegate: KSerializer<T>, private val default: T) :
+    KSerializer<T> {
     override val descriptor: SerialDescriptor = delegate.descriptor
 
     override fun serialize(encoder: Encoder, value: T) = delegate.serialize(encoder, value)
@@ -137,11 +133,7 @@ internal object ContentSerializer : KSerializer<Content> {
 
     /** Wire shape of a content entry: `type` stays a String so an unknown value cannot throw. */
     @Serializable
-    private data class ContentSurrogate(
-        val key: String,
-        val value: JsonElement = JsonNull,
-        val type: String
-    )
+    private data class ContentSurrogate(val key: String, val value: JsonElement = JsonNull, val type: String)
 }
 
 /**
@@ -149,9 +141,7 @@ internal object ContentSerializer : KSerializer<Content> {
  * to null instead of dropping the whole (renderable) creative. Nullable counterpart of [DefaultOnErrorSerializer].
  */
 @OptIn(ExperimentalSerializationApi::class)
-internal open class NullOnErrorSerializer<T : Any>(
-    private val delegate: KSerializer<T>
-) : KSerializer<T?> {
+internal open class NullOnErrorSerializer<T : Any>(private val delegate: KSerializer<T>) : KSerializer<T?> {
     override val descriptor: SerialDescriptor = delegate.descriptor.nullable
 
     override fun serialize(encoder: Encoder, value: T?) {

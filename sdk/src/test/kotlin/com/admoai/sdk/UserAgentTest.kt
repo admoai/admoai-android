@@ -59,24 +59,25 @@ class UserAgentTest {
     }
 
     @Test
-    fun `given sdk with no apiVersion and no defaultLanguage when request made then User-Agent is still present`() = runTest {
-        // Given: SDK with minimal config (no apiVersion, no defaultLanguage)
-        Admoai.initialize(SDKConfig(baseUrl = baseUrl(), networkClientEngine = CIO.create()))
-        val mockResponse = DecisionResponse(success = true)
-        server.enqueue(
-            MockResponse()
-                .setResponseCode(200)
-                .setBody(Json.encodeToString(mockResponse))
-                .addHeader("Content-Type", "application/json")
-        )
+    fun `given sdk with no apiVersion and no defaultLanguage when request made then User-Agent is still present`() =
+        runTest {
+            // Given: SDK with minimal config (no apiVersion, no defaultLanguage)
+            Admoai.initialize(SDKConfig(baseUrl = baseUrl(), networkClientEngine = CIO.create()))
+            val mockResponse = DecisionResponse(success = true)
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setBody(Json.encodeToString(mockResponse))
+                    .addHeader("Content-Type", "application/json")
+            )
 
-        // When: decision request made
-        Admoai.getInstance().requestAds(DecisionRequestBuilder().addPlacement("p1").build()).first()
+            // When: decision request made
+            Admoai.getInstance().requestAds(DecisionRequestBuilder().addPlacement("p1").build()).first()
 
-        // Then: User-Agent is always present regardless of other config
-        val recorded = server.takeRequest()
-        assertNotNull("User-Agent must always be present", recorded.getHeader("User-Agent"))
-    }
+            // Then: User-Agent is always present regardless of other config
+            val recorded = server.takeRequest()
+            assertNotNull("User-Agent must always be present", recorded.getHeader("User-Agent"))
+        }
 
     @Test
     fun `sdk version constant matches expected format`() {
