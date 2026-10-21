@@ -61,24 +61,24 @@ dependencies {
     implementation(libs.androidx.material3)
     
     // Navigation Compose
-    implementation("androidx.navigation:navigation-compose:2.7.6")
+    implementation("androidx.navigation:navigation-compose:2.10.2")
     
     // Additional Material icon sets
-    implementation("androidx.compose.material:material-icons-extended:1.6.7")
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
     
     // Complete Compose Foundation - needed for GridItemSpan and Pager functionality
     implementation("androidx.compose.foundation:foundation:1.6.7")
     
     // Coil for image loading
-    implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("io.coil-kt:coil-compose:2.7.0")
     
     // ExoPlayer with IMA extension for video playback (sample app only)
-    implementation("androidx.media3:media3-exoplayer:1.2.1")
-    implementation("androidx.media3:media3-ui:1.2.1")
-    implementation("androidx.media3:media3-exoplayer-ima:1.2.1")
-    implementation("androidx.media3:media3-exoplayer-hls:1.2.1") // HLS support for .m3u8
-    implementation("androidx.media3:media3-exoplayer-dash:1.2.1") // DASH support
-    implementation("androidx.media3:media3-datasource:1.2.1") // Data source support
+    implementation("androidx.media3:media3-exoplayer:1.11.1")
+    implementation("androidx.media3:media3-ui:1.11.1")
+    implementation("androidx.media3:media3-exoplayer-ima:1.11.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.11.1") // HLS support for .m3u8
+    implementation("androidx.media3:media3-exoplayer-dash:1.11.1") // DASH support
+    implementation("androidx.media3:media3-datasource:1.11.1") // Data source support
     
     // VAST parser for manual VAST handling (TODO: Add when implementing full VAST parsing)
     // implementation("com.github.InteractiveAdvertisingBureau:vast-client-java:1.0.0")
