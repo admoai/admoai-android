@@ -181,5 +181,15 @@ By contributing, you agree that your contributions will be licensed under the [M
 
 ---
 
-Thank you for contributing!
+## The shared scenario manifest
 
+**The shared scenarios are vendored, not edited here.** `sdk/src/test/resources/e2e-scenarios.json` is a copy of the
+`scenarios.json` in the npm package [`@admoai/sdk-scenarios`](https://www.npmjs.com/package/@admoai/sdk-scenarios),
+whose source is adhub's `sdk/scenarios/`; `MANIFEST_VERSION` beside it names the version. CI's
+*Scenario manifest* job fails when the file differs from that version and warns when a newer one
+is published. To change a scenario, change it in adhub and publish; to take a new version here:
+`.github/scripts/scenarios.sh adopt sdk/src/test/resources/e2e-scenarios.json <version|latest>`, then run this suite against an
+engine (`make sdk-live sdk=android` in adhub). The tests read the vendored file and never touch
+the network.
+
+Thank you for contributing!
