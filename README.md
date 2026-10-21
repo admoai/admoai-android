@@ -138,17 +138,14 @@ report. A tap that opens a card is free; a click that opens the shop is billable
 ## Documentation
 
 - **[SDK Documentation](./sdk/README.md)** - Complete API reference and integration guide
-- **[Sample App Guide](./sample/README.md)** - How to run and explore the demo application
 
 ## Project Structure
 
 ```
 admoai-android/
 ├── README.md ← You are here
-├── sdk/
-│   └── README.md ← SDK-specific setup & API
-└── sample/
-    └── README.md ← How to run the demo app
+└── sdk/
+    └── README.md ← SDK-specific setup & API
 ```
 
 ## Development
@@ -160,16 +157,24 @@ admoai-android/
 git clone https://github.com/admoai/admoai-android.git
 cd admoai-android
 
-# Build the SDK and sample app
+# Build the SDK
 ./gradlew clean build
 
 # Run tests
 ./gradlew test
 ```
 
-### Running the Sample App
+### Sample App
 
-See the [Sample App README](./sample/README.md) for detailed instructions on running and exploring the demo application.
+The sample app was removed on 2026-10-21: it had fallen behind the SDK's features. The
+[SDK documentation](./sdk/README.md) is the reference integration. Its last version is kept
+under the git tag `sample-app-archive`; to bring it back:
+
+```bash
+git fetch origin tag sample-app-archive
+git checkout sample-app-archive -- sample
+# then re-add include(":sample") and project(":sample").projectDir = file("sample") to settings.gradle.kts
+```
 
 ## Contributing
 
