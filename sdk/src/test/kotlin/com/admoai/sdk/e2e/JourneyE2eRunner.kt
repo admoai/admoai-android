@@ -51,6 +51,10 @@ import kotlin.system.exitProcess
  * which stays hermetic). It prints a PASS/FAIL/SKIP summary, writes `build/journey-e2e/report.json`, and
  * exits: 0 = all pass (SKIP allowed), 1 = a scenario FAILED, 2 = preflight aborted.
  *
+ * From an adhub checkout, `make sdk-live` (or `make sdk-live sdk=android`) runs this runner, the
+ * iOS and Flutter ones, one shared preflight and one summary (adhub#4153); adhub's CI runs the same
+ * script on every engine change and pin bump (`sdk-contract-tests.yml`, adhub#4346).
+ *
  * Boot is user-owned (see the plan's "Engine boot recipe"): the engine must be on api version
  * `2025-11-01`, have `is_journey_ads_enabled=true`, Redis up, and the mock seeds loaded. The runner
  * never manages infra. Engine-internal correctness (token identity decode, completion dedupe, billing
