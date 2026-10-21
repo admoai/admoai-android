@@ -38,6 +38,11 @@ jobs:
       - name: ktlint (:sdk)
         run: ./gradlew ktlintCheck --stacktrace
 
+      # Public API baseline (sdk/api/sdk.api). Red = the surface changed and the baseline was
+      # not regenerated; see CONTRIBUTING, "When the API check fails".
+      - name: Public API check (:sdk)
+        run: ./gradlew :sdk:apiCheck --stacktrace
+
       - name: Android lint (:sdk)
         run: ./gradlew lint --stacktrace
 
