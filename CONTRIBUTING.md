@@ -90,11 +90,6 @@ Before submitting a PR:
    - Minimum: API 24 (Android 7.0)
    - Target: API 35 (Android 15)
 
-4. **Verify sample app** still works:
-   ```bash
-   ./gradlew :sample:assembleDebug
-   ./gradlew :sample:installDebug
-   ```
 
 ## Pull Request Guidelines
 

@@ -155,7 +155,9 @@ sdk.clearAppConfig()
 
 ## Sample App
 
-See the [Sample App](../sample/README.md) for complete integration examples demonstrating:
+The sample app was removed on 2026-10-21 (it is kept under the git tag `sample-app-archive`;
+see the [repository README](../README.md#sample-app)). This guide is the reference integration. The
+sample used to demonstrate:
 
 - Native ad templates
 - Video playback with VAST and JSON
@@ -1432,8 +1434,8 @@ sdk.fireVideoEvent(creative.tracking, "skip")  // if user skips
 > **Note**: Admoai is OM-compatible and passes verification metadata through VAST `<AdVerifications>` tags. See the [Open Measurement Integration](#open-measurement-integration) section below for implementation guidance.
 
 > **Tip**: For VAST-based ads you may optionally integrate a third-party VAST SDK (e.g. Google IMA) for
-> automatic tracking and Open Measurement viewability. That is outside the scope of this SDK, but it is
-> demonstrated in the [Sample App](../sample/README.md).
+> automatic tracking and Open Measurement viewability. That is outside the scope of this SDK; the retired
+> sample app (git tag `sample-app-archive`) shows one way to do it.
 
 ---
 

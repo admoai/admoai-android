@@ -21,6 +21,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "admoai-android-sdk"
-include(":sample")
 include(":sdk")
-project(":sample").projectDir = file("sample")

@@ -1,5 +1,5 @@
 # Runs on every PR and on pushes to main: static analysis, unit tests, and a
-# build of both the :sdk library and the :sample app. Mirrors the JDK/Gradle
+# build of the :sdk library. Mirrors the JDK/Gradle
 # setup used by release-please.yml so local, CI, and release builds stay aligned.
 name: CI
 
@@ -34,14 +34,14 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Android lint (:sdk + :sample)
+      - name: Android lint (:sdk)
         run: ./gradlew lint --stacktrace
 
-      - name: Unit tests (:sdk + :sample)
+      - name: Unit tests (:sdk)
         run: ./gradlew test --stacktrace
 
-      - name: Assemble :sdk (release) + :sample (debug)
-        run: ./gradlew :sdk:assembleRelease :sample:assembleDebug --stacktrace
+      - name: Assemble :sdk (release)
+        run: ./gradlew :sdk:assembleRelease --stacktrace
 
       - name: Upload lint & test reports
         if: ${{ !cancelled() }}

@@ -99,10 +99,6 @@ lint/generated/
 
 # Module-specific
 /sdk/build/
-/sample/build/
-/sample/.idea/
-/sample/.gradle/
-/sample/local.properties
 
 # Root local.properties
 local.properties
