@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2](https://github.com/admoai/admoai-android/compare/v1.7.1...v1.7.2) (2026-10-22)
+
+
+### Changed
+
+* remove the sample app; it is archived under the tag sample-app-archive ([#115](https://github.com/admoai/admoai-android/issues/115)) ([a99412f](https://github.com/admoai/admoai-android/commit/a99412f6718f614d40fd426eb2a2b9dcad8e34c1))
+* review each PR once with CodeRabbit, not on every push ([#121](https://github.com/admoai/admoai-android/issues/121)) ([d73b3bc](https://github.com/admoai/admoai-android/commit/d73b3bcc9f0d40c93eacdf4edc1d1f882d0361b8))
+* review on demand with CodeRabbit, and skip the automation bot's PRs ([#120](https://github.com/admoai/admoai-android/issues/120)) ([7da37ef](https://github.com/admoai/admoai-android/commit/7da37eff86c74d8877ffde653e9e8fefea27f1ee))
+
+
+### Documentation
+
+* **e2e:** point at make sdk-live, the one command that runs all three SDKs' live suites ([#103](https://github.com/admoai/admoai-android/issues/103)) ([15fc7c8](https://github.com/admoai/admoai-android/commit/15fc7c8a4f929e8295112bea369d646dfe363a77))
+
 ## [1.7.1](https://github.com/admoai/admoai-android/compare/v1.7.0...v1.7.1) (2026-10-20)
 
 
