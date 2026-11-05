@@ -15,8 +15,10 @@ import com.admoai.sdk.model.request.DecisionRequestBuilder
 import com.admoai.sdk.model.request.Device
 import com.admoai.sdk.model.request.Targeting
 import com.admoai.sdk.model.request.User
+import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sdk.model.response.MatchedPoint
+import com.admoai.sdk.model.response.Slide
 import com.admoai.sdk.model.response.TrackingDetail
 import com.admoai.sdk.model.response.TrackingInfo
 import com.admoai.sdk.network.AdMoaiApiService
@@ -72,6 +74,16 @@ class Admoai private constructor() {
     /** Test seam: when set, [log] routes here instead of `android.util.Log` (a stub in JVM unit tests). */
     @VisibleForTesting
     internal var logSink: ((String, LogLevel, Throwable?) -> Unit)? = null
+
+    /**
+     * Test seam: called synchronously, in call order, with each first-party beacon URL the moment
+     * the SDK hands it to the network layer. Dispatch order is the SDK's contract (a slide's view
+     * goes out before its click); arrival order at a server is the network's, which no client
+     * controls, so tests assert the former here.
+     */
+    @VisibleForTesting
+    @Volatile
+    internal var beaconObserver: ((String) -> Unit)? = null
 
     private val coroutineExceptionHandler = CoroutineExceptionHandler { _, _ -> }
 
@@ -273,6 +285,7 @@ class Admoai private constructor() {
             log("Tracking URL rejected: not an absolute http(s) URL", LogLevel.WARNING)
             return
         }
+        beaconObserver?.invoke(url)
         sdkScope.launch {
             try {
                 currentApiService.fireTrackingUrl(url).collect {}
@@ -396,6 +409,59 @@ class Admoai private constructor() {
      * plural form could only report something that did not happen — and for clicks, bill for it.
      */
     fun trackPointViews(points: List<MatchedPoint>) = points.forEach(::trackPointView)
+
+    // ---- Carousel slide tracking ----
+
+    /**
+     * Reports that one slide became **visible to the user** (`slide_view`). Free.
+     *
+     * **Returning a slide is not showing it.** You decide when a slide counts as viewed — the
+     * platform's rule is 50 % of it visible for one continuous second — and call this then. The
+     * SDK draws nothing and never fires on its own.
+     *
+     * **Once per served instance.** A slide is reported the first time it is shown for the
+     * decision response that returned it; scrolling back to it or re-rendering sends nothing. A
+     * new response carries new signed view URLs and is reported again. A view is never retried.
+     *
+     * Trackers stay attached to their slide: pass the [Slide] you rendered, never the creative. A
+     * slide served without tracking is a no-op.
+     */
+    fun trackSlideView(slide: Slide) {}
+
+    /**
+     * Reports several slides becoming visible at once — the bulk form of [trackSlideView], with
+     * the same once-per-response rule.
+     */
+    fun trackSlideViews(slides: List<Slide>) {}
+
+    /**
+     * Reports that the user **activated a slide** (`click`). Billable.
+     *
+     * A click on a slide that was not reported as viewed yet sends the slide's view first, then
+     * the click. Every click then also fans out the creative's applicable third-party click
+     * trackers once.
+     *
+     * **Do not route a slide tap through [fireClick]**: a Carousel has no creative-level click, so
+     * that sends nothing.
+     */
+    fun trackSlideClick(slide: Slide, creative: Creative) {}
+
+    // ---- Standard format custom events ----
+
+    /**
+     * Reports that a Tap-to-expand creative actually expanded (custom event `expand`). Not a
+     * click: no click is sent and no third-party click tracker fires.
+     */
+    fun fireExpand(trackingInfo: TrackingInfo) = fireCustomEvent(trackingInfo, "expand")
+
+    /** Reports that an expanded creative was closed (custom event `close`). Not a click. */
+    fun fireClose(trackingInfo: TrackingInfo) = fireCustomEvent(trackingInfo, "close")
+
+    /**
+     * Reports that the user tapped a Branded Assets asset (custom event `asset_tap`). Not a click:
+     * use [fireClick] for the creative's destination.
+     */
+    fun fireAssetTap(trackingInfo: TrackingInfo) = fireCustomEvent(trackingInfo, "asset_tap")
 
     private fun fireAll(items: List<TrackingDetail>?) {
         items?.forEach { fireTracking(it.url) }
