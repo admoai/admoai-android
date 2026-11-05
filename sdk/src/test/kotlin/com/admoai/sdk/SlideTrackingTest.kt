@@ -8,6 +8,9 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import java.util.Collections
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -256,5 +259,34 @@ class SlideTrackingTest {
         settle(0)
         assertTrue(firstPartyArrived.isEmpty())
         assertTrue(thirdPartyArrived.isEmpty())
+    }
+
+    @Test
+    fun `a click racing another thread's view still dispatches the view first`() {
+        val creative = creative(slideJson(1))
+        val sdk = sdk()
+        val log = Collections.synchronizedList(mutableListOf<String>())
+        val aInside = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val bDone = CountDownLatch(1)
+        sdk.beaconObserver = { url ->
+            if (url == "https://t/slide1/view") {
+                aInside.countDown()
+                release.await(1, TimeUnit.SECONDS)
+            }
+            log += url
+        }
+        val a = thread { sdk.trackSlideView(creative.slides[0]) }
+        assertTrue(aInside.await(2, TimeUnit.SECONDS))
+        val b = thread {
+            sdk.trackSlideClick(creative.slides[0], creative)
+            bDone.countDown()
+        }
+        // Without the lock B finishes at once, recording the click while A is still blocked.
+        bDone.await(300, TimeUnit.MILLISECONDS)
+        release.countDown()
+        a.join(3_000)
+        b.join(3_000)
+        assertEquals(listOf("https://t/slide1/view", "https://t/slide1/click"), log.toList())
     }
 }

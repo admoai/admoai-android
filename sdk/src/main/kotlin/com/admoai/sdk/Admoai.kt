@@ -78,6 +78,13 @@ class Admoai private constructor() {
     @VisibleForTesting
     internal val slideViewLedger = ViewBeaconLedger()
 
+    /**
+     * Serializes a slide's view claim + dispatch with slide clicks, so a click on another thread
+     * can never overtake a view that was claimed but not yet dispatched: the view always goes out
+     * before the click. Reentrant (a click calls [trackSlideView]).
+     */
+    private val slideDispatchLock = Any()
+
     /** Test seam: when set, [log] routes here instead of `android.util.Log` (a stub in JVM unit tests). */
     @VisibleForTesting
     internal var logSink: ((String, LogLevel, Throwable?) -> Unit)? = null
@@ -434,7 +441,9 @@ class Admoai private constructor() {
      * slide served without tracking is a no-op.
      */
     fun trackSlideView(slide: Slide) {
-        slide.tracking?.views?.forEach { if (slideViewLedger.claim(it.url)) fireTracking(it.url) }
+        synchronized(slideDispatchLock) {
+            slide.tracking?.views?.forEach { if (slideViewLedger.claim(it.url)) fireTracking(it.url) }
+        }
     }
 
     /**
@@ -454,16 +463,18 @@ class Admoai private constructor() {
      * that sends nothing.
      */
     fun trackSlideClick(slide: Slide, creative: Creative) {
-        // A tap proves the slide was on screen, so its view counts (once) even when the slide
-        // carries no click tracker; a click the slide cannot record sends no click and no fan-out.
-        trackSlideView(slide)
-        val clicks = slide.tracking?.clicks
-        if (clicks.isNullOrEmpty()) return
-        clicks.forEach { fireTracking(it.url) }
-        // One fan-out per click, whatever number of click beacons the slide carries, and only
-        // when a canonical click beacon was actually valid (same rule as [fireClick]).
-        val key = clicks.firstOrNull { isAbsoluteHttpUrl(it.url) }?.key ?: return
-        fireThirdPartyTrackers(creative.tracking, ThirdPartyTrackerEvent.Click(key))
+        synchronized(slideDispatchLock) {
+            // A tap proves the slide was on screen, so its view counts (once) even when the slide
+            // carries no click tracker; a click the slide cannot record sends no click and no fan-out.
+            trackSlideView(slide)
+            val clicks = slide.tracking?.clicks
+            if (clicks.isNullOrEmpty()) return@synchronized
+            clicks.forEach { fireTracking(it.url) }
+            // One fan-out per click, whatever number of click beacons the slide carries, and only
+            // when a canonical click beacon was actually valid (same rule as [fireClick]).
+            val key = clicks.firstOrNull { isAbsoluteHttpUrl(it.url) }?.key ?: return@synchronized
+            fireThirdPartyTrackers(creative.tracking, ThirdPartyTrackerEvent.Click(key))
+        }
     }
 
     // ---- Standard format custom events ----
