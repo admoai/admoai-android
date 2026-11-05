@@ -7,10 +7,13 @@ public final class com/admoai/sdk/Admoai {
 	public final fun clearUserConfig ()V
 	public final fun configure (Lcom/admoai/sdk/config/SDKConfig;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public final fun createRequestBuilder ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun fireAssetTap (Lcom/admoai/sdk/model/response/TrackingInfo;)V
 	public final fun fireClick (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)V
 	public static synthetic fun fireClick$default (Lcom/admoai/sdk/Admoai;Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;ILjava/lang/Object;)V
+	public final fun fireClose (Lcom/admoai/sdk/model/response/TrackingInfo;)V
 	public final fun fireCompletion (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)V
 	public final fun fireCustomEvent (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)V
+	public final fun fireExpand (Lcom/admoai/sdk/model/response/TrackingInfo;)V
 	public final fun fireImpression (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)V
 	public static synthetic fun fireImpression$default (Lcom/admoai/sdk/Admoai;Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;ILjava/lang/Object;)V
 	public final fun fireTracking (Ljava/lang/String;)V
@@ -37,6 +40,9 @@ public final class com/admoai/sdk/Admoai {
 	public final fun trackPointTap (Lcom/admoai/sdk/model/response/MatchedPoint;)V
 	public final fun trackPointView (Lcom/admoai/sdk/model/response/MatchedPoint;)V
 	public final fun trackPointViews (Ljava/util/List;)V
+	public final fun trackSlideClick (Lcom/admoai/sdk/model/response/Slide;Lcom/admoai/sdk/model/response/Creative;)V
+	public final fun trackSlideView (Lcom/admoai/sdk/model/response/Slide;)V
+	public final fun trackSlideViews (Ljava/util/List;)V
 }
 
 public final class com/admoai/sdk/Admoai$Companion {

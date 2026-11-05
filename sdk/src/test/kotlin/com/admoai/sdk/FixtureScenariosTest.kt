@@ -413,7 +413,8 @@ private fun failWith(message: String): Nothing = throw AssertionError(message)
 
 private fun JsonObject.string(key: String): String? = this[key].stringOrNull()
 
-private fun JsonObject.int(key: String): Int = (this[key] as? JsonPrimitive)?.intOrNull ?: failWith("$key is not an int")
+private fun JsonObject.int(key: String): Int =
+    (this[key] as? JsonPrimitive)?.intOrNull ?: failWith("$key is not an int")
 
 private fun JsonElement?.stringOrNull(): String? = (this as? JsonPrimitive)?.takeIf { it.isString }?.content
 

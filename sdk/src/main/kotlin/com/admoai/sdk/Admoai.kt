@@ -69,7 +69,14 @@ class Admoai private constructor() {
 
     /** Sponsored Pin view URLs already fired — see [trackPointView]. */
     @VisibleForTesting
-    internal val pointViewLedger = PointViewLedger()
+    internal val pinViewLedger = ViewBeaconLedger()
+
+    /**
+     * Carousel slide view URLs already fired — see [trackSlideView]. Its own instance so slide
+     * capacity never competes with pins'.
+     */
+    @VisibleForTesting
+    internal val slideViewLedger = ViewBeaconLedger()
 
     /** Test seam: when set, [log] routes here instead of `android.util.Log` (a stub in JVM unit tests). */
     @VisibleForTesting
@@ -372,7 +379,7 @@ class Admoai private constructor() {
      * the next render. Taps and clicks are never de-duplicated.
      */
     fun trackPointView(point: MatchedPoint) {
-        point.tracking?.views?.forEach { if (pointViewLedger.claim(it.url)) fireTracking(it.url) }
+        point.tracking?.views?.forEach { if (pinViewLedger.claim(it.url)) fireTracking(it.url) }
     }
 
     /**
@@ -426,13 +433,15 @@ class Admoai private constructor() {
      * Trackers stay attached to their slide: pass the [Slide] you rendered, never the creative. A
      * slide served without tracking is a no-op.
      */
-    fun trackSlideView(slide: Slide) {}
+    fun trackSlideView(slide: Slide) {
+        slide.tracking?.views?.forEach { if (slideViewLedger.claim(it.url)) fireTracking(it.url) }
+    }
 
     /**
      * Reports several slides becoming visible at once — the bulk form of [trackSlideView], with
      * the same once-per-response rule.
      */
-    fun trackSlideViews(slides: List<Slide>) {}
+    fun trackSlideViews(slides: List<Slide>) = slides.forEach(::trackSlideView)
 
     /**
      * Reports that the user **activated a slide** (`click`). Billable.
@@ -444,7 +453,18 @@ class Admoai private constructor() {
      * **Do not route a slide tap through [fireClick]**: a Carousel has no creative-level click, so
      * that sends nothing.
      */
-    fun trackSlideClick(slide: Slide, creative: Creative) {}
+    fun trackSlideClick(slide: Slide, creative: Creative) {
+        // A tap proves the slide was on screen, so its view counts (once) even when the slide
+        // carries no click tracker; a click the slide cannot record sends no click and no fan-out.
+        trackSlideView(slide)
+        val clicks = slide.tracking?.clicks
+        if (clicks.isNullOrEmpty()) return
+        clicks.forEach { fireTracking(it.url) }
+        // One fan-out per click, whatever number of click beacons the slide carries, and only
+        // when a canonical click beacon was actually valid (same rule as [fireClick]).
+        val key = clicks.firstOrNull { isAbsoluteHttpUrl(it.url) }?.key ?: return
+        fireThirdPartyTrackers(creative.tracking, ThirdPartyTrackerEvent.Click(key))
+    }
 
     // ---- Standard format custom events ----
 
@@ -534,7 +554,7 @@ class Admoai private constructor() {
          * Initializes (or re-initializes) the SDK.
          *
          * Re-initializing resets the sticky Journey [setSessionId] value and the record of Sponsored
-         * Pin views already fired ([trackPointView]). Because this class is a process singleton,
+         * Pin and slide views already fired ([trackPointView], [trackSlideView]). Because this class is a process singleton,
          * `initialize()` used to reuse the existing instance and only reapply config, leaving a
          * previous session id in place — so a publisher calling `initialize()` at logout, account
          * switch or environment switch silently carried the old Journey session into the next
@@ -552,7 +572,8 @@ class Admoai private constructor() {
                 }
                 instance!!.applyConfiguration(immutableSdkConfig)
                 instance!!.clearSessionId()
-                instance!!.pointViewLedger.clear()
+                instance!!.pinViewLedger.clear()
+                instance!!.slideViewLedger.clear()
                 isSdkInitialized = true
             }
         }

@@ -1,8 +1,9 @@
 package com.admoai.sdk
 
 /**
- * Remembers which Sponsored Pin view URLs the SDK has already fired, so a map re-rendering the
- * same decision response does not fire them again.
+ * Remembers which view-beacon URLs the SDK has already fired, so a map or carousel re-rendering
+ * the same decision response does not fire them again. One instance per kind of view — Sponsored
+ * Pin views and Carousel slide views each own theirs, so their capacities never compete.
  *
  * Keyed on the view URL itself, never on the point id. The engine mints every view URL with its
  * own event id, one per `(request, creative, location)`, so "this URL was fired" is exactly
@@ -17,14 +18,14 @@ package com.admoai.sdk
  * [claim] is synchronized: publishers call the point helpers from any thread, and the
  * check-and-record must be one step or two racing renders would both fire the same pin.
  */
-internal class PointViewLedger(capacity: Int = DEFAULT_CAPACITY) {
+internal class ViewBeaconLedger(capacity: Int = DEFAULT_CAPACITY) {
 
     val capacity: Int = capacity.coerceAtLeast(1)
 
     /** Access-ordered, so a pin claimed again moves to the tail and is not the next evicted. */
     private val urls = object : LinkedHashMap<String, Unit>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Unit>?): Boolean =
-            size > this@PointViewLedger.capacity
+            size > this@ViewBeaconLedger.capacity
     }
 
     /**
