@@ -40,7 +40,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 
 /**
- * Shared fixture scenarios (`@admoai/sdk-scenarios` schemaVersion 2, admoai/adhub#4733).
+ * Shared fixture scenarios (`@admoai/sdk-scenarios` schemaVersion 3, admoai/adhub#4733).
  *
  * Feature: A publisher's app reads the standard native formats from a decision response
  *   As a publisher's tech team
