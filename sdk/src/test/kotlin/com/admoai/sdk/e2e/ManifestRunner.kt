@@ -81,8 +81,20 @@ private fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitiv
 
 private fun JsonObject.dbl(key: String): Double? = (this[key] as? JsonPrimitive)?.content?.toDoubleOrNull()
 
+/** The one manifest `schemaVersion` this runner executes. */
+private const val SUPPORTED_SCHEMA_VERSION = 2
+
 internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) {
-    val scenarios = loadManifest()["scenarios"]!!.jsonArray
+    val manifest = loadManifest()
+    // The live runner executes `scenarios` only. Version 2 added `fixtureScenarios` (offline, golden
+    // decision-wire files): they run as unit tests, and a runner that read a newer manifest as if it
+    // were version 1 would silently skip half of it.
+    val schemaVersion = manifest.int("schemaVersion")
+    check(schemaVersion == SUPPORTED_SCHEMA_VERSION) {
+        "e2e-scenarios.json is schemaVersion $schemaVersion; this runner knows schemaVersion " +
+            "$SUPPORTED_SCHEMA_VERSION; fixtureScenarios run as unit tests in FixtureScenariosTest"
+    }
+    val scenarios = manifest["scenarios"]!!.jsonArray
     for (element in scenarios) {
         val entry = element.jsonObject
         h.scenario(entry.str("id")!!, entry.str("title")!!) {
