@@ -158,6 +158,16 @@ still see it.
    renamed, a signature or visibility change) is a **breaking change**: mark the PR `feat!:`
    (or add a `BREAKING CHANGE:` footer) so release-please bumps the major version, and say in
    the PR what integrators must change.
+   **One exception: a property appended to a response model.** Response models
+   (`CreativeMetadata` and the other types the SDK decodes from the decision response) are
+   data classes the SDK builds and the integrator only reads. Appending a property with a
+   default changes their constructor, `copy` and `componentN` lines, which a precompiled binary
+   would notice, but no integration constructs, copies or destructures them. That is a `feat:`
+   (minor), not a major, on three conditions: the property is appended last with a default;
+   the PR shows that the public docs, the README, the archived sample app (tag
+   `sample-app-archive`) and every integration we can see only read the model; and the release
+   notes carry the line "binary change to <Type>'s constructor/copy; recompile if you construct
+   it". Request models and anything an integrator constructs keep the rule above.
 3. If the surface changed by accident (a helper that should have been `internal`), fix the
    visibility instead of updating the baseline.
 
