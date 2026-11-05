@@ -1,5 +1,7 @@
 package com.admoai.sdk.model.response
 
+import com.admoai.sdk.serialization.StringOrNullSerializer
+import com.admoai.sdk.serialization.WholeIntOrNullSerializer
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -83,5 +85,23 @@ data class CreativeMetadata(
     // Journey / render-attribution metadata (2025-11-01+)
     val impId: String? = null,
     val skipOffsetSeconds: Int? = null,
-    val endCardMode: String? = null
+    val endCardMode: String? = null,
+    // Standard native formats (the engine omits all three while the standard formats are off)
+    /**
+     * The standard native format this creative is served as (`card`, `carousel`, `expandable_banner`,
+     * `branded_assets`, `standard_video`, `sponsored_pin_location`). Absent when the engine does not
+     * send it, never an empty string. Open-set: an unknown value is kept verbatim.
+     */
+    @Serializable(with = StringOrNullSerializer::class)
+    val effectiveStandardFormatKey: String? = null,
+    /** The version of that standard format. Absent when not sent or not a number. */
+    @Serializable(with = WholeIntOrNullSerializer::class)
+    val effectiveStandardFormatVersion: Int? = null,
+    /**
+     * Where the creative's template comes from: `admoai_standard` (the standard itself) or
+     * `based_on_standard` (an operator's template built on it). Open-set: an unknown value is kept
+     * verbatim, and absent is `null`.
+     */
+    @Serializable(with = StringOrNullSerializer::class)
+    val templateSource: String? = null
 )
