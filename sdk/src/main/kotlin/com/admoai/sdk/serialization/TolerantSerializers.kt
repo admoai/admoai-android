@@ -10,6 +10,8 @@ import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.CreativeJourney
 import com.admoai.sdk.model.response.CreativeMetadata
 import com.admoai.sdk.model.response.MatchedPoint
+import com.admoai.sdk.model.response.Slide
+import com.admoai.sdk.model.response.SlideTracking
 import com.admoai.sdk.model.response.TemplateInfo
 import com.admoai.sdk.model.response.ThirdPartyTracker
 import com.admoai.sdk.model.response.TrackingDetail
@@ -20,6 +22,7 @@ import com.admoai.sdk.model.response.contentTypeFromWire
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
@@ -96,6 +99,83 @@ internal object VerificationParametersSerializer : KSerializer<String?> {
 }
 
 /**
+ * A string, or `null` for anything that is not a JSON string (absent, `null`, number, boolean,
+ * object, array). The lenient parser the SDK reads responses with would otherwise accept `3` or
+ * `false` as the text "3" / "false", which a publisher would then read as a real value.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+internal object StringOrNullSerializer : KSerializer<String?> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("StringOrNull", PrimitiveKind.STRING).nullable
+
+    override fun serialize(encoder: Encoder, value: String?) {
+        if (value == null) encoder.encodeNull() else encoder.encodeString(value)
+    }
+
+    override fun deserialize(decoder: Decoder): String? {
+        val jsonDecoder = decoder as? JsonDecoder ?: return runCatching { decoder.decodeString() }.getOrNull()
+        return (jsonDecoder.decodeJsonElement() as? JsonPrimitive)?.takeIf { it.isString }?.content
+    }
+}
+
+/**
+ * The whole number a JSON number carries (`1` and `1.0` are both 1), or `null` for anything else: a
+ * string, a boolean, a fractional or out-of-range number, `null`, an object.
+ */
+private fun JsonElement.wholeIntOrNull(): Int? {
+    val primitive = this as? JsonPrimitive ?: return null
+    if (primitive.isString) return null
+    primitive.content.toIntOrNull()?.let { return it }
+    val number = primitive.content.toDoubleOrNull() ?: return null
+    return number.takeIf { it % 1.0 == 0.0 && it >= Int.MIN_VALUE && it <= Int.MAX_VALUE }?.toInt()
+}
+
+/** An integer that tolerates a whole JSON number (`1.0`); a wrong type is `null`, never a throw. */
+@OptIn(ExperimentalSerializationApi::class)
+internal object WholeIntOrNullSerializer : KSerializer<Int?> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("WholeIntOrNull", PrimitiveKind.INT).nullable
+
+    override fun serialize(encoder: Encoder, value: Int?) {
+        if (value == null) encoder.encodeNull() else encoder.encodeInt(value)
+    }
+
+    override fun deserialize(decoder: Decoder): Int? {
+        val jsonDecoder = decoder as? JsonDecoder ?: return runCatching { decoder.decodeInt() }.getOrNull()
+        return jsonDecoder.decodeJsonElement().wholeIntOrNull()
+    }
+}
+
+/**
+ * A required string that stays strict under the lenient parser: a number or boolean throws instead
+ * of being read as text, so the slide that carries it is dropped by [DropMalformedListSerializer].
+ */
+internal object StrictStringSerializer : KSerializer<String> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("StrictString", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: String) = encoder.encodeString(value)
+
+    override fun deserialize(decoder: Decoder): String {
+        val jsonDecoder = decoder as? JsonDecoder ?: return decoder.decodeString()
+        val primitive = jsonDecoder.decodeJsonElement() as? JsonPrimitive
+        return primitive?.takeIf { it.isString }?.content ?: throw SerializationException("expected a JSON string")
+    }
+}
+
+/** A required whole number: a string (`"2"`), boolean or fractional value throws, dropping the slide. */
+internal object StrictIntSerializer : KSerializer<Int> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("StrictInt", PrimitiveKind.INT)
+
+    override fun serialize(encoder: Encoder, value: Int) = encoder.encodeInt(value)
+
+    override fun deserialize(decoder: Decoder): Int {
+        val jsonDecoder = decoder as? JsonDecoder ?: return decoder.decodeInt()
+        return jsonDecoder.decodeJsonElement().wholeIntOrNull()
+            ?: throw SerializationException("expected a JSON integer")
+    }
+}
+
+/**
  * Decodes a `contents[]` entry, keeping the raw wire `type` alongside the parsed enum.
  *
  * `type` used to deserialize straight into the closed [ContentType] enum. `coerceInputValues` does
@@ -167,6 +247,7 @@ internal object ThirdPartyTrackerListSerializer :
     DropMalformedListSerializer<ThirdPartyTracker>(ThirdPartyTracker.serializer())
 internal object MatchedPointListSerializer :
     DropMalformedListSerializer<MatchedPoint>(MatchedPoint.serializer())
+internal object SlideListSerializer : DropMalformedListSerializer<Slide>(Slide.serializer())
 internal object VerificationResourceListSerializer :
     DropMalformedListSerializer<VerificationScriptResource>(VerificationScriptResource.serializer())
 internal object ErrorListSerializer : DropMalformedListSerializer<Error>(Error.serializer())
@@ -183,6 +264,8 @@ internal object CreativeMetadataOrNullSerializer :
     NullOnErrorSerializer<CreativeMetadata>(CreativeMetadata.serializer())
 internal object TemplateInfoOrNullSerializer :
     NullOnErrorSerializer<TemplateInfo>(TemplateInfo.serializer())
+internal object SlideTrackingOrNullSerializer :
+    NullOnErrorSerializer<SlideTracking>(SlideTracking.serializer())
 internal object VastDataOrNullSerializer : NullOnErrorSerializer<VastData>(VastData.serializer())
 internal object CreativeJourneyOrNullSerializer :
     NullOnErrorSerializer<CreativeJourney>(CreativeJourney.serializer())
