@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0](https://github.com/admoai/admoai-android/compare/v1.7.2...v1.8.0) (2026-11-06)
+
+
+### Added
+
+* expose standard format metadata and carousel slides (binary change to CreativeMetadata's constructor/copy; recompile if you construct it) ([fbc8a50](https://github.com/admoai/admoai-android/commit/fbc8a506af1657bb26c4e7607a221d76f76012e6))
+* slide view and click helpers with per-response dedup ([#124](https://github.com/admoai/admoai-android/issues/124)) ([86d16e8](https://github.com/admoai/admoai-android/commit/86d16e862bbeaba0dac2afea238d9b907da7a1ba))
+
 ## [1.7.2](https://github.com/admoai/admoai-android/compare/v1.7.1...v1.7.2) (2026-10-22)
 
 
