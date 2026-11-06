@@ -37,6 +37,9 @@ internal fun deprecationWarningMessage(deprecated: String?, sunset: String?): St
     }
 }
 
+internal const val PLAYGROUND_TOKEN_HEADER = "X-Playground-Token"
+internal const val PLAYGROUND_REASON_HEADER = "X-Playground-Reason"
+
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 internal class AdMoaiApiServiceImpl(
     private val sdkConfig: SDKConfig,
@@ -53,6 +56,10 @@ internal class AdMoaiApiServiceImpl(
         coerceInputValues = true // null -> default, invalid-enum -> default (Tolerant Reader)
         prettyPrint = sdkConfig.enableLogging
     }
+
+    // Blank counts as unset, so a placeholder "" never routes a live app to the playground.
+    private val playgroundToken: String? = sdkConfig.playgroundToken?.takeIf { it.isNotBlank() }
+    private val decisionPath = if (playgroundToken == null) "v1/decision" else "v1/playground/decision"
 
     /**
      * The engine this service created and therefore owns. Ktor never closes an engine passed
@@ -81,6 +88,7 @@ internal class AdMoaiApiServiceImpl(
                     }
                 }
                 level = LogLevel.ALL
+                sanitizeHeader { it.equals(PLAYGROUND_TOKEN_HEADER, ignoreCase = true) }
             }
         }
         install(HttpTimeout) {
@@ -95,7 +103,7 @@ internal class AdMoaiApiServiceImpl(
 
     override fun requestAds(request: DecisionRequest): Flow<DecisionResponse> = flow {
         try {
-            val httpResponse = httpClient.post("v1/decision") {
+            val httpResponse = httpClient.post(decisionPath) {
                 contentType(ContentType.Application.Json)
                 accept(ContentType.Application.Json)
                 header(HttpHeaders.UserAgent, "AdMoaiSDK/$SDK_VERSION")
@@ -105,9 +113,13 @@ internal class AdMoaiApiServiceImpl(
                 sdkConfig.apiVersion?.let { version ->
                     header("X-Decision-Version", version)
                 }
+                playgroundToken?.let { header(PLAYGROUND_TOKEN_HEADER, it) }
                 setBody(request)
             }
             warnIfDeprecated(httpResponse)
+            httpResponse.headers[PLAYGROUND_REASON_HEADER]?.let { reason ->
+                logWarning?.invoke("AdMoai playground answered no-ad: $PLAYGROUND_REASON_HEADER=$reason")
+            }
 
             // Gate on status BEFORE decoding. Ktor's `expectSuccess` defaults to false and no
             // HttpResponseValidator is installed, so without this the engine's JSON error envelope
@@ -190,7 +202,7 @@ internal class AdMoaiApiServiceImpl(
     }.flowOn(Dispatchers.IO)
 
     override fun getHttpRequestData(request: DecisionRequest): AdmoaiHttpRequest {
-        val url = sdkConfig.baseUrl.trimEnd('/') + "/v1/decision"
+        val url = sdkConfig.baseUrl.trimEnd('/') + "/" + decisionPath
         val headers = mutableMapOf<String, String>()
         headers["Content-Type"] = ContentType.Application.Json.toString()
         headers["Accept"] = ContentType.Application.Json.toString()
@@ -201,6 +213,7 @@ internal class AdMoaiApiServiceImpl(
         sdkConfig.apiVersion?.let { version ->
             headers["X-Decision-Version"] = version
         }
+        playgroundToken?.let { headers[PLAYGROUND_TOKEN_HEADER] = it }
         val body = json.encodeToString(request)
 
         return AdmoaiHttpRequest(

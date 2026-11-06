@@ -103,7 +103,12 @@ internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) 
     }
 }
 
-private fun reconfigure(baseUrl: String, apiVersion: String?, engine: HttpClientEngine = CIO.create()) {
+private fun reconfigure(
+    baseUrl: String,
+    apiVersion: String?,
+    engine: HttpClientEngine = CIO.create(),
+    playgroundToken: String? = null
+) {
     // configure() rather than initialize(): it swaps config on the running singleton without
     // resetting session state, which is exactly the distinction Wave 2 introduced.
     runBlocking {
@@ -113,7 +118,8 @@ private fun reconfigure(baseUrl: String, apiVersion: String?, engine: HttpClient
                 apiVersion = apiVersion,
                 enableLogging = false,
                 defaultLanguage = "en",
-                networkClientEngine = engine
+                networkClientEngine = engine,
+                playgroundToken = playgroundToken
             )
         )
     }
@@ -131,13 +137,15 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
         "none" -> null
         else -> rawVersion
     }
+    // A playground scenario builds the client the way a publisher would: with the token in SDKConfig.
+    val playgroundToken = request.str("playgroundToken")
     val pinTracking = entry["pinTracking"] as? JsonObject
     if (pinTracking != null) {
         // The SDK's own transport, recorded: every tracking GET it sends is observed on its way to
         // the real engine, which is the only place "sent once" can be proven.
-        reconfigure(baseUrl, version, BeaconRecorder.engine())
+        reconfigure(baseUrl, version, BeaconRecorder.engine(), playgroundToken)
     } else {
-        reconfigure(baseUrl, version)
+        reconfigure(baseUrl, version, playgroundToken = playgroundToken)
     }
 
     try {

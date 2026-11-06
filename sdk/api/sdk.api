@@ -191,6 +191,8 @@ public final class com/admoai/sdk/config/SDKConfig : com/admoai/sdk/core/Clearab
 	public static final field $stable I
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Lio/ktor/client/engine/HttpClientEngine;JJJ)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Lio/ktor/client/engine/HttpClientEngine;JJJILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Lio/ktor/client/engine/HttpClientEngine;JJJLjava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Lio/ktor/client/engine/HttpClientEngine;JJJLjava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun clear ()Lcom/admoai/sdk/config/SDKConfig;
 	public synthetic fun clear ()Ljava/lang/Object;
 	public final fun component1 ()Ljava/lang/String;
@@ -201,8 +203,11 @@ public final class com/admoai/sdk/config/SDKConfig : com/admoai/sdk/core/Clearab
 	public final fun component6 ()J
 	public final fun component7 ()J
 	public final fun component8 ()J
+	public final fun component9 ()Ljava/lang/String;
 	public final fun copy (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Lio/ktor/client/engine/HttpClientEngine;JJJ)Lcom/admoai/sdk/config/SDKConfig;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Lio/ktor/client/engine/HttpClientEngine;JJJLjava/lang/String;)Lcom/admoai/sdk/config/SDKConfig;
 	public static synthetic fun copy$default (Lcom/admoai/sdk/config/SDKConfig;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Lio/ktor/client/engine/HttpClientEngine;JJJILjava/lang/Object;)Lcom/admoai/sdk/config/SDKConfig;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/config/SDKConfig;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Lio/ktor/client/engine/HttpClientEngine;JJJLjava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/config/SDKConfig;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getApiVersion ()Ljava/lang/String;
 	public final fun getBaseUrl ()Ljava/lang/String;
@@ -212,6 +217,7 @@ public final class com/admoai/sdk/config/SDKConfig : com/admoai/sdk/core/Clearab
 	public final fun getNetworkConnectTimeoutMs ()J
 	public final fun getNetworkRequestTimeoutMs ()J
 	public final fun getNetworkSocketTimeoutMs ()J
+	public final fun getPlaygroundToken ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun resetToDefaults ()Lcom/admoai/sdk/config/SDKConfig;
 	public synthetic fun resetToDefaults ()Ljava/lang/Object;
