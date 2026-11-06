@@ -473,7 +473,7 @@ class SponsoredPinTest {
 
     /**
      * AC8b — a second render of the same response is not a second view. The full rule lives in
-     * [PointViewLedgerTest], scenario by scenario.
+     * [ViewBeaconLedgerTest], scenario by scenario.
      */
     @Test
     fun `AC8b - bulk deduplicates across invocations of the same response`() = runTest {

@@ -82,7 +82,7 @@ private fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitiv
 private fun JsonObject.dbl(key: String): Double? = (this[key] as? JsonPrimitive)?.content?.toDoubleOrNull()
 
 /** The one manifest `schemaVersion` this runner executes. */
-private const val SUPPORTED_SCHEMA_VERSION = 2
+private const val SUPPORTED_SCHEMA_VERSION = 3
 
 internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) {
     val manifest = loadManifest()
@@ -92,7 +92,7 @@ internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) 
     val schemaVersion = manifest.int("schemaVersion")
     check(schemaVersion == SUPPORTED_SCHEMA_VERSION) {
         "e2e-scenarios.json is schemaVersion $schemaVersion; this runner knows schemaVersion " +
-            "$SUPPORTED_SCHEMA_VERSION; fixtureScenarios run as unit tests in FixtureScenariosTest"
+            "$SUPPORTED_SCHEMA_VERSION; fixtureScenarios and their slideTracking run as unit tests in FixtureScenariosTest"
     }
     val scenarios = manifest["scenarios"]!!.jsonArray
     for (element in scenarios) {

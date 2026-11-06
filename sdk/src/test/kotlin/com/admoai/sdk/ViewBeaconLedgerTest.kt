@@ -22,14 +22,14 @@ import org.junit.Test
 
 /**
  * Pin views are reported once per decision response — the scenarios of
- * `src/main/kotlin/com/admoai/sdk/PointViewLedger.feature`, one test per scenario, named after it.
- * Mirrors the iOS suite (`PointViewLedgerTests.swift`).
+ * `src/main/kotlin/com/admoai/sdk/ViewBeaconLedger.feature`, one test per scenario, named after it.
+ * Mirrors the iOS suite (`ViewBeaconLedgerTests.swift`).
  *
  * There is no Gherkin runner in this module, so `every scenario has a test` holds the binding
  * instead: a scenario added to the feature without a test here, or a test whose scenario was
  * renamed away, fails the build.
  */
-class PointViewLedgerTest {
+class ViewBeaconLedgerTest {
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -103,7 +103,7 @@ class PointViewLedgerTest {
 
     @Test
     fun `every scenario has a test`() {
-        val feature = File("src/main/kotlin/com/admoai/sdk/PointViewLedger.feature")
+        val feature = File("src/main/kotlin/com/admoai/sdk/ViewBeaconLedger.feature")
         val titles = feature.readLines()
             .map { it.trim() }
             .filter { it.startsWith("Scenario:") }
@@ -174,7 +174,7 @@ class PointViewLedgerTest {
 
     @Test
     fun `memory is bounded`() {
-        val ledger = PointViewLedger()
+        val ledger = ViewBeaconLedger()
         assertEquals(500, ledger.capacity)
 
         for (response in 0 until 100) {
@@ -194,7 +194,7 @@ class PointViewLedgerTest {
      */
     @Test
     fun `a rendered pin is not the next evicted`() {
-        val ledger = PointViewLedger(capacity = 2)
+        val ledger = ViewBeaconLedger(capacity = 2)
         ledger.claim("a")
         ledger.claim("b")
         ledger.claim("a")

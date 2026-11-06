@@ -6,9 +6,18 @@ import com.admoai.sdk.model.response.Slide
 import com.admoai.sdk.model.response.getContent
 import com.admoai.sdk.model.response.matchedPoints
 import com.admoai.sdk.model.response.slides
+import com.admoai.sdk.network.ThirdPartyTrackerDispatcher
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import java.util.Collections
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -31,7 +40,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 
 /**
- * Shared fixture scenarios (`@admoai/sdk-scenarios` schemaVersion 2, admoai/adhub#4733).
+ * Shared fixture scenarios (`@admoai/sdk-scenarios` schemaVersion 3, admoai/adhub#4733).
  *
  * Feature: A publisher's app reads the standard native formats from a decision response
  *   As a publisher's tech team
@@ -122,6 +131,132 @@ class FixtureScenariosTest(
 
         val creative = decodeThroughTheSdk(wire)
         for ((key, value) in expect) check(key, value, creative)
+
+        (scenario["slideTracking"] as? JsonObject)?.let { runSlideTracking(it, wire) }
+    }
+
+    /** What an engine-served creative looks like on the Nth decision response. */
+    private fun suffixed(element: JsonElement, response: Int): JsonElement = when (element) {
+        is JsonObject -> {
+            val rebuilt = element.mapValues { suffixed(it.value, response) }.toMutableMap()
+            val url = (element["url"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+            // A first-party tracker has both `key` and `url`; third-party ones have trackerId/eventKey.
+            if (response > 1 && element.containsKey("key") && url != null) {
+                rebuilt["url"] = JsonPrimitive("$url&response=$response")
+            }
+            JsonObject(rebuilt)
+        }
+
+        is JsonArray -> JsonArray(element.map { suffixed(it, response) })
+
+        else -> element
+    }
+
+    /**
+     * Executes a scenario's `slideTracking` block on ONE SDK instance: its steps in order, then
+     * the expected first-party beacons (in DISPATCH order — what the SDK handed the network, read
+     * through [Admoai.beaconObserver]; arrival order at a server can reorder concurrent requests),
+     * the first-party set that was actually sent, and the third-party multiset.
+     */
+    private fun runSlideTracking(block: JsonObject, wire: JsonObject) = runBlocking {
+        val steps = block["steps"] as? JsonArray ?: failWith("$id: slideTracking has no steps")
+        val expect = block["expect"] as? JsonObject ?: failWith("$id: slideTracking has no expect")
+
+        val firstPartyArrived = Collections.synchronizedList(mutableListOf<String>())
+        val thirdPartyArrived = Collections.synchronizedList(mutableListOf<String>())
+        var nextDecision = ""
+        val decisionHost = "decision.test"
+        val engine = MockEngine { request ->
+            if (request.url.host == decisionHost) {
+                respond(nextDecision, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+            } else {
+                firstPartyArrived += request.url.toString()
+                respond("", HttpStatusCode.OK)
+            }
+        }
+        Admoai.initialize(
+            SDKConfig(baseUrl = "http://$decisionHost/", apiVersion = "2025-11-01", networkClientEngine = engine)
+        )
+        val sdk = Admoai.getInstance()
+        sdk.thirdPartyDispatcher = ThirdPartyTrackerDispatcher(
+            engine = MockEngine { request ->
+                thirdPartyArrived += request.url.toString()
+                respond("", HttpStatusCode.OK)
+            },
+            scopeProvider = { sdk.sdkScope }
+        ) { _, _ -> }
+        val dispatched = Collections.synchronizedList(mutableListOf<String>())
+        sdk.beaconObserver = { dispatched += it }
+
+        val responses = mutableMapOf<Int, Creative>()
+        suspend fun creativeOf(response: Int): Creative = responses.getOrPut(response) {
+            nextDecision = suffixed(wire, response).toString()
+            val decoded = sdk.requestAds(sdk.createRequestBuilder().addPlacement("fixture").build()).first()
+            decoded.data?.firstOrNull()?.creatives?.firstOrNull() ?: failWith("$id: no creative decoded")
+        }
+
+        var current = 1
+        creativeOf(1)
+        for (element in steps) {
+            val step = element.jsonObject
+            val live = creativeOf(current)
+            when {
+                step.containsKey("slideView") -> sdk.trackSlideView(live.slides[step.int("slideView") - 1])
+
+                step.containsKey("slideClick") ->
+                    sdk.trackSlideClick(live.slides[step.int("slideClick") - 1], live)
+
+                step.containsKey("newResponse") -> {
+                    current += 1
+                    creativeOf(current)
+                }
+
+                step.containsKey("fireClick") -> {
+                    val key = step.string("fireClick")
+                    if (key != null) sdk.fireClick(live.tracking, key) else sdk.fireClick(live.tracking)
+                }
+
+                step.containsKey("custom") -> sdk.fireCustomEvent(live.tracking, step.string("custom")!!)
+
+                else -> failWith("$id: unknown slideTracking step $step")
+            }
+        }
+
+        val firstParty = (expect["beacons"] as? JsonArray).orEmpty().map { beacon ->
+            val obj = beacon.jsonObject
+            val target = creativeOf(obj["response"]?.let { (it as JsonPrimitive).intOrNull } ?: 1)
+            resolveBeacon(obj, target) ?: failWith("$id: beacon $obj names no tracker of the creative")
+        }
+        val trackers = responses.getValue(1).tracking.thirdPartyTrackers.orEmpty()
+        val thirdParty = strings(expect["thirdPartyBeacons"]).map { trackerId ->
+            trackers.firstOrNull { it.trackerId == trackerId }?.url
+                ?: failWith("$id: thirdPartyBeacons names unknown tracker $trackerId")
+        }
+
+        // Everything expected must arrive; then a quiet moment proves nothing more does.
+        val deadline = System.currentTimeMillis() + 3_000
+        while (System.currentTimeMillis() < deadline &&
+            (firstPartyArrived.size < firstParty.size || thirdPartyArrived.size < thirdParty.size)
+        ) {
+            delay(20)
+        }
+        delay(250)
+
+        assertEquals("$id: first-party beacons, in dispatch order", firstParty, dispatched.toList())
+        assertEquals("$id: first-party beacons sent", firstParty.sorted(), firstPartyArrived.toList().sorted())
+        assertEquals("$id: third-party beacons", thirdParty.sorted(), thirdPartyArrived.toList().sorted())
+    }
+
+    private fun resolveBeacon(beacon: JsonObject, creative: Creative): String? {
+        beacon["slide"]?.let { slideN ->
+            val slide = creative.slides.getOrNull((slideN as JsonPrimitive).intOrNull!! - 1) ?: return null
+            beacon.string("view")?.let { key -> return slide.tracking?.views?.firstOrNull { it.key == key }?.url }
+            beacon.string("click")?.let { key -> return slide.tracking?.clicks?.firstOrNull { it.key == key }?.url }
+            return null
+        }
+        beacon.string("click")?.let { key -> return creative.tracking.clicks?.firstOrNull { it.key == key }?.url }
+        beacon.string("custom")?.let { key -> return creative.tracking.custom?.firstOrNull { it.key == key }?.url }
+        return null
     }
 
     /** Served and read back exactly as a 200 from the engine is: the SDK's own client and parser. */
@@ -271,10 +406,15 @@ class FixtureScenariosTest(
         (value as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList()
 }
 
+private fun JsonArray?.orEmpty(): JsonArray = this ?: JsonArray(emptyList())
+
 /** An assertion failure the compiler knows never returns. */
 private fun failWith(message: String): Nothing = throw AssertionError(message)
 
 private fun JsonObject.string(key: String): String? = this[key].stringOrNull()
+
+private fun JsonObject.int(key: String): Int =
+    (this[key] as? JsonPrimitive)?.intOrNull ?: failWith("$key is not an int")
 
 private fun JsonElement?.stringOrNull(): String? = (this as? JsonPrimitive)?.takeIf { it.isString }?.content
 
@@ -282,7 +422,7 @@ private fun JsonElement?.stringOrNull(): String? = (this as? JsonPrimitive)?.tak
 
 /**
  * Applies `fixture.edits` in order. `at` names which object(s) of the decision wire change: the
- * response root, the first creative, its `metadata`, every element of its `contents`, or every
+ * response root, the first creative, its `metadata`, its `tracking`, every element of its `contents`, or every
  * element of the `value` array of the content entry keyed `slides`. An edit this interpreter does
  * not understand fails the scenario.
  */
@@ -299,6 +439,11 @@ private fun applyEdits(id: String, edits: JsonArray, root: JsonObject): JsonObje
             "metadata" -> editCreative(id, current) { creative ->
                 val metadata = creative["metadata"] as? JsonObject ?: JsonObject(emptyMap())
                 creative.changed { it["metadata"] = metadata.changed(change) }
+            }
+
+            "tracking" -> editCreative(id, current) { creative ->
+                val tracking = creative["tracking"] as? JsonObject ?: JsonObject(emptyMap())
+                creative.changed { it["tracking"] = tracking.changed(change) }
             }
 
             "content" -> editCreative(id, current) { creative ->
