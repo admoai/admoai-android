@@ -30,6 +30,7 @@ public final class com/admoai/sdk/Admoai {
 	public static final fun initialize (Ljava/lang/String;Ljava/lang/String;Z)V
 	public static final fun initialize (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;)V
 	public static final fun initialize (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;)V
+	public static final fun initialize (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
 	public final fun prepareFinalDecisionRequest (Lcom/admoai/sdk/model/request/DecisionRequest;)Lcom/admoai/sdk/model/request/DecisionRequest;
 	public final fun requestAds (Lcom/admoai/sdk/model/request/DecisionRequest;)Lkotlinx/coroutines/flow/Flow;
 	public final fun setAppConfig (Lcom/admoai/sdk/config/AppConfig;)V
@@ -53,7 +54,9 @@ public final class com/admoai/sdk/Admoai$Companion {
 	public final fun initialize (Ljava/lang/String;Ljava/lang/String;Z)V
 	public final fun initialize (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;)V
 	public final fun initialize (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;)V
+	public final fun initialize (Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
 	public static synthetic fun initialize$default (Lcom/admoai/sdk/Admoai$Companion;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;ILjava/lang/Object;)V
+	public static synthetic fun initialize$default (Lcom/admoai/sdk/Admoai$Companion;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)V
 	public final fun isInitialized ()Z
 }
 

@@ -75,4 +75,13 @@ data class SDKConfig(
     )
 
     override fun clear(): SDKConfig = resetToDefaults()
+
+    // The data-class default, with the token redacted so a logged config never leaks it.
+    override fun toString(): String {
+        val token = if (playgroundToken == null) "null" else "<redacted>"
+        return "SDKConfig(baseUrl=$baseUrl, apiVersion=$apiVersion, enableLogging=$enableLogging, " +
+            "defaultLanguage=$defaultLanguage, networkClientEngine=$networkClientEngine, " +
+            "networkRequestTimeoutMs=$networkRequestTimeoutMs, networkConnectTimeoutMs=$networkConnectTimeoutMs, " +
+            "networkSocketTimeoutMs=$networkSocketTimeoutMs, playgroundToken=$token)"
+    }
 }

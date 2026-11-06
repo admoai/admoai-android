@@ -11,6 +11,7 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -154,6 +155,55 @@ class PlaygroundTokenTest {
         assertEquals("pg_keep", config.resetToDefaults().playgroundToken)
         assertNull(SDKConfig("https://api.example.test/", null, false, null, null, 1L, 2L, 3L).playgroundToken)
     }
+
+    @Test
+    fun `toString redacts the token and prints null when unset`() {
+        val withToken = SDKConfig(baseUrl = "https://api.example.test/", playgroundToken = "pg_secret_value")
+        val unset = SDKConfig(baseUrl = "https://api.example.test/")
+
+        assertFalse(withToken.toString().contains("pg_secret_value"))
+        assertTrue(withToken.toString().endsWith("playgroundToken=<redacted>)"))
+        assertEquals(
+            "SDKConfig(baseUrl=https://api.example.test/, apiVersion=null, enableLogging=false, " +
+                "defaultLanguage=null, networkClientEngine=null, networkRequestTimeoutMs=10000, " +
+                "networkConnectTimeoutMs=10000, networkSocketTimeoutMs=10000, playgroundToken=null)",
+            unset.toString()
+        )
+    }
+
+    @Test
+    fun `the initialize shortcut with a token routes to the playground`() = runTest {
+        server.enqueue(okResponse())
+        Admoai.initialize(
+            baseUrl = "http://127.0.0.1:${server.port}/",
+            apiVersion = "2025-11-01",
+            playgroundToken = "pg_shortcut"
+        )
+        Admoai.getInstance().requestAds(DecisionRequestBuilder().addPlacement("home").build()).first()
+
+        val recorded = server.takeRequest()
+        assertEquals("/v1/playground/decision", recorded.path)
+        assertEquals("pg_shortcut", recorded.getHeader("X-Playground-Token"))
+        assertEquals("2025-11-01", recorded.getHeader("X-Decision-Version"))
+    }
+
+    @Test
+    fun `the existing initialize shortcut still sends the live request`() = runTest {
+        server.enqueue(okResponse())
+        Admoai.initialize("http://127.0.0.1:${server.port}/", "2025-11-01", false, "es", "pg-session")
+        Admoai.getInstance().requestAds(Admoai.getInstance().createRequestBuilder().addPlacement("home").build())
+            .first()
+
+        val recorded = server.takeRequest()
+        assertEquals("/v1/decision", recorded.path)
+        assertEquals(liveHeaders(recorded.bodySize), recorded.headerPairs())
+        assertEquals(LIVE_BODY, recorded.body.readUtf8())
+    }
+
+    private fun okResponse() = MockResponse()
+        .setResponseCode(200)
+        .setBody("""{"success":true,"data":[{"placement":"home","creatives":[]}]}""")
+        .addHeader("Content-Type", "application/json")
 
     private companion object {
         const val LIVE_BODY = """{"placements":[{"key":"home"}],"sessionId":"pg-session"}"""

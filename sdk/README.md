@@ -89,6 +89,8 @@ val config = SDKConfig(
 )
 ```
 
+The shorthand takes it too: `Admoai.initialize(baseUrl = …, apiVersion = …, playgroundToken = "<token>")`.
+
 With a token, decision requests go to `/v1/playground/decision` with an `X-Playground-Token` header;
 `baseUrl`, the version header and the request body stay the same. A blank token counts as unset. A
 token the playground cannot serve gets an ordinary no-ad, and the SDK logs its `X-Playground-Reason`
