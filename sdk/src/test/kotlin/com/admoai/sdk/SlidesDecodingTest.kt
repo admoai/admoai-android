@@ -129,4 +129,18 @@ class SlidesDecodingTest {
         assertNull(mistyped.metadata?.templateSource)
         assertNull(mistyped.metadata?.effectiveStandardFormatKey)
     }
+
+    private fun golden(name: String): Creative = json.decodeFromString<DecisionResponse>(
+        javaClass.classLoader!!.getResourceAsStream("fixtures/golden-wire/$name.json")!!.bufferedReader().readText()
+    ).data!!.first().creatives.first()
+
+    @Test
+    fun `the asset context is read from Branded Assets and absent elsewhere`() {
+        assertEquals("vehicle_marker", golden("branded_assets.minimal").metadata?.assetContext)
+        assertEquals("vehicle_marker", golden("branded_assets.full").metadata?.assetContext)
+        assertNull(golden("card.minimal").metadata?.assetContext)
+        val future = creative("[]", """{"assetContext": "from_the_future"}""")
+        assertEquals("an unknown value is kept verbatim", "from_the_future", future.metadata?.assetContext)
+        assertNull("a wrong type is absent", creative("[]", """{"assetContext": 3}""").metadata?.assetContext)
+    }
 }

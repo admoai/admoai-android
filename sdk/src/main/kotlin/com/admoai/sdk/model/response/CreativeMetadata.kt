@@ -103,5 +103,12 @@ data class CreativeMetadata(
      * verbatim, and absent is `null`.
      */
     @Serializable(with = StringOrNullSerializer::class)
-    val templateSource: String? = null
+    val templateSource: String? = null,
+    /**
+     * What the creative's assets stand for, named by the format that has one: Branded Assets answers
+     * `vehicle_marker`. Absent (`null`) on every other creative, and when the engine does not send it.
+     * Open-set: an unknown value is kept verbatim.
+     */
+    @Serializable(with = StringOrNullSerializer::class)
+    val assetContext: String? = null
 )
