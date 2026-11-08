@@ -1,6 +1,11 @@
 package com.admoai.sdk.e2e
 
 import com.admoai.sdk.Admoai
+import com.admoai.sdk.checkContentKeys
+import com.admoai.sdk.checkJourneyStageKey
+import com.admoai.sdk.checkMetadata
+import com.admoai.sdk.checkStyleIn
+import com.admoai.sdk.checkTemplateKey
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.exception.AdMoaiConfigurationException
 import com.admoai.sdk.exception.AdMoaiValidationException
@@ -82,7 +87,7 @@ private fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitiv
 private fun JsonObject.dbl(key: String): Double? = (this[key] as? JsonPrimitive)?.content?.toDoubleOrNull()
 
 /** The one manifest `schemaVersion` this runner executes. */
-private const val SUPPORTED_SCHEMA_VERSION = 3
+private const val SUPPORTED_SCHEMA_VERSION = 4
 
 internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) {
     val manifest = loadManifest()
@@ -92,7 +97,8 @@ internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) 
     val schemaVersion = manifest.int("schemaVersion")
     check(schemaVersion == SUPPORTED_SCHEMA_VERSION) {
         "e2e-scenarios.json is schemaVersion $schemaVersion; this runner knows schemaVersion " +
-            "$SUPPORTED_SCHEMA_VERSION; fixtureScenarios and their slideTracking run as unit tests in FixtureScenariosTest"
+            "$SUPPORTED_SCHEMA_VERSION; fixtureScenarios and their slideTracking run as unit tests in " +
+            "FixtureScenariosTest, and a runner must refuse a schemaVersion it does not execute"
     }
     val scenarios = manifest["scenarios"]!!.jsonArray
     for (element in scenarios) {
@@ -123,6 +129,7 @@ private fun reconfigure(baseUrl: String, apiVersion: String?, engine: HttpClient
 private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersion: String) {
     val request = entry["request"]!!.jsonObject
     val expect = entry["expect"]!!.jsonObject
+    refuseUnknownKeys("${entry.str("id")} expect", expect.keys, EXECUTED_EXPECT_KEYS)
 
     // "none" means: no apiVersion at all, so no version header is sent.
     val rawVersion = request.str("apiVersion")
@@ -459,7 +466,48 @@ private fun runPinTracking(
         "${expectedInteractions.values.sum()} tap/click GET(s), ${sent.size} sent in total"
 }
 
-private fun assertCreative(creative: Creative, e: JsonObject) {
+/**
+ * Every `expect` key this runner executes. A key outside these sets FAILS the scenario: the runner
+ * reads keys one by one, so without this guard a newer manifest's key would be silently ignored and
+ * the scenario would pass on a claim nobody checked.
+ */
+internal val EXECUTED_EXPECT_KEYS = setOf(
+    "outcome",
+    "decisions",
+    "decisionsMatchRequest",
+    "creativesAtMost",
+    "creativesDistinct",
+    "creative",
+    "error"
+)
+
+internal val EXECUTED_CREATIVE_KEYS = setOf(
+    "requireMetadata", "priorityIn", "requireAdvertiser", "requireTemplate", "requireContents", "journey",
+    "formatEquals", "deliveryEquals", "impressions", "matchedPointsAtLeast", "matchedPointsEquals",
+    "matchedPointsNone", "matchedPointsNearestFirst", "matchedPointsWellFormed", "matchedPointsHaveBeacons",
+    "matchedPointsHaveClickUrl", "clicksAtLeast", "videoEventCount", "videoEventKeys", "requireVastTagUrl",
+    "requireVastXmlDecodes", "metadataIsSkippable", "skipOffsetSecondsEquals", "helperIsSkippable",
+    "helperSkipOffsetEquals", "endCardModeEquals",
+    // schemaVersion 4: the standard formats, same semantics as the fixture scenarios' keys
+    "metadata", "templateKey", "contentKeys", "styleIn", "journeyStageKey"
+)
+
+/** Fails when [keys] holds a key this runner does not execute. */
+internal fun refuseUnknownKeys(where: String, keys: Set<String>, executed: Set<String>) {
+    val unknown = keys - executed
+    expect(
+        unknown.isEmpty(),
+        "$where names ${unknown.sorted()}, which this runner does not execute (it would pass unchecked)"
+    )
+}
+
+internal fun assertCreative(creative: Creative, e: JsonObject) {
+    refuseUnknownKeys("expect.creative", e.keys, EXECUTED_CREATIVE_KEYS)
+    e["metadata"]?.let { checkMetadata("creative", it, creative) }
+    e["templateKey"]?.let { checkTemplateKey("creative", it, creative) }
+    e["contentKeys"]?.let { checkContentKeys("creative", it, creative) }
+    e["styleIn"]?.let { checkStyleIn("creative", it, creative) }
+    e["journeyStageKey"]?.let { checkJourneyStageKey("creative", it, creative) }
     if (e.bool("requireMetadata") == true) {
         val m = creative.metadata
         expect(m != null, "the creative carries a metadata block")
