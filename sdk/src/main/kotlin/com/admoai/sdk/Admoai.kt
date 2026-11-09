@@ -18,6 +18,8 @@ import com.admoai.sdk.model.request.User
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.DecisionResponse
 import com.admoai.sdk.model.response.MatchedPoint
+import com.admoai.sdk.model.response.SLIDE_DEFAULT_CLICK_KEY
+import com.admoai.sdk.model.response.SLIDE_VIEW_KEY
 import com.admoai.sdk.model.response.Slide
 import com.admoai.sdk.model.response.TrackingDetail
 import com.admoai.sdk.model.response.TrackingInfo
@@ -439,10 +441,14 @@ class Admoai private constructor() {
      *
      * Trackers stay attached to their slide: pass the [Slide] you rendered, never the creative. A
      * slide served without tracking is a no-op.
+     *
+     * Only the slide's `slide_view` beacon is sent. A template may file further view events on the
+     * slide; they are not this event and this call never fires them.
      */
     fun trackSlideView(slide: Slide) {
         synchronized(slideDispatchLock) {
-            slide.tracking?.views?.forEach { if (slideViewLedger.claim(it.url)) fireTracking(it.url) }
+            slide.tracking?.views?.filter { it.key == SLIDE_VIEW_KEY }
+                ?.forEach { if (slideViewLedger.claim(it.url)) fireTracking(it.url) }
         }
     }
 
@@ -455,9 +461,11 @@ class Admoai private constructor() {
     /**
      * Reports that the user **activated a slide** (`click`). Billable.
      *
-     * A click on a slide that was not reported as viewed yet sends the slide's view first, then
-     * the click. Every click then also fans out the creative's applicable third-party click
-     * trackers once.
+     * A click on a slide that was not reported as viewed yet sends the slide's `slide_view` first,
+     * then the slide's `default` click. Every such click also fans out the creative's third-party
+     * click trackers for `default` once. A slide with no `default` click records its view only: no
+     * click and no fan-out. Other click events a template files on the slide (for example a "save
+     * offer" button) are not a slide tap and are never sent by this call.
      *
      * **Do not route a slide tap through [fireClick]**: a Carousel has no creative-level click, so
      * that sends nothing.
@@ -467,13 +475,15 @@ class Admoai private constructor() {
             // A tap proves the slide was on screen, so its view counts (once) even when the slide
             // carries no click tracker; a click the slide cannot record sends no click and no fan-out.
             trackSlideView(slide)
-            val clicks = slide.tracking?.clicks
-            if (clicks.isNullOrEmpty()) return@synchronized
+            // Only the `default` click is the tap. A template may file other click events on the
+            // slide (a "save offer" button); those are not this gesture and are never sent here.
+            val clicks = slide.tracking?.clicks.orEmpty().filter { it.key == SLIDE_DEFAULT_CLICK_KEY }
+            if (clicks.isEmpty()) return@synchronized
             clicks.forEach { fireTracking(it.url) }
-            // One fan-out per click, whatever number of click beacons the slide carries, and only
-            // when a canonical click beacon was actually valid (same rule as [fireClick]).
-            val key = clicks.firstOrNull { isAbsoluteHttpUrl(it.url) }?.key ?: return@synchronized
-            fireThirdPartyTrackers(creative.tracking, ThirdPartyTrackerEvent.Click(key))
+            // One fan-out per tap, whatever number of `default` beacons the slide carries, and only
+            // when one of them was actually valid (same rule as [fireClick]).
+            if (clicks.none { isAbsoluteHttpUrl(it.url) }) return@synchronized
+            fireThirdPartyTrackers(creative.tracking, ThirdPartyTrackerEvent.Click(SLIDE_DEFAULT_CLICK_KEY))
         }
     }
 
