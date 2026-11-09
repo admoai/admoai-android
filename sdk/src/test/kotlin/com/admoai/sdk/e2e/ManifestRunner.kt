@@ -1,17 +1,29 @@
 package com.admoai.sdk.e2e
 
 import com.admoai.sdk.Admoai
+import com.admoai.sdk.checkClickKeys
+import com.admoai.sdk.checkContentKeys
+import com.admoai.sdk.checkDispatchedBeacons
+import com.admoai.sdk.checkEngineAcceptedEveryBeacon
+import com.admoai.sdk.checkJourneyStageKey
+import com.admoai.sdk.checkMetadata
+import com.admoai.sdk.checkSlides
+import com.admoai.sdk.checkStyleIn
+import com.admoai.sdk.checkTemplateKey
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.exception.AdMoaiConfigurationException
 import com.admoai.sdk.exception.AdMoaiValidationException
+import com.admoai.sdk.expectationFailure
 import com.admoai.sdk.model.common.JourneyOpt
 import com.admoai.sdk.model.request.DistanceBounds
 import com.admoai.sdk.model.request.PlacementFormat
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.MatchedPoint
+import com.admoai.sdk.model.response.Slide
 import com.admoai.sdk.model.response.getContent
 import com.admoai.sdk.model.response.hasContents
 import com.admoai.sdk.model.response.matchedPoints
+import com.admoai.sdk.model.response.slides
 import com.admoai.sdk.utils.getSkipOffset
 import com.admoai.sdk.utils.getVastTagUrl
 import com.admoai.sdk.utils.getVastXmlBase64
@@ -82,7 +94,7 @@ private fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitiv
 private fun JsonObject.dbl(key: String): Double? = (this[key] as? JsonPrimitive)?.content?.toDoubleOrNull()
 
 /** The one manifest `schemaVersion` this runner executes. */
-private const val SUPPORTED_SCHEMA_VERSION = 3
+private const val SUPPORTED_SCHEMA_VERSION = 5
 
 internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) {
     val manifest = loadManifest()
@@ -92,7 +104,8 @@ internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) 
     val schemaVersion = manifest.int("schemaVersion")
     check(schemaVersion == SUPPORTED_SCHEMA_VERSION) {
         "e2e-scenarios.json is schemaVersion $schemaVersion; this runner knows schemaVersion " +
-            "$SUPPORTED_SCHEMA_VERSION; fixtureScenarios and their slideTracking run as unit tests in FixtureScenariosTest"
+            "$SUPPORTED_SCHEMA_VERSION; fixtureScenarios and their slideTracking run as unit tests in " +
+            "FixtureScenariosTest, and a runner must refuse a schemaVersion it does not execute"
     }
     val scenarios = manifest["scenarios"]!!.jsonArray
     for (element in scenarios) {
@@ -123,6 +136,7 @@ private fun reconfigure(baseUrl: String, apiVersion: String?, engine: HttpClient
 private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersion: String) {
     val request = entry["request"]!!.jsonObject
     val expect = entry["expect"]!!.jsonObject
+    refuseUnknownKeys("${entry.str("id")} expect", expect.keys, EXECUTED_EXPECT_KEYS)
 
     // "none" means: no apiVersion at all, so no version header is sent.
     val rawVersion = request.str("apiVersion")
@@ -132,7 +146,15 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
         else -> rawVersion
     }
     val pinTracking = entry["pinTracking"] as? JsonObject
-    if (pinTracking != null) {
+    val slideTracking = entry["slideTracking"] as? JsonObject
+    if (slideTracking != null) {
+        refuseUnknownKeys("${entry.str("id")} slideTracking", slideTracking.keys, setOf("steps", "expect"))
+        expect(
+            expect.str("outcome") == "served" && (expect["creative"] as? JsonObject)?.containsKey("slides") == true,
+            "${entry.str("id")}: a live slideTracking requires expect.outcome served and expect.creative.slides"
+        )
+    }
+    if (pinTracking != null || slideTracking != null) {
         // The SDK's own transport, recorded: every tracking GET it sends is observed on its way to
         // the real engine, which is the only place "sent once" can be proven.
         reconfigure(baseUrl, version, BeaconRecorder.engine())
@@ -254,6 +276,10 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
         }
 
         (expect["creative"] as? JsonObject)?.let { assertCreative(creatives.first(), it) }
+        slideTracking?.let {
+            val note = runSlideTracking(entry.str("id")!!, it, creatives.first())
+            println("          · ${entry.str("id")}: $note")
+        }
         pinTracking?.let {
             val note = runPinTracking(it, creatives.first().matchedPoints) {
                 runBlocking { Admoai.getInstance().requestAds(built).first() }
@@ -450,16 +476,123 @@ private fun runPinTracking(
         ) {
             Thread.sleep(50)
         }
-        val answers = BeaconRecorder.trackingAnswers()
-        expect(answers.size == sent.size, "the engine answered every beacon (${answers.size}/${sent.size})")
-        val rejected = answers.filter { it.second !in 200..399 }
-        expect(rejected.isEmpty(), "the engine accepts every beacon (rejected: ${rejected.map { it.second }})")
+        checkEngineAcceptedEveryBeacon(sent.size, BeaconRecorder.trackingAnswers())
     }
     return "${responses.size} response(s), ${responses.map { it.size }} pins: ${expectedViews.size} view GET(s), " +
         "${expectedInteractions.values.sum()} tap/click GET(s), ${sent.size} sent in total"
 }
 
-private fun assertCreative(creative: Creative, e: JsonObject) {
+/**
+ * A live `slideTracking` replays what a Carousel does with its slides, through the SDK's real
+ * helpers, on the creative the engine just served: `slideView: n` -> `trackSlideView`,
+ * `slideClick: n` -> `trackSlideClick(slide, creative)` (n is the 1-based position), `fireClick: null`
+ * -> `fireClick(tracking)`. The beacons the SDK handed its network, in dispatch order (read through
+ * `Admoai.beaconObserver`, as the fixture scenarios do), are mapped back to the creative's own slide
+ * trackers and compared with `expect.beacons`; `engineAcceptsEveryBeacon` is the same check as
+ * `pinTracking`'s. Clicks go through the recorder, which never follows the engine's 302.
+ */
+private fun runSlideTracking(id: String, slideTracking: JsonObject, creative: Creative): String {
+    val sdk = Admoai.getInstance()
+    val e = slideTracking["expect"]!!.jsonObject
+    refuseUnknownKeys("$id slideTracking.expect", e.keys, EXECUTED_SLIDE_TRACKING_EXPECT_KEYS)
+    val dispatched = Collections.synchronizedList(mutableListOf<String>())
+    sdk.beaconObserver = { dispatched += it }
+    try {
+        // The decision that served this scenario went through the recorder too; only beacons count.
+        BeaconRecorder.clear()
+        for (element in slideTracking["steps"]!!.jsonArray) {
+            val step = element.jsonObject
+            refuseUnknownKeys("$id slideTracking step", step.keys, EXECUTED_SLIDE_TRACKING_STEP_KEYS)
+            // One action per step: an empty step must not fall through to fireClick.
+            if (step.size != 1) expectationFailure("$id: slideTracking step $step must name exactly one action")
+            fun slideAt(key: String): Slide {
+                val position = step.int(key)!!
+                return creative.slides.getOrNull(position - 1)
+                    ?: expectationFailure("$id: the creative has no slide at position $position")
+            }
+            when {
+                step.containsKey("slideView") -> sdk.trackSlideView(slideAt("slideView"))
+
+                step.containsKey("slideClick") -> sdk.trackSlideClick(slideAt("slideClick"), creative)
+
+                else -> { // the only key left is fireClick
+                    val key = (step["fireClick"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+                    if (key != null) sdk.fireClick(creative.tracking, key) else sdk.fireClick(creative.tracking)
+                }
+            }
+        }
+
+        // Everything expected must have been dispatched; then a quiet moment proves nothing more is.
+        val wanted = e["beacons"]?.jsonArray?.size ?: 0
+        val deadline = System.currentTimeMillis() + 10_000
+        while (BeaconRecorder.tracking().size < wanted && System.currentTimeMillis() < deadline) Thread.sleep(50)
+        Thread.sleep(1_500)
+        val sent = BeaconRecorder.tracking()
+        checkDispatchedBeacons(id, e["beacons"], creative, dispatched.toList())
+        expect(sent.size == wanted, "exactly $wanted tracking GETs reach the engine, nothing stray (got ${sent.size})")
+        if (e.bool("engineAcceptsEveryBeacon") == true) {
+            val answerDeadline = System.currentTimeMillis() + 10_000
+            while (BeaconRecorder.trackingAnswers().size < sent.size && System.currentTimeMillis() < answerDeadline) {
+                Thread.sleep(50)
+            }
+            checkEngineAcceptedEveryBeacon(sent.size, BeaconRecorder.trackingAnswers())
+        }
+        return "${creative.slides.size} slide(s): ${sent.size} beacon(s) sent"
+    } finally {
+        sdk.beaconObserver = null
+    }
+}
+
+/**
+ * Every `expect` key this runner executes. A key outside these sets FAILS the scenario: the runner
+ * reads keys one by one, so without this guard a newer manifest's key would be silently ignored and
+ * the scenario would pass on a claim nobody checked.
+ */
+internal val EXECUTED_EXPECT_KEYS = setOf(
+    "outcome",
+    "decisions",
+    "decisionsMatchRequest",
+    "creativesAtMost",
+    "creativesDistinct",
+    "creative",
+    "error"
+)
+
+internal val EXECUTED_CREATIVE_KEYS = setOf(
+    "requireMetadata", "priorityIn", "requireAdvertiser", "requireTemplate", "requireContents", "journey",
+    "formatEquals", "deliveryEquals", "impressions", "matchedPointsAtLeast", "matchedPointsEquals",
+    "matchedPointsNone", "matchedPointsNearestFirst", "matchedPointsWellFormed", "matchedPointsHaveBeacons",
+    "matchedPointsHaveClickUrl", "clicksAtLeast", "videoEventCount", "videoEventKeys", "requireVastTagUrl",
+    "requireVastXmlDecodes", "metadataIsSkippable", "skipOffsetSecondsEquals", "helperIsSkippable",
+    "helperSkipOffsetEquals", "endCardModeEquals",
+    // schemaVersion 4: the standard formats, same semantics as the fixture scenarios' keys
+    "metadata", "templateKey", "contentKeys", "styleIn", "journeyStageKey",
+    // schemaVersion 5: the Carousel, same semantics as the fixture scenarios' keys
+    "slides", "clickKeys"
+)
+
+/** A live `slideTracking` takes exactly these keys; `thirdPartyBeacons` is not allowed on it. */
+internal val EXECUTED_SLIDE_TRACKING_EXPECT_KEYS = setOf("beacons", "engineAcceptsEveryBeacon")
+internal val EXECUTED_SLIDE_TRACKING_STEP_KEYS = setOf("slideView", "slideClick", "fireClick")
+
+/** Fails when [keys] holds a key this runner does not execute. */
+internal fun refuseUnknownKeys(where: String, keys: Set<String>, executed: Set<String>) {
+    val unknown = keys - executed
+    expect(
+        unknown.isEmpty(),
+        "$where names ${unknown.sorted()}, which this runner does not execute (it would pass unchecked)"
+    )
+}
+
+internal fun assertCreative(creative: Creative, e: JsonObject) {
+    refuseUnknownKeys("expect.creative", e.keys, EXECUTED_CREATIVE_KEYS)
+    e["metadata"]?.let { checkMetadata("creative", it, creative) }
+    e["templateKey"]?.let { checkTemplateKey("creative", it, creative) }
+    e["contentKeys"]?.let { checkContentKeys("creative", it, creative) }
+    e["styleIn"]?.let { checkStyleIn("creative", it, creative) }
+    e["journeyStageKey"]?.let { checkJourneyStageKey("creative", it, creative) }
+    e["slides"]?.let { checkSlides("creative", it, creative) }
+    e["clickKeys"]?.let { checkClickKeys("creative", it, creative) }
     if (e.bool("requireMetadata") == true) {
         val m = creative.metadata
         expect(m != null, "the creative carries a metadata block")
