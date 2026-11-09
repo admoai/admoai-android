@@ -1,6 +1,7 @@
 package com.admoai.sdk.e2e
 
 import com.admoai.sdk.Admoai
+import com.admoai.sdk.SlideStep
 import com.admoai.sdk.checkClickKeys
 import com.admoai.sdk.checkContentKeys
 import com.admoai.sdk.checkDispatchedBeacons
@@ -24,6 +25,7 @@ import com.admoai.sdk.model.response.getContent
 import com.admoai.sdk.model.response.hasContents
 import com.admoai.sdk.model.response.matchedPoints
 import com.admoai.sdk.model.response.slides
+import com.admoai.sdk.parseSlideStep
 import com.admoai.sdk.utils.getSkipOffset
 import com.admoai.sdk.utils.getVastTagUrl
 import com.admoai.sdk.utils.getVastXmlBase64
@@ -503,22 +505,21 @@ private fun runSlideTracking(id: String, slideTracking: JsonObject, creative: Cr
         for (element in slideTracking["steps"]!!.jsonArray) {
             val step = element.jsonObject
             refuseUnknownKeys("$id slideTracking step", step.keys, EXECUTED_SLIDE_TRACKING_STEP_KEYS)
-            // One action per step: an empty step must not fall through to fireClick.
-            if (step.size != 1) expectationFailure("$id: slideTracking step $step must name exactly one action")
-            fun slideAt(key: String): Slide {
-                val position = step.int(key)!!
-                return creative.slides.getOrNull(position - 1)
-                    ?: expectationFailure("$id: the creative has no slide at position $position")
-            }
-            when {
-                step.containsKey("slideView") -> sdk.trackSlideView(slideAt("slideView"))
+            fun slideAt(position: Int): Slide = creative.slides.getOrNull(position - 1)
+                ?: expectationFailure("$id: the creative has no slide at position $position")
+            when (val action = parseSlideStep(id, step)) {
+                is SlideStep.SlideView -> sdk.trackSlideView(slideAt(action.position))
 
-                step.containsKey("slideClick") -> sdk.trackSlideClick(slideAt("slideClick"), creative)
+                is SlideStep.SlideClick -> sdk.trackSlideClick(slideAt(action.position), creative)
 
-                else -> { // the only key left is fireClick
-                    val key = (step["fireClick"] as? JsonPrimitive)?.takeIf { it.isString }?.content
-                    if (key != null) sdk.fireClick(creative.tracking, key) else sdk.fireClick(creative.tracking)
-                }
+                is SlideStep.FireClick ->
+                    if (action.key !=
+                        null
+                    ) {
+                        sdk.fireClick(creative.tracking, action.key)
+                    } else {
+                        sdk.fireClick(creative.tracking)
+                    }
             }
         }
 
