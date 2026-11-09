@@ -2,7 +2,6 @@ package com.admoai.sdk
 
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.model.response.Creative
-import com.admoai.sdk.model.response.Slide
 import com.admoai.sdk.model.response.getContent
 import com.admoai.sdk.model.response.matchedPoints
 import com.admoai.sdk.model.response.slides
@@ -247,18 +246,6 @@ class FixtureScenariosTest(
         assertEquals("$id: third-party beacons", thirdParty.sorted(), thirdPartyArrived.toList().sorted())
     }
 
-    private fun resolveBeacon(beacon: JsonObject, creative: Creative): String? {
-        beacon["slide"]?.let { slideN ->
-            val slide = creative.slides.getOrNull((slideN as JsonPrimitive).intOrNull!! - 1) ?: return null
-            beacon.string("view")?.let { key -> return slide.tracking?.views?.firstOrNull { it.key == key }?.url }
-            beacon.string("click")?.let { key -> return slide.tracking?.clicks?.firstOrNull { it.key == key }?.url }
-            return null
-        }
-        beacon.string("click")?.let { key -> return creative.tracking.clicks?.firstOrNull { it.key == key }?.url }
-        beacon.string("custom")?.let { key -> return creative.tracking.custom?.firstOrNull { it.key == key }?.url }
-        return null
-    }
-
     /** Served and read back exactly as a 200 from the engine is: the SDK's own client and parser. */
     private suspend fun decodeThroughTheSdk(wire: JsonObject): Creative {
         server.enqueue(
@@ -296,13 +283,7 @@ class FixtureScenariosTest(
                 assertNull("$id: $absent is absent", creative.contents.getContent(absent))
             }
 
-            "clickKeys" -> assertEquals(
-                "$id: clickKeys",
-                strings(value),
-                creative.tracking.clicks.orEmpty().map {
-                    it.key
-                }
-            )
+            "clickKeys" -> checkClickKeys(id, value, creative)
 
             "customKeys" -> assertEquals(
                 "$id: customKeys",
@@ -321,7 +302,7 @@ class FixtureScenariosTest(
                     }
                 )
 
-            "slides" -> checkSlides(value as? JsonArray ?: JsonArray(emptyList()), creative.slides)
+            "slides" -> checkSlides(id, value, creative)
 
             "noSkippableSetting" -> {
                 assertEquals("$id: noSkippableSetting is true", true, (value as? JsonPrimitive)?.booleanOrNull)
@@ -336,36 +317,6 @@ class FixtureScenariosTest(
             )
 
             else -> failWith("$id: unknown expect key $key")
-        }
-    }
-
-    private fun checkSlides(expected: JsonArray, slides: List<Slide>) {
-        assertEquals("$id: slide count, got ${slides.size}", expected.size, slides.size)
-        expected.forEachIndexed { index, element ->
-            val want = element.jsonObject
-            val slide = slides.getOrNull(index) ?: return@forEachIndexed
-            val label = "$id: slide ${index + 1}"
-            want.keys.filterNot { it in setOf("slideId", "position", "contentKeys", "viewKeys", "clickKeys") }
-                .forEach { failWith("$label: unknown slide expect key $it") }
-            assertEquals("$label slideId", want.string("slideId"), slide.slideId)
-            assertEquals("$label position", (want["position"] as? JsonPrimitive)?.intOrNull, slide.position)
-            assertEquals(
-                "$label contentKeys",
-                strings(want["contentKeys"]).toSet(),
-                slide.contents.map {
-                    it.key
-                }.toSet()
-            )
-            assertEquals(
-                "$label viewKeys",
-                strings(want["viewKeys"]).toSet(),
-                slide.tracking?.views.orEmpty().map { it.key }.toSet()
-            )
-            assertEquals(
-                "$label clickKeys",
-                strings(want["clickKeys"]).toSet(),
-                slide.tracking?.clicks.orEmpty().map { it.key }.toSet()
-            )
         }
     }
 

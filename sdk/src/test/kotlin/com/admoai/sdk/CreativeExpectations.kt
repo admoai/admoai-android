@@ -1,6 +1,7 @@
 package com.admoai.sdk
 
 import com.admoai.sdk.model.response.Creative
+import com.admoai.sdk.model.response.slides
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -8,6 +9,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
 
 /**
  * The creative expectations the shared manifest (`@admoai/sdk-scenarios`) states ONCE and both of
@@ -99,5 +101,131 @@ private fun expectOptional(label: String, key: String, actual: Any?, expected: J
             }
 
         else -> expectationFailure("$label: metadata.$key is $actual, expected $expected")
+    }
+}
+
+/** `clickKeys`: the exact set of creative-level click tracker keys (order not asserted, duplicates are). */
+internal fun checkClickKeys(label: String, expected: JsonElement?, creative: Creative) {
+    val want = expectedStrings(expected).sorted()
+    val got = creative.tracking.clicks.orEmpty().map { it.key }.sorted()
+    if (want != got) expectationFailure("$label: clickKeys expected $want, got $got")
+}
+
+private val SLIDE_EXPECT_KEYS = setOf("slideId", "position", "contentKeys", "viewKeys", "clickKeys")
+
+/**
+ * `slides`: the ordered, exact list of the served creative's slides, read through the public slide
+ * API. Each element states `slideId`, `position` and the exact sets `contentKeys`, `viewKeys`,
+ * `clickKeys`.
+ */
+internal fun checkSlides(label: String, expected: JsonElement?, creative: Creative) {
+    val wanted = expected as? JsonArray ?: expectationFailure("$label: slides expectation is not an array")
+    val slides = creative.slides
+    if (wanted.size !=
+        slides.size
+    ) {
+        expectationFailure("$label: slide count expected ${wanted.size}, got ${slides.size}")
+    }
+    wanted.forEachIndexed { index, element ->
+        val want = element.jsonObject
+        val slide = slides[index]
+        val at = "$label: slide ${index + 1}"
+        want.keys.filterNot {
+            it in SLIDE_EXPECT_KEYS
+        }.forEach { expectationFailure("$at: unknown slide expect key $it") }
+        val wantId = (want["slideId"] as? JsonPrimitive)?.contentOrNull
+        if (wantId != slide.slideId) expectationFailure("$at slideId expected $wantId, got ${slide.slideId}")
+        val wantPosition = (want["position"] as? JsonPrimitive)?.intOrNull
+        if (wantPosition !=
+            slide.position
+        ) {
+            expectationFailure("$at position expected $wantPosition, got ${slide.position}")
+        }
+        sameSet("$at contentKeys", want["contentKeys"], slide.contents.map { it.key })
+        sameSet("$at viewKeys", want["viewKeys"], slide.tracking?.views.orEmpty().map { it.key })
+        sameSet("$at clickKeys", want["clickKeys"], slide.tracking?.clicks.orEmpty().map { it.key })
+    }
+}
+
+private fun sameSet(what: String, expected: JsonElement?, served: List<String>) {
+    val want = expectedStrings(expected).toSet()
+    if (want != served.toSet()) expectationFailure("$what expected ${want.sorted()}, got ${served.toSet().sorted()}")
+}
+
+/**
+ * The URL a manifest `slideTracking` beacon (`{slide, view}`, `{slide, click}`, `{click}`,
+ * `{custom}`) names on [creative], or null when the creative has no such tracker.
+ */
+internal fun resolveBeacon(beacon: JsonObject, creative: Creative): String? {
+    fun key(name: String) = (beacon[name] as? JsonPrimitive)?.takeIf { it.isString }?.content
+    (beacon["slide"] as? JsonPrimitive)?.let { slideN ->
+        val slide = creative.slides.getOrNull((slideN.intOrNull ?: return null) - 1) ?: return null
+        key("view")?.let { k -> return slide.tracking?.views?.firstOrNull { it.key == k }?.url }
+        key("click")?.let { k -> return slide.tracking?.clicks?.firstOrNull { it.key == k }?.url }
+        return null
+    }
+    key("click")?.let { k -> return creative.tracking.clicks?.firstOrNull { it.key == k }?.url }
+    key("custom")?.let { k -> return creative.tracking.custom?.firstOrNull { it.key == k }?.url }
+    return null
+}
+
+/**
+ * The inverse of [resolveBeacon] for the slide trackers: which `{slide, view|click}` a dispatched
+ * URL is, matched against the creative's own slide tracker URLs, or null when it is none of them.
+ */
+internal fun describeBeacon(url: String, creative: Creative): String? {
+    creative.slides.forEachIndexed { index, slide ->
+        slide.tracking?.views.orEmpty().firstOrNull {
+            it.url == url
+        }?.let { return "{slide ${index + 1}, view ${it.key}}" }
+        slide.tracking?.clicks.orEmpty().firstOrNull {
+            it.url == url
+        }?.let { return "{slide ${index + 1}, click ${it.key}}" }
+    }
+    creative.tracking.clicks.orEmpty().firstOrNull { it.url == url }?.let { return "{click ${it.key}}" }
+    return null
+}
+
+private fun describeExpected(beacon: JsonObject): String {
+    val slide = (beacon["slide"] as? JsonPrimitive)?.content
+    val view = (beacon["view"] as? JsonPrimitive)?.contentOrNull
+    val click = (beacon["click"] as? JsonPrimitive)?.contentOrNull
+    return when {
+        slide != null && view != null -> "{slide $slide, view $view}"
+        slide != null && click != null -> "{slide $slide, click $click}"
+        click != null -> "{click $click}"
+        else -> beacon.toString()
+    }
+}
+
+/**
+ * A live `slideTracking`'s `expect.beacons`: the first-party beacons the SDK dispatched, in
+ * dispatch order, are exactly the expected list. Each dispatched URL is mapped back to the
+ * tracker of [creative] it is, so a failure names slides and keys, not opaque URLs.
+ */
+internal fun checkDispatchedBeacons(
+    label: String,
+    expected: JsonElement?,
+    creative: Creative,
+    dispatched: List<String>
+) {
+    val wanted = (expected as? JsonArray ?: JsonArray(emptyList())).map { describeExpected(it.jsonObject) }
+    val got = dispatched.map { describeBeacon(it, creative) ?: "an unknown beacon $it" }
+    if (wanted != got) expectationFailure("$label: beacons, in dispatch order, expected $wanted, got $got")
+}
+
+/**
+ * `engineAcceptsEveryBeacon`: the engine answered every tracking GET that was sent, and every
+ * answer is below 400 (a click's 302 is an acceptance). Shared by `pinTracking` and `slideTracking`.
+ */
+internal fun checkEngineAcceptedEveryBeacon(sentCount: Int, answers: List<Pair<String, Int>>) {
+    if (answers.size != sentCount) expectationFailure("the engine answered every beacon (${answers.size}/$sentCount)")
+    val rejected = answers.filter { it.second !in 200..399 }
+    if (rejected.isNotEmpty()) {
+        expectationFailure(
+            "the engine accepts every beacon (rejected: ${rejected.map {
+                it.second
+            }})"
+        )
     }
 }

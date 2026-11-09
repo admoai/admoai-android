@@ -37,15 +37,15 @@ class ManifestIntegrityTest {
     }
 
     /**
-     * `schemaVersion` 2 added `fixtureScenarios` (3 added their `slideTracking`, 4 the live standard-format `expect.creative` keys); the live runner refuses any other version and
+     * `schemaVersion` 2 added `fixtureScenarios` (3 added their `slideTracking`, 4 the live standard-format `expect.creative` keys, 5 the Carousel `slides`/`clickKeys` and live `slideTracking`); the live runner refuses any other version and
      * FixtureScenariosTest interprets them, so both are pinned here against the vendored copy.
      */
     @Test
     fun `the fixture scenarios are structurally valid`() {
         val root = Json.parseToJsonElement(String(manifestBytes())).jsonObject
         assertEquals(
-            "this SDK vendors a schemaVersion 4 manifest",
-            4,
+            "this SDK vendors a schemaVersion 5 manifest",
+            5,
             (root["schemaVersion"] as? JsonPrimitive)?.content?.toIntOrNull()
         )
 
