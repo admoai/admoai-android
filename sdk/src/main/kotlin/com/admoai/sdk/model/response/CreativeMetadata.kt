@@ -111,4 +111,36 @@ data class CreativeMetadata(
      */
     @Serializable(with = StringOrNullSerializer::class)
     val assetContext: String? = null
-)
+) {
+    /**
+     * The constructor as it was before [assetContext] existed, kept so Java callers and
+     * precompiled libraries built against that signature keep linking. It has no default values on
+     * purpose: with them, a Kotlin call that names only some fields would be ambiguous with the
+     * primary constructor.
+     */
+    @Deprecated("Use the constructor with assetContext", level = DeprecationLevel.HIDDEN)
+    constructor(
+        adId: String,
+        creativeId: String,
+        advertiserId: String?,
+        placementId: String,
+        templateId: String,
+        priority: MetadataPriority,
+        language: String?,
+        style: String?,
+        format: String?,
+        duration: Int?,
+        aspectRatio: String?,
+        isSkippable: Boolean?,
+        impId: String?,
+        skipOffsetSeconds: Int?,
+        endCardMode: String?,
+        effectiveStandardFormatKey: String?,
+        effectiveStandardFormatVersion: Int?,
+        templateSource: String?
+    ) : this(
+        adId, creativeId, advertiserId, placementId, templateId, priority, language, style, format,
+        duration, aspectRatio, isSkippable, impId, skipOffsetSeconds, endCardMode,
+        effectiveStandardFormatKey, effectiveStandardFormatVersion, templateSource, null
+    )
+}
