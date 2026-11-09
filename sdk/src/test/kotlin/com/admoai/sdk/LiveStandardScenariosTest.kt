@@ -110,6 +110,21 @@ class LiveStandardScenariosTest {
     }
 
     @Test
+    fun `metadata compares the JSON type, not only the content`() {
+        failsWith(
+            "effectiveStandardFormatVersion",
+            """{"metadata":{"effectiveStandardFormatVersion":"1"}}""",
+            creative()
+        )
+        failsWith(
+            "effectiveStandardFormatKey",
+            """{"metadata":{"effectiveStandardFormatKey":1}}""",
+            creative(metadata = """"effectiveStandardFormatKey":"1"""")
+        )
+        passes("""{"metadata":{"effectiveStandardFormatVersion":1}}""", creative())
+    }
+
+    @Test
     fun `metadata refuses a key the manifest does not define`() =
         failsWith("unknown metadata expect key", """{"metadata":{"colour":"red"}}""", creative())
 

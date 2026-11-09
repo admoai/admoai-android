@@ -90,13 +90,14 @@ private fun expectOptional(label: String, key: String, actual: Any?, expected: J
 
         primitive == null -> expectationFailure("$label: metadata.$key expectation $expected has the wrong type")
 
+        // The JSON type is part of the expectation: "1" never matches 1, nor 1 "1".
         actual is String ->
-            if (primitive.contentOrNull != actual) {
+            if (!primitive.isString || primitive.content != actual) {
                 expectationFailure("$label: metadata.$key expected ${primitive.contentOrNull}, got $actual")
             }
 
         actual is Int ->
-            if (primitive.intOrNull != actual) {
+            if (primitive.isString || primitive.intOrNull != actual) {
                 expectationFailure("$label: metadata.$key expected ${primitive.intOrNull}, got $actual")
             }
 

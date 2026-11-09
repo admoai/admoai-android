@@ -503,6 +503,8 @@ private fun runSlideTracking(id: String, slideTracking: JsonObject, creative: Cr
         for (element in slideTracking["steps"]!!.jsonArray) {
             val step = element.jsonObject
             refuseUnknownKeys("$id slideTracking step", step.keys, EXECUTED_SLIDE_TRACKING_STEP_KEYS)
+            // One action per step: an empty step must not fall through to fireClick.
+            if (step.size != 1) expectationFailure("$id: slideTracking step $step must name exactly one action")
             fun slideAt(key: String): Slide {
                 val position = step.int(key)!!
                 return creative.slides.getOrNull(position - 1)
@@ -513,7 +515,7 @@ private fun runSlideTracking(id: String, slideTracking: JsonObject, creative: Cr
 
                 step.containsKey("slideClick") -> sdk.trackSlideClick(slideAt("slideClick"), creative)
 
-                else -> {
+                else -> { // the only key left is fireClick
                     val key = (step["fireClick"] as? JsonPrimitive)?.takeIf { it.isString }?.content
                     if (key != null) sdk.fireClick(creative.tracking, key) else sdk.fireClick(creative.tracking)
                 }
