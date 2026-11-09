@@ -113,34 +113,35 @@ data class CreativeMetadata(
     val assetContext: String? = null
 ) {
     /**
-     * The constructor as it was before [assetContext] existed, kept so Java callers and
-     * precompiled libraries built against that signature keep linking. It has no default values on
-     * purpose: with them, a Kotlin call that names only some fields would be ambiguous with the
-     * primary constructor.
+     * The constructor of the last release, 1.7.2, kept so apps and precompiled libraries built
+     * against it keep linking: its 15 parameters and the same default values, which also keeps the
+     * synthetic default-arguments constructor a Kotlin caller compiled against 1.7.2 calls. The
+     * standard-format fields and [assetContext] are left absent (`null`).
+     *
+     * HIDDEN so Kotlin source never resolves to it (a call naming some fields would otherwise be
+     * ambiguous with the primary constructor). It is therefore synthetic on the JVM: compiled
+     * callers keep working, Java source written against 1.7.2 has to pass the four new arguments.
      */
-    @Deprecated("Use the constructor with assetContext", level = DeprecationLevel.HIDDEN)
+    @Deprecated("Use the primary constructor", level = DeprecationLevel.HIDDEN)
     constructor(
-        adId: String,
-        creativeId: String,
-        advertiserId: String?,
-        placementId: String,
-        templateId: String,
-        priority: MetadataPriority,
-        language: String?,
-        style: String?,
-        format: String?,
-        duration: Int?,
-        aspectRatio: String?,
-        isSkippable: Boolean?,
-        impId: String?,
-        skipOffsetSeconds: Int?,
-        endCardMode: String?,
-        effectiveStandardFormatKey: String?,
-        effectiveStandardFormatVersion: Int?,
-        templateSource: String?
+        adId: String = "",
+        creativeId: String = "",
+        advertiserId: String? = null,
+        placementId: String = "",
+        templateId: String = "",
+        priority: MetadataPriority = MetadataPriority.UNKNOWN,
+        language: String? = null,
+        style: String? = null,
+        format: String? = null,
+        duration: Int? = null,
+        aspectRatio: String? = null,
+        isSkippable: Boolean? = null,
+        impId: String? = null,
+        skipOffsetSeconds: Int? = null,
+        endCardMode: String? = null
     ) : this(
         adId, creativeId, advertiserId, placementId, templateId, priority, language, style, format,
         duration, aspectRatio, isSkippable, impId, skipOffsetSeconds, endCardMode,
-        effectiveStandardFormatKey, effectiveStandardFormatVersion, templateSource, null
+        null, null, null, null
     )
 }
