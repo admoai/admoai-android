@@ -47,6 +47,12 @@ data class SlideTracking(
 /** The `contents` key the engine puts a Carousel's slides under. */
 internal const val SLIDES_CONTENT_KEY = "slides"
 
+/** The one view event a slide view reports; a template may file more under `tracking.views`. */
+internal const val SLIDE_VIEW_KEY = "slide_view"
+
+/** The one click event a slide tap reports; a template may file more under `tracking.clicks`. */
+internal const val SLIDE_DEFAULT_CLICK_KEY = "default"
+
 // The SDK's own response parser configuration, so a slide reads exactly as the rest of the creative.
 private val slideJson = Json {
     ignoreUnknownKeys = true

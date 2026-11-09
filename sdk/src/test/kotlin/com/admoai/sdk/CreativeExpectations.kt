@@ -184,17 +184,20 @@ internal fun describeBeacon(url: String, creative: Creative): String? {
         }?.let { return "{slide ${index + 1}, click ${it.key}}" }
     }
     creative.tracking.clicks.orEmpty().firstOrNull { it.url == url }?.let { return "{click ${it.key}}" }
+    creative.tracking.custom.orEmpty().firstOrNull { it.url == url }?.let { return "{custom ${it.key}}" }
     return null
 }
 
-private fun describeExpected(beacon: JsonObject): String {
+internal fun describeExpected(beacon: JsonObject): String {
     val slide = (beacon["slide"] as? JsonPrimitive)?.content
     val view = (beacon["view"] as? JsonPrimitive)?.contentOrNull
     val click = (beacon["click"] as? JsonPrimitive)?.contentOrNull
+    val custom = (beacon["custom"] as? JsonPrimitive)?.contentOrNull
     return when {
         slide != null && view != null -> "{slide $slide, view $view}"
         slide != null && click != null -> "{slide $slide, click $click}"
         click != null -> "{click $click}"
+        custom != null -> "{custom $custom}"
         else -> beacon.toString()
     }
 }
@@ -230,3 +233,51 @@ internal fun checkEngineAcceptedEveryBeacon(sentCount: Int, answers: List<Pair<S
         )
     }
 }
+
+/** One validated step of a live `slideTracking`: the single action the runner replays. */
+internal sealed interface SlideStep {
+    /** `slideView: n` -> `trackSlideView` on the 1-based slide [position]. */
+    data class SlideView(val position: Int) : SlideStep
+
+    /** `slideClick: n` -> `trackSlideClick` on the 1-based slide [position]. */
+    data class SlideClick(val position: Int) : SlideStep
+
+    /** `fireClick: null` -> the default creative click; `fireClick: "key"` -> that click key. */
+    data class FireClick(val key: String?) : SlideStep
+}
+
+/**
+ * Reads one `slideTracking` step, refusing anything malformed with an [expectationFailure] that
+ * shows the step: it must name exactly one action, a slide position must be a positive whole
+ * number, and `fireClick` must be JSON null or a string (a number or object is not a click key).
+ */
+internal fun parseSlideStep(id: String, step: JsonObject): SlideStep {
+    if (step.size != 1) expectationFailure("$id: slideTracking step $step must name exactly one action")
+    fun position(key: String): Int {
+        val value = step.getValue(key) as? JsonPrimitive
+        val n = value?.takeIf { !it.isString }?.intOrNull
+        if (n == null || n < 1) {
+            expectationFailure("$id: slideTracking step $step: $key must be a positive whole number")
+        }
+        return n
+    }
+    return when {
+        step.containsKey("slideView") -> SlideStep.SlideView(position("slideView"))
+
+        step.containsKey("slideClick") -> SlideStep.SlideClick(position("slideClick"))
+
+        step.containsKey("fireClick") -> when (val v = step.getValue("fireClick")) {
+            is JsonNull -> SlideStep.FireClick(null)
+
+            is JsonPrimitive ->
+                if (v.isString) SlideStep.FireClick(v.content) else fireClickRefused(id, step)
+
+            else -> fireClickRefused(id, step)
+        }
+
+        else -> expectationFailure("$id: slideTracking step $step names no known action")
+    }
+}
+
+private fun fireClickRefused(id: String, step: JsonObject): Nothing =
+    expectationFailure("$id: slideTracking step $step: fireClick must be null or a click key string")

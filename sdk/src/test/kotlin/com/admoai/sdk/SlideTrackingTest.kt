@@ -167,6 +167,47 @@ class SlideTrackingTest {
         assertTrue(thirdPartyArrived.isEmpty())
     }
 
+    private fun templatedSlide(views: List<String>, clicks: List<String>): String {
+        fun list(keys: List<String>) = keys.joinToString(",") { """{"key": "$it", "url": "https://t/s1/$it"}""" }
+        return """{"slideId": "slide_1", "position": 1, "contents": [],
+            "tracking": {"views": [${list(views)}], "clicks": [${list(clicks)}]}}"""
+    }
+
+    @Test
+    fun `a view sends only slide_view even when the template adds other view events`() {
+        val creative =
+            creative(templatedSlide(listOf("slide_view", "slide_shown_custom"), listOf("save_offer", "default")))
+        val sdk = sdk()
+        sdk.trackSlideView(creative.slides[0])
+        settle(1)
+        assertEquals(listOf("https://t/s1/slide_view"), dispatched.toList())
+    }
+
+    @Test
+    fun `a tap sends the pending slide_view then only the default click and fans out for default`() {
+        val creative =
+            creative(templatedSlide(listOf("slide_view", "slide_shown_custom"), listOf("save_offer", "default")))
+        val sdk = sdk()
+        sdk.trackSlideClick(creative.slides[0], creative)
+        settle(2, 2)
+        assertEquals(listOf("https://t/s1/slide_view", "https://t/s1/default"), dispatched.toList())
+        assertEquals(
+            "the default-specific and any trackers, never save_offer's",
+            listOf("https://agency.example/any", "https://agency.example/default"),
+            thirdPartyArrived.toList().sorted()
+        )
+    }
+
+    @Test
+    fun `a slide whose only click is a custom one counts its view and nothing else`() {
+        val creative = creative(templatedSlide(listOf("slide_view"), listOf("save_offer")))
+        val sdk = sdk()
+        sdk.trackSlideClick(creative.slides[0], creative)
+        settle(1)
+        assertEquals(listOf("https://t/s1/slide_view"), dispatched.toList())
+        assertTrue(thirdPartyArrived.isEmpty())
+    }
+
     @Test
     fun `a click after the view sends only the click`() {
         val creative = creative(slideJson(1))
