@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0](https://github.com/admoai/admoai-android/compare/v1.7.2...v1.8.0) (2026-11-10)
+
+
+### Added
+
+* expose standard format metadata and carousel slides. Compatibility: apps and libraries compiled against 1.7.2 keep working; Java code that calls `new CreativeMetadata(...)` with the 1.7.2 arguments must now pass the four new ones (`effectiveStandardFormatKey`, `effectiveStandardFormatVersion`, `templateSource`, `assetContext`; `null` keeps the old behaviour), and `CreativeMetadata.copy(...)` gains those four parameters ([fbc8a50](https://github.com/admoai/admoai-android/commit/fbc8a506af1657bb26c4e7607a221d76f76012e6))
+* expose the creative's asset context and run the live standard-format and Carousel scenarios ([#130](https://github.com/admoai/admoai-android/issues/130)) ([17decaf](https://github.com/admoai/admoai-android/commit/17decaf83593e7d4aad0463a14a90ae26f0bc85e))
+* slide view and click helpers with per-response dedup ([#124](https://github.com/admoai/admoai-android/issues/124)) ([86d16e8](https://github.com/admoai/admoai-android/commit/86d16e862bbeaba0dac2afea238d9b907da7a1ba))
+
+
+### Fixed
+
+* a slide tap sends only its default click, and a view only its slide_view ([#131](https://github.com/admoai/admoai-android/issues/131)) ([f31199a](https://github.com/admoai/admoai-android/commit/f31199a6859dcb81700c4903cfc9df4ed6810543))
+
 ## [1.7.2](https://github.com/admoai/admoai-android/compare/v1.7.1...v1.7.2) (2026-10-22)
 
 
