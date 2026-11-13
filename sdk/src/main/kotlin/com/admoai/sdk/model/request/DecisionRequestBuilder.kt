@@ -161,18 +161,12 @@ class DecisionRequestBuilder internal constructor(
      *   left unchanged.
      */
     fun setPublisherSegments(codes: Collection<String>?) = apply {
-        // Validate everything before touching `targeting`, so a bad code leaves no partial state.
-        codes?.forEachIndexed { index, code ->
-            require(PUBLISHER_SEGMENT_CODE.matches(code)) {
-                "publisher segment at index $index must match ^[a-zA-Z0-9_]+\$ " +
-                    "(letters, digits and underscore only; no spaces, no empty codes)"
-            }
-        }
-        val cleaned = codes.orEmpty().distinct()
-        if (cleaned.isEmpty()) {
+        // Validation runs inside publisherSegmentsValue, before any state change.
+        val value = AudienceTargeting.publisherSegmentsValue(codes)
+        if (value == null) {
             removeCustomTarget(AudienceKeys.PUBLISHER_SEGMENTS)
         } else {
-            addCustomTarget(AudienceKeys.PUBLISHER_SEGMENTS, JsonArray(cleaned.map { JsonPrimitive(it) }))
+            addCustomTarget(AudienceKeys.PUBLISHER_SEGMENTS, value)
         }
     }
 
@@ -447,5 +441,3 @@ class DecisionRequestBuilder internal constructor(
         )
     }
 }
-
-private val PUBLISHER_SEGMENT_CODE = Regex("^[a-zA-Z0-9_]+$")
