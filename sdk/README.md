@@ -893,8 +893,15 @@ sdk.setDeviceConfig(
 // or: DeviceConfig(carrier = "Movistar", category = DeviceCategory.TABLET)
 ```
 
+A value you set always wins, even when it cleans to nothing: a carrier set to `" wifi "` sends no
+carrier at all, never the collected one.
+
 `disableDeviceCollection()` on a request drops the whole device object, carrier and category
 included. After `sdk.clearDeviceConfig()` nothing is sent until you set a device config again.
+
+> **Carrier and category need Audience Signals enabled for your workspace.** On a workspace without
+> it, the Decision Engine refuses a request that carries either field (HTTP 400, error code `10009`).
+> Ask your Admoai contact to enable it before you ship `systemDefault(context)` or manual values.
 
 > The iOS SDK does not collect the carrier automatically (a platform limit), so do not promise
 > identical carrier coverage across platforms.
