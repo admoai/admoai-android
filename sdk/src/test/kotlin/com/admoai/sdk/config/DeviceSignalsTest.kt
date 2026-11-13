@@ -23,6 +23,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -448,5 +449,20 @@ class DeviceSignalsTest {
     fun `turning off device collection drops carrier and category`() {
         val config = DeviceConfig(model = "x", carrier = "Movistar", category = DeviceCategory.TABLET)
         assertNull(deviceOnWire(config, collect = false))
+    }
+
+    @Test
+    fun `turning off app collection keeps carrier and category`() {
+        Admoai.getInstance().setDeviceConfig(
+            DeviceConfig(model = "x", carrier = "Movistar", category = DeviceCategory.TABLET)
+        )
+        val builder = DecisionRequestBuilder().addPlacement("home").disableAppCollection()
+        val request = Admoai.getInstance().prepareFinalDecisionRequest(builder.build())
+        val body = json.parseToJsonElement(json.encodeToString(request)).jsonObject
+
+        assertNull(body["app"])
+        val device = body["device"]!!.jsonObject
+        assertEquals("Movistar", device["carrier"]!!.jsonPrimitive.content)
+        assertEquals("tablet", device["category"]!!.jsonPrimitive.content)
     }
 }

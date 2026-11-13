@@ -116,3 +116,9 @@ Feature: Device carrier and category are collected for the publisher without any
     And device collection is turned off
     When it requests a decision
     Then no device details are sent
+
+  Scenario: turning off app collection keeps carrier and category
+    Given an app that has a carrier and a category on its device details
+    And app collection is turned off
+    When it requests a decision
+    Then the device details still include the carrier and the category
