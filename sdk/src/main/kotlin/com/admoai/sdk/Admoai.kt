@@ -560,11 +560,27 @@ class Admoai private constructor() {
             defaultLanguage: String? = null,
             sessionId: String? = null
         ) {
+            initialize(baseUrl, apiVersion, enableLogging, defaultLanguage, sessionId, playgroundToken = null)
+        }
+
+        /**
+         * [initialize] with a [SDKConfig.playgroundToken]: set it to talk to a playground; leave it unset for live.
+         */
+        @JvmStatic
+        fun initialize(
+            baseUrl: String,
+            apiVersion: String? = null,
+            enableLogging: Boolean = false,
+            defaultLanguage: String? = null,
+            sessionId: String? = null,
+            playgroundToken: String?
+        ) {
             val config = SDKConfig(
                 baseUrl = baseUrl,
                 apiVersion = apiVersion,
                 enableLogging = enableLogging,
-                defaultLanguage = defaultLanguage
+                defaultLanguage = defaultLanguage,
+                playgroundToken = playgroundToken
             )
             initialize(config)
             // initialize() runs once at startup before any request, so setting sessionId here is safe.

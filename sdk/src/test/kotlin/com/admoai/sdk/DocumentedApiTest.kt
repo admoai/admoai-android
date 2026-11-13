@@ -80,6 +80,13 @@ class DocumentedApiTest {
         val copy = config.copy(enableLogging = true)
 
         @Suppress("UNUSED_VARIABLE")
+        val playground = SDKConfig(
+            baseUrl = "https://example.test",
+            apiVersion = "2025-11-01",
+            playgroundToken = "<token>"
+        )
+
+        @Suppress("UNUSED_VARIABLE")
         val user = UserConfig(id = "u", ip = null, timezone = "UTC")
 
         @Suppress("UNUSED_VARIABLE")

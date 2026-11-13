@@ -77,6 +77,25 @@ Admoai.initialize(
 )
 ```
 
+#### Testing against a playground
+
+Set `playgroundToken` to talk to a playground; leave it unset for live.
+
+```kotlin
+val config = SDKConfig(
+    baseUrl = "https://api.admoai.com",       // same host as live
+    apiVersion = "2025-11-01",
+    playgroundToken = "<token from the Integration page>"
+)
+```
+
+The shorthand takes it too: `Admoai.initialize(baseUrl = …, apiVersion = …, playgroundToken = "<token>")`.
+
+With a token, decision requests go to `/v1/playground/decision` with an `X-Playground-Token` header;
+`baseUrl`, the version header and the request body stay the same. A blank token counts as unset. A
+token the playground cannot serve gets an ordinary no-ad, and the SDK logs its `X-Playground-Reason`
+as a warning.
+
 ### 2. Configure User Settings (Optional)
 
 ```kotlin

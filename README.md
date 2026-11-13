@@ -79,6 +79,12 @@ sdk.requestAds(request).collect { response ->
 }
 ```
 
+Set `playgroundToken` to talk to a playground; leave it unset for live:
+
+```kotlin
+SDKConfig(baseUrl = "https://api.admoai.com", apiVersion = "2025-11-01", playgroundToken = "<token>")
+```
+
 ### Jetpack Compose Integration
 
 ```kotlin
