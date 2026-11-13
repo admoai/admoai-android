@@ -154,8 +154,10 @@ public final class com/admoai/sdk/config/DeviceConfig : com/admoai/sdk/core/Clea
 	public static final field $stable I
 	public static final field Companion Lcom/admoai/sdk/config/DeviceConfig$Companion;
 	public fun <init> ()V
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/DeviceCategory;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/DeviceCategory;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun clear ()Lcom/admoai/sdk/config/DeviceConfig;
 	public synthetic fun clear ()Ljava/lang/Object;
 	public final fun component1 ()Ljava/lang/String;
@@ -165,9 +167,15 @@ public final class com/admoai/sdk/config/DeviceConfig : com/admoai/sdk/core/Clea
 	public final fun component5 ()Ljava/lang/String;
 	public final fun component6 ()Ljava/lang/String;
 	public final fun component7 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
+	public final fun component8 ()Ljava/lang/String;
+	public final fun component9 ()Lcom/admoai/sdk/model/request/DeviceCategory;
+	public final synthetic fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/DeviceCategory;)Lcom/admoai/sdk/config/DeviceConfig;
 	public static synthetic fun copy$default (Lcom/admoai/sdk/config/DeviceConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/config/DeviceConfig;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/config/DeviceConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/DeviceCategory;ILjava/lang/Object;)Lcom/admoai/sdk/config/DeviceConfig;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCarrier ()Ljava/lang/String;
+	public final fun getCategory ()Lcom/admoai/sdk/model/request/DeviceCategory;
 	public final fun getDeviceId ()Ljava/lang/String;
 	public final fun getLanguage ()Ljava/lang/String;
 	public final fun getManufacturer ()Ljava/lang/String;
@@ -523,17 +531,25 @@ public final class com/admoai/sdk/model/request/DecisionRequestBuilder {
 	public final fun clearUser ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun disableAppCollection ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun disableDeviceCollection ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setAccountTenure (Lcom/admoai/sdk/model/request/audience/AccountTenure;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setAccountType (Lcom/admoai/sdk/model/request/audience/AccountType;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setAgeGroup (Lcom/admoai/sdk/model/request/audience/AgeGroup;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun setCustomTargets (Ljava/util/List;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun setDestinationTargets (Ljava/util/List;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun setDistanceTargeting (DDDLjava/lang/Integer;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun setDistanceTargeting (DDLcom/admoai/sdk/model/request/DistanceBounds;Ljava/lang/Integer;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public static synthetic fun setDistanceTargeting$default (Lcom/admoai/sdk/model/request/DecisionRequestBuilder;DDDLjava/lang/Integer;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public static synthetic fun setDistanceTargeting$default (Lcom/admoai/sdk/model/request/DecisionRequestBuilder;DDLcom/admoai/sdk/model/request/DistanceBounds;Ljava/lang/Integer;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setGender (Lcom/admoai/sdk/model/request/audience/Gender;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun setGeoTargets (Ljava/util/List;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun setJourneyOpt (Lcom/admoai/sdk/model/common/JourneyOpt;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setLastTripRecency (Lcom/admoai/sdk/model/request/audience/LastTripRecency;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun setLocationTargets (Ljava/util/List;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun setPlacements (Ljava/util/List;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setPublisherSegments (Ljava/util/Collection;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun setSessionId (Ljava/lang/String;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setSubscriptionStatus (Lcom/admoai/sdk/model/request/audience/SubscriptionStatus;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun setTripFrequency30d (Lcom/admoai/sdk/model/request/audience/TripFrequency30d;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun setUserConsent (Lcom/admoai/sdk/model/request/Consent;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun setUserConsent (Ljava/lang/Boolean;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun setUserId (Ljava/lang/String;)Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
@@ -577,8 +593,10 @@ public final class com/admoai/sdk/model/request/Device {
 	public static final field $stable I
 	public static final field Companion Lcom/admoai/sdk/model/request/Device$Companion;
 	public fun <init> ()V
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/lang/String;
@@ -586,9 +604,15 @@ public final class com/admoai/sdk/model/request/Device {
 	public final fun component5 ()Ljava/lang/String;
 	public final fun component6 ()Ljava/lang/String;
 	public final fun component7 ()Ljava/lang/String;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/request/Device;
+	public final fun component8 ()Ljava/lang/String;
+	public final fun component9 ()Ljava/lang/String;
+	public final synthetic fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/request/Device;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/model/request/Device;
 	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/Device;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/Device;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCarrier ()Ljava/lang/String;
+	public final fun getCategory ()Ljava/lang/String;
 	public final fun getId ()Ljava/lang/String;
 	public final fun getLanguage ()Ljava/lang/String;
 	public final fun getManufacturer ()Ljava/lang/String;
@@ -613,6 +637,16 @@ public synthetic class com/admoai/sdk/model/request/Device$$serializer : kotlinx
 
 public final class com/admoai/sdk/model/request/Device$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/DeviceCategory : java/lang/Enum {
+	public static final field OTHER Lcom/admoai/sdk/model/request/DeviceCategory;
+	public static final field PHONE Lcom/admoai/sdk/model/request/DeviceCategory;
+	public static final field TABLET Lcom/admoai/sdk/model/request/DeviceCategory;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getWireValue ()Ljava/lang/String;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/model/request/DeviceCategory;
+	public static fun values ()[Lcom/admoai/sdk/model/request/DeviceCategory;
 }
 
 public final class com/admoai/sdk/model/request/Distance {
@@ -838,6 +872,102 @@ public synthetic class com/admoai/sdk/model/request/User$$serializer : kotlinx/s
 
 public final class com/admoai/sdk/model/request/User$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/audience/AccountTenure : java/lang/Enum {
+	public static final field DAYS_0_30 Lcom/admoai/sdk/model/request/audience/AccountTenure;
+	public static final field DAYS_31_90 Lcom/admoai/sdk/model/request/audience/AccountTenure;
+	public static final field DAYS_366_PLUS Lcom/admoai/sdk/model/request/audience/AccountTenure;
+	public static final field DAYS_91_365 Lcom/admoai/sdk/model/request/audience/AccountTenure;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getWireValue ()Ljava/lang/String;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/model/request/audience/AccountTenure;
+	public static fun values ()[Lcom/admoai/sdk/model/request/audience/AccountTenure;
+}
+
+public final class com/admoai/sdk/model/request/audience/AccountType : java/lang/Enum {
+	public static final field BUSINESS Lcom/admoai/sdk/model/request/audience/AccountType;
+	public static final field FAMILY Lcom/admoai/sdk/model/request/audience/AccountType;
+	public static final field OTHER Lcom/admoai/sdk/model/request/audience/AccountType;
+	public static final field PERSONAL Lcom/admoai/sdk/model/request/audience/AccountType;
+	public static final field STUDENT Lcom/admoai/sdk/model/request/audience/AccountType;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getWireValue ()Ljava/lang/String;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/model/request/audience/AccountType;
+	public static fun values ()[Lcom/admoai/sdk/model/request/audience/AccountType;
+}
+
+public final class com/admoai/sdk/model/request/audience/AgeGroup : java/lang/Enum {
+	public static final field AGE_18_24 Lcom/admoai/sdk/model/request/audience/AgeGroup;
+	public static final field AGE_25_34 Lcom/admoai/sdk/model/request/audience/AgeGroup;
+	public static final field AGE_35_44 Lcom/admoai/sdk/model/request/audience/AgeGroup;
+	public static final field AGE_45_54 Lcom/admoai/sdk/model/request/audience/AgeGroup;
+	public static final field AGE_55_64 Lcom/admoai/sdk/model/request/audience/AgeGroup;
+	public static final field AGE_65_PLUS Lcom/admoai/sdk/model/request/audience/AgeGroup;
+	public static final field UNDER_18 Lcom/admoai/sdk/model/request/audience/AgeGroup;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getWireValue ()Ljava/lang/String;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/model/request/audience/AgeGroup;
+	public static fun values ()[Lcom/admoai/sdk/model/request/audience/AgeGroup;
+}
+
+public final class com/admoai/sdk/model/request/audience/AudienceKeys {
+	public static final field $stable I
+	public static final field ACCOUNT_TENURE Ljava/lang/String;
+	public static final field ACCOUNT_TYPE Ljava/lang/String;
+	public static final field AGE_GROUP Ljava/lang/String;
+	public static final field GENDER Ljava/lang/String;
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/audience/AudienceKeys;
+	public static final field LAST_TRIP_RECENCY Ljava/lang/String;
+	public static final field PUBLISHER_SEGMENTS Ljava/lang/String;
+	public static final field SUBSCRIPTION_STATUS Ljava/lang/String;
+	public static final field TRIP_FREQUENCY_30D Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/model/request/audience/Gender : java/lang/Enum {
+	public static final field FEMALE Lcom/admoai/sdk/model/request/audience/Gender;
+	public static final field MALE Lcom/admoai/sdk/model/request/audience/Gender;
+	public static final field OTHER Lcom/admoai/sdk/model/request/audience/Gender;
+	public static final field PREFER_NOT_TO_SAY Lcom/admoai/sdk/model/request/audience/Gender;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getWireValue ()Ljava/lang/String;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/model/request/audience/Gender;
+	public static fun values ()[Lcom/admoai/sdk/model/request/audience/Gender;
+}
+
+public final class com/admoai/sdk/model/request/audience/LastTripRecency : java/lang/Enum {
+	public static final field DAYS_0_7 Lcom/admoai/sdk/model/request/audience/LastTripRecency;
+	public static final field DAYS_31_90 Lcom/admoai/sdk/model/request/audience/LastTripRecency;
+	public static final field DAYS_8_30 Lcom/admoai/sdk/model/request/audience/LastTripRecency;
+	public static final field DAYS_91_PLUS Lcom/admoai/sdk/model/request/audience/LastTripRecency;
+	public static final field NEVER Lcom/admoai/sdk/model/request/audience/LastTripRecency;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getWireValue ()Ljava/lang/String;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/model/request/audience/LastTripRecency;
+	public static fun values ()[Lcom/admoai/sdk/model/request/audience/LastTripRecency;
+}
+
+public final class com/admoai/sdk/model/request/audience/SubscriptionStatus : java/lang/Enum {
+	public static final field ACTIVE Lcom/admoai/sdk/model/request/audience/SubscriptionStatus;
+	public static final field EXPIRED Lcom/admoai/sdk/model/request/audience/SubscriptionStatus;
+	public static final field NONE Lcom/admoai/sdk/model/request/audience/SubscriptionStatus;
+	public static final field PAUSED Lcom/admoai/sdk/model/request/audience/SubscriptionStatus;
+	public static final field TRIAL Lcom/admoai/sdk/model/request/audience/SubscriptionStatus;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getWireValue ()Ljava/lang/String;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/model/request/audience/SubscriptionStatus;
+	public static fun values ()[Lcom/admoai/sdk/model/request/audience/SubscriptionStatus;
+}
+
+public final class com/admoai/sdk/model/request/audience/TripFrequency30d : java/lang/Enum {
+	public static final field TRIPS_10_PLUS Lcom/admoai/sdk/model/request/audience/TripFrequency30d;
+	public static final field TRIPS_1_2 Lcom/admoai/sdk/model/request/audience/TripFrequency30d;
+	public static final field TRIPS_3_9 Lcom/admoai/sdk/model/request/audience/TripFrequency30d;
+	public static final field ZERO Lcom/admoai/sdk/model/request/audience/TripFrequency30d;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getWireValue ()Ljava/lang/String;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/model/request/audience/TripFrequency30d;
+	public static fun values ()[Lcom/admoai/sdk/model/request/audience/TripFrequency30d;
 }
 
 public final class com/admoai/sdk/model/response/AdData {

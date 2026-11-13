@@ -3,6 +3,7 @@ package com.admoai.sdk.config
 import android.content.Context
 import android.os.Build
 import com.admoai.sdk.core.Clearable
+import com.admoai.sdk.model.request.DeviceCategory
 import java.util.TimeZone
 
 /**
@@ -16,6 +17,10 @@ import java.util.TimeZone
  * @property deviceId A unique identifier for the device (e.g., Advertising ID)
  * @property manufacturer The device manufacturer (e.g., "Google")
  * @property language The device language (e.g., "en-US")
+ * @property carrier The mobile network operator name (e.g., "Movistar"); omitted from the request when null.
+ *   [systemDefault] leaves it null; the publisher supplies it.
+ * @property category The device category ([DeviceCategory.PHONE], [DeviceCategory.TABLET] or
+ *   [DeviceCategory.OTHER]); omitted from the request when null. [systemDefault] leaves it null.
  */
 data class DeviceConfig(
     val model: String? = null,
@@ -25,8 +30,38 @@ data class DeviceConfig(
     val deviceId: String? = null, // e.g., Advertising ID
     val manufacturer: String? = null, // e.g., "Google", "Samsung"
     // e.g., "en-US"
-    val language: String? = null
+    val language: String? = null,
+    val carrier: String? = null,
+    val category: DeviceCategory? = null
 ) : Clearable<DeviceConfig> {
+
+    // Binary compatibility (CONTRIBUTING, "When the API check fails"): integrators construct and
+    // copy this class, so the 7-field constructor and copy that 1.8.x apps were compiled against
+    // must keep existing. HIDDEN keeps them in the bytecode but out of source resolution, so new
+    // code always binds to the primary constructor and the generated copy.
+    @Deprecated("Binary compatibility with 1.8.x callers", level = DeprecationLevel.HIDDEN)
+    constructor(
+        model: String? = null,
+        osName: String? = null,
+        osVersion: String? = null,
+        timezone: String? = null,
+        deviceId: String? = null,
+        manufacturer: String? = null,
+        language: String? = null
+    ) : this(model, osName, osVersion, timezone, deviceId, manufacturer, language, null, null)
+
+    @Deprecated("Binary compatibility with 1.8.x callers", level = DeprecationLevel.HIDDEN)
+    fun copy(
+        model: String? = this.model,
+        osName: String? = this.osName,
+        osVersion: String? = this.osVersion,
+        timezone: String? = this.timezone,
+        deviceId: String? = this.deviceId,
+        manufacturer: String? = this.manufacturer,
+        language: String? = this.language
+    ): DeviceConfig = DeviceConfig(
+        model, osName, osVersion, timezone, deviceId, manufacturer, language, carrier, category
+    )
 
     /**
      * Returns a new instance with all properties set to their defaults (null).
