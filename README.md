@@ -16,6 +16,10 @@ AdMoai Android SDK provides a comprehensive native advertising solution for Andr
   Read [Sponsored Pin Locations](./sdk/README.md#sponsored-pin-locations) before integrating:
   the SDK renders nothing and never infers that a pin was seen, so the measurement contract
   is yours to honour
+- **Audience Signals** - Send Standard audience keys and your own segment codes so advertisers
+  can target your users the same way across publishers.
+  Read [Audience Signals](./sdk/README.md#audience-signals): you compute the values, the SDK
+  only sends them
 - **Advanced Targeting** - Geo, location, destination, and custom targeting options
 - **Jetpack Compose** - First-class Compose support with `rememberAdState`
 - **GDPR Compliance** - Built-in user consent management
@@ -133,6 +137,24 @@ report. A tap that opens a card is free; a click that opens the shop is billable
 > which beacon to fire for a view, a tap and a destination click, and why attribution is per
 > location. This page deliberately does not summarise it — a partial copy would drift out of
 > date and mislead.
+
+
+## Audience Signals
+
+Audience Signals let advertisers target your users by the same eight Standard keys on every
+publisher: age group, gender, account type, subscription status, account tenure, trip frequency,
+last trip recency, and your own segment codes. You work out which bucket applies from your own
+first-party data; the SDK only sends what you give it, and never infers or calculates a value.
+
+**Audience Signals put two obligations on your app.** First, the values and segment codes are
+yours to compute and, for segments, to register in the Ad Manager before sending. Second,
+`apiVersion` must be `2025-11-01` for the keys to be reported as audience dimensions; on older
+versions they still target, but are not reported that way.
+
+> 📖 **The full integration guide lives in [`sdk/README.md` → Audience Signals](./sdk/README.md#audience-signals).**
+> It is the single source of truth and covers each helper and its values, publisher segment rules,
+> device carrier and category, a worked request and a pre-launch checklist. This page deliberately
+> does not summarise it — a partial copy would drift out of date and mislead.
 
 
 ## Documentation
