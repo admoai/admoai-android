@@ -22,6 +22,51 @@ internal object DeviceSignals {
 
     private val PLACEHOLDER_CARRIERS = setOf("--", "unknown", "wifi", "wi-fi")
 
+    /** Application context registered by `DeviceConfig.systemDefault(context)`; never an Activity. */
+    @Volatile
+    internal var appContext: Context? = null
+
+    @Volatile
+    internal var carrierReader: (Context) -> String? = ::readCarrier
+
+    @Volatile
+    internal var categoryReader: (Context) -> DeviceCategory? = ::readCategory
+
+    internal fun resetForTests() {
+        appContext = null
+        carrierReader = ::readCarrier
+        categoryReader = ::readCategory
+    }
+
+    /**
+     * The carrier and category for one request. A value set on [config] wins (the carrier after
+     * [normalizeCarrier]; one that normalizes to null falls back to the collected one). A missing
+     * one is read now, only when the config asks for collection and a context was registered; each
+     * reader fails on its own.
+     */
+    internal fun resolve(config: DeviceConfig): Pair<String?, DeviceCategory?> {
+        var carrier = normalizeCarrier(config.carrier)
+        var category = config.category
+        val context = appContext
+        if (config.collectCarrierAndCategory && context != null) {
+            if (carrier == null) {
+                carrier = try {
+                    normalizeCarrier(carrierReader(context))
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            if (category == null) {
+                category = try {
+                    categoryReader(context)
+                } catch (_: Exception) {
+                    null
+                }
+            }
+        }
+        return carrier to category
+    }
+
     /**
      * Cleans a carrier name: trims it, and returns null for an empty value or a placeholder the
      * platform reports when there is no operator ("--", "unknown", "wifi", "wi-fi", any case).

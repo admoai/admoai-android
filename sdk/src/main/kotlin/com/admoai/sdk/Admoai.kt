@@ -236,6 +236,7 @@ class Admoai private constructor() {
 
         val deviceObject = if (initialDecisionRequest.collectDeviceData && this.deviceConfig != null) {
             val devConf = this.deviceConfig!!
+            val (carrier, category) = DeviceSignals.resolve(devConf)
             Device(
                 os = devConf.osName,
                 osVersion = devConf.osVersion,
@@ -244,8 +245,8 @@ class Admoai private constructor() {
                 id = devConf.deviceId,
                 timezone = devConf.timezone,
                 language = devConf.language,
-                carrier = DeviceSignals.normalizeCarrier(devConf.carrier),
-                category = devConf.category?.wireValue
+                carrier = carrier,
+                category = category?.wireValue
             )
         } else {
             null

@@ -49,12 +49,14 @@ class DeviceSignalsTest {
 
     @Before
     fun setUp() {
+        DeviceSignals.resetForTests()
         Admoai.resetForTesting()
         Admoai.initialize(SDKConfig(baseUrl = "https://test.admoai.com", networkClientEngine = null))
     }
 
     @After
     fun tearDown() {
+        DeviceSignals.resetForTests()
         Admoai.resetForTesting()
         unmockkAll()
     }
@@ -302,15 +304,144 @@ class DeviceSignalsTest {
         )
     }
 
+    private fun appContextMock(): Context {
+        val context = mockk<Context>()
+        every { context.applicationContext } returns context
+        return context
+    }
+
+    private fun injectReaders(carrier: () -> String?, category: () -> DeviceCategory?, calls: IntArray) {
+        DeviceSignals.carrierReader = {
+            calls[0]++
+            carrier()
+        }
+        DeviceSignals.categoryReader = {
+            calls[1]++
+            category()
+        }
+    }
+
+    private fun JsonObject?.text(key: String) = this?.get(key)?.toString()?.trim('"')
+
     @Test
     fun `an app that configures the device without a context sends no carrier or category`() {
+        // An earlier configuration registered a context; a context-free config must not use it.
+        val calls = IntArray(2)
+        injectReaders({ "Movistar" }, { DeviceCategory.PHONE }, calls)
+        DeviceConfig.systemDefault(appContextMock())
+
         val config = DeviceConfig.systemDefault()
         assertNull(config.carrier)
         assertNull(config.category)
+        assertFalse(config.collectCarrierAndCategory)
         assertNull(DeviceConfig.systemDefault("id").carrier)
         val device = deviceOnWire(config)!!
         assertFalse(device.containsKey("carrier"))
         assertFalse(device.containsKey("category"))
+        assertEquals(0, calls[0])
+        assertEquals(0, calls[1])
+
+        // And an app that never registered a context at all.
+        DeviceSignals.resetForTests()
+        assertEquals(
+            Pair<String?, DeviceCategory?>(null, null),
+            DeviceSignals.resolve(DeviceConfig(collectCarrierAndCategory = true))
+        )
+    }
+
+    @Test
+    fun `carrier and category are read fresh for every request`() {
+        var carrier: String? = "Movistar"
+        var category: DeviceCategory? = DeviceCategory.PHONE
+        val calls = IntArray(2)
+        injectReaders({ carrier }, { category }, calls)
+        val config = DeviceConfig.systemDefault(appContextMock())
+        assertNull(config.carrier)
+        assertNull(config.category)
+
+        val first = deviceOnWire(config)!!
+        assertEquals("Movistar", first.text("carrier"))
+        assertEquals("phone", first.text("category"))
+
+        carrier = "Claro"
+        category = DeviceCategory.TABLET
+        val second = deviceOnWire(config)!!
+        assertEquals("Claro", second.text("carrier"))
+        assertEquals("tablet", second.text("category"))
+        assertEquals(2, calls[0])
+        assertEquals(2, calls[1])
+        assertNull(config.carrier)
+        assertNull(config.category)
+    }
+
+    @Test
+    fun `a value the app sets wins over the collected one`() {
+        val calls = IntArray(2)
+        injectReaders({ "Movistar" }, { DeviceCategory.PHONE }, calls)
+        val base = DeviceConfig.systemDefault(appContextMock())
+
+        val both = deviceOnWire(base.copy(carrier = "Manual", category = DeviceCategory.OTHER))!!
+        assertEquals("Manual", both.text("carrier"))
+        assertEquals("other", both.text("category"))
+        assertEquals(0, calls[0])
+        assertEquals(0, calls[1])
+
+        val onlyCarrier = deviceOnWire(base.copy(carrier = "Manual"))!!
+        assertEquals("Manual", onlyCarrier.text("carrier"))
+        assertEquals("phone", onlyCarrier.text("category"))
+        assertEquals(0, calls[0])
+        assertEquals(1, calls[1])
+
+        // A manual carrier that normalizes to nothing falls back to the collected one.
+        val placeholder = deviceOnWire(base.copy(carrier = " wifi "))!!
+        assertEquals("Movistar", placeholder.text("carrier"))
+    }
+
+    @Test
+    fun `a cleared device configuration sends nothing until it is set again`() {
+        val calls = IntArray(2)
+        injectReaders({ "Movistar" }, { DeviceCategory.PHONE }, calls)
+        val config = DeviceConfig.systemDefault(appContextMock())
+        assertTrue(deviceOnWire(config)!!.containsKey("carrier"))
+        val before = calls.sum()
+
+        val request = Admoai.getInstance().let {
+            it.clearDeviceConfig()
+            it.prepareFinalDecisionRequest(DecisionRequestBuilder().addPlacement("home").build())
+        }
+        assertNull(json.parseToJsonElement(json.encodeToString(request)).jsonObject["device"])
+        assertEquals(before, calls.sum())
+
+        val reset = deviceOnWire(config.clear())!!
+        assertFalse(reset.containsKey("carrier"))
+        assertFalse(reset.containsKey("category"))
+        assertEquals(before, calls.sum())
+        assertFalse(DeviceConfig().resetToDefaults().collectCarrierAndCategory)
+    }
+
+    @Test
+    fun `one failing reader does not affect the other`() {
+        val calls = IntArray(2)
+        injectReaders({ throw IllegalStateException("boom") }, { DeviceCategory.TABLET }, calls)
+        val device = deviceOnWire(DeviceConfig.systemDefault(appContextMock(), "id-1"))!!
+        assertFalse(device.containsKey("carrier"))
+        assertEquals("tablet", device.text("category"))
+        assertEquals("Android", device.text("os"))
+        assertEquals("id-1", device.text("id"))
+
+        injectReaders({ "Claro" }, { throw IllegalStateException("boom") }, calls)
+        val other = deviceOnWire(DeviceConfig.systemDefault(appContextMock()))!!
+        assertEquals("Claro", other.text("carrier"))
+        assertFalse(other.containsKey("category"))
+    }
+
+    @Test
+    fun `the SDK keeps only the application context`() {
+        val activity = mockk<Context>()
+        val application = mockk<Context>()
+        every { activity.applicationContext } returns application
+        DeviceConfig.systemDefault(activity)
+        assertTrue(DeviceSignals.appContext === application)
     }
 
     @Test

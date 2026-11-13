@@ -78,6 +78,38 @@ Feature: Device carrier and category are collected for the publisher without any
     Given an app that builds its device details without a context
     When it requests a decision
     Then no carrier and no category are sent
+    And nothing is read from the platform, even if an earlier configuration registered a context
+
+  Scenario: carrier and category are read fresh for every request
+    Given an app that configured its device details with a context
+    And the device reports Movistar and a phone for the first request
+    When the SIM and the display change before the second request
+    Then the first request carries Movistar and phone and the second carries Claro and tablet
+    And the device details object the app configured is unchanged
+
+  Scenario: a value the app sets wins over the collected one
+    Given an app that configured its device details with a context
+    And set the carrier, the category or both by hand
+    When it requests a decision
+    Then the value set by hand is sent and the platform is not asked for it
+    And a signal left unset is still collected
+
+  Scenario: a cleared device configuration sends nothing until it is set again
+    Given an app that configured its device details with a context
+    When it clears the device configuration
+    Then a request carries no device details and nothing is read from the platform
+    And a cleared configuration the app sets again sends no carrier or category
+
+  Scenario: one failing reader does not affect the other
+    Given an app that configured its device details with a context
+    And the platform fails while reading the carrier
+    When it requests a decision
+    Then the category and the other device fields are still sent without a carrier
+
+  Scenario: the SDK keeps only the application context
+    Given an app that configures its device details with an activity
+    When the SDK registers the context
+    Then it holds the application context and never the activity
 
   Scenario: turning off device collection drops carrier and category
     Given an app that has a carrier and a category on its device details

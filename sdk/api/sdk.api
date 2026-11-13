@@ -156,11 +156,12 @@ public final class com/admoai/sdk/config/DeviceConfig : com/admoai/sdk/core/Clea
 	public fun <init> ()V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/DeviceCategory;)V
-	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/DeviceCategory;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/DeviceCategory;Z)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/DeviceCategory;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun clear ()Lcom/admoai/sdk/config/DeviceConfig;
 	public synthetic fun clear ()Ljava/lang/Object;
 	public final fun component1 ()Ljava/lang/String;
+	public final fun component10 ()Z
 	public final fun component2 ()Ljava/lang/String;
 	public final fun component3 ()Ljava/lang/String;
 	public final fun component4 ()Ljava/lang/String;
@@ -170,12 +171,13 @@ public final class com/admoai/sdk/config/DeviceConfig : com/admoai/sdk/core/Clea
 	public final fun component8 ()Ljava/lang/String;
 	public final fun component9 ()Lcom/admoai/sdk/model/request/DeviceCategory;
 	public final synthetic fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
-	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/DeviceCategory;)Lcom/admoai/sdk/config/DeviceConfig;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/DeviceCategory;Z)Lcom/admoai/sdk/config/DeviceConfig;
 	public static synthetic fun copy$default (Lcom/admoai/sdk/config/DeviceConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/config/DeviceConfig;
-	public static synthetic fun copy$default (Lcom/admoai/sdk/config/DeviceConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/DeviceCategory;ILjava/lang/Object;)Lcom/admoai/sdk/config/DeviceConfig;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/config/DeviceConfig;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/admoai/sdk/model/request/DeviceCategory;ZILjava/lang/Object;)Lcom/admoai/sdk/config/DeviceConfig;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCarrier ()Ljava/lang/String;
 	public final fun getCategory ()Lcom/admoai/sdk/model/request/DeviceCategory;
+	public final fun getCollectCarrierAndCategory ()Z
 	public final fun getDeviceId ()Ljava/lang/String;
 	public final fun getLanguage ()Ljava/lang/String;
 	public final fun getManufacturer ()Ljava/lang/String;
