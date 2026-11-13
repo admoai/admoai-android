@@ -195,6 +195,7 @@ class DeviceSignalsTest {
             PackageManager.FEATURE_PC
         ).forEach {
             assertTrue(it, DeviceSignals.isNonHandheld { f -> f == it })
+            DeviceSignals.resetForTests() // hardware class is cached per process
             assertEquals(
                 it,
                 DeviceCategory.OTHER,
@@ -203,14 +204,18 @@ class DeviceSignalsTest {
         }
         assertFalse(DeviceSignals.isNonHandheld { false })
         listOf(Configuration.UI_MODE_TYPE_TELEVISION, Configuration.UI_MODE_TYPE_WATCH).forEach {
+            DeviceSignals.resetForTests()
             assertEquals(
                 it.toString(),
                 DeviceCategory.OTHER,
                 DeviceSignals.readCategory(contextWithDisplay(1600, 2560, 2.0f, uiModeType = it))
             )
         }
+        DeviceSignals.resetForTests()
         assertEquals(DeviceCategory.TABLET, DeviceSignals.readCategory(contextWithDisplay(1200, 1920, 2.0f)))
 
+        // A failing feature check is not cached, so no reset is needed after it.
+        DeviceSignals.resetForTests()
         // A failing feature check does not decide: the display rule applies.
         mockkConstructor(DisplayMetrics::class)
         val display = mockk<Display>()
@@ -229,6 +234,7 @@ class DeviceSignalsTest {
     fun `a phone in car mode still reports phone`() {
         val car = contextWithDisplay(1080, 2400, 2.625f, uiModeType = Configuration.UI_MODE_TYPE_CAR)
         assertEquals(DeviceCategory.PHONE, DeviceSignals.readCategory(car))
+        DeviceSignals.resetForTests()
         val desk = contextWithDisplay(1080, 2400, 2.625f, uiModeType = Configuration.UI_MODE_TYPE_DESK)
         assertEquals(DeviceCategory.PHONE, DeviceSignals.readCategory(desk))
     }
@@ -393,9 +399,12 @@ class DeviceSignalsTest {
         assertEquals(0, calls[0])
         assertEquals(1, calls[1])
 
-        // A manual carrier that normalizes to nothing falls back to the collected one.
+        // A manual carrier that normalizes to nothing still wins: no carrier, reader not called.
         val placeholder = deviceOnWire(base.copy(carrier = " wifi "))!!
-        assertEquals("Movistar", placeholder.text("carrier"))
+        assertFalse(placeholder.containsKey("carrier"))
+        assertEquals("phone", placeholder.text("category"))
+        assertEquals(0, calls[0])
+        assertEquals(2, calls[1])
     }
 
     @Test
@@ -464,5 +473,56 @@ class DeviceSignalsTest {
         val device = body["device"]!!.jsonObject
         assertEquals("Movistar", device["carrier"]!!.jsonPrimitive.content)
         assertEquals("tablet", device["category"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `hardware class is checked once per process`() {
+        mockkConstructor(DisplayMetrics::class)
+        val display = mockk<Display>()
+        every { display.getRealMetrics(any()) } answers {
+            val metrics = firstArg<DisplayMetrics>()
+            metrics.widthPixels = 1080
+            metrics.heightPixels = 2400
+            metrics.density = 2.625f
+        }
+        val context = contextWithDisplayManager(display)
+        val packageManager = context.packageManager
+        val config = DeviceConfig.systemDefault(context)
+
+        assertEquals("phone", deviceOnWire(config).text("category"))
+        assertEquals("phone", deviceOnWire(config).text("category"))
+
+        listOf(
+            PackageManager.FEATURE_LEANBACK,
+            PackageManager.FEATURE_WATCH,
+            PackageManager.FEATURE_AUTOMOTIVE,
+            PackageManager.FEATURE_PC
+        ).forEach { feature ->
+            verify(exactly = 1) { packageManager.hasSystemFeature(feature) }
+        }
+        verify(exactly = 1) { context.getSystemService(UiModeManager::class.java) }
+        verify(exactly = 2) { display.getRealMetrics(any()) }
+    }
+
+    @Test
+    fun `turning off device collection never reads carrier or category`() {
+        val calls = IntArray(2)
+        injectReaders({ "Movistar" }, { DeviceCategory.PHONE }, calls)
+        assertNull(deviceOnWire(DeviceConfig.systemDefault(appContextMock()), collect = false))
+        assertEquals(0, calls[0])
+        assertEquals(0, calls[1])
+
+        // With the real readers on a mocked context, the platform is never touched.
+        DeviceSignals.resetForTests()
+        mockkConstructor(DisplayMetrics::class)
+        mockkStatic(SubscriptionManager::class)
+        every { SubscriptionManager.getDefaultDataSubscriptionId() } returns 7
+        val display = mockk<Display>(relaxed = true)
+        val telephony = mockk<TelephonyManager>(relaxed = true)
+        val context = contextWithDisplayManager(display, setOf(PackageManager.FEATURE_TELEPHONY))
+        every { context.getSystemService(TelephonyManager::class.java) } returns telephony
+        assertNull(deviceOnWire(DeviceConfig.systemDefault(context), collect = false))
+        verify(exactly = 0) { display.getRealMetrics(any()) }
+        verify(exactly = 0) { telephony.createForSubscriptionId(any()) }
     }
 }

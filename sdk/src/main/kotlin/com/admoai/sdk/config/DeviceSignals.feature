@@ -92,6 +92,7 @@ Feature: Device carrier and category are collected for the publisher without any
     And set the carrier, the category or both by hand
     When it requests a decision
     Then the value set by hand is sent and the platform is not asked for it
+    And a carrier set by hand that cleans to nothing sends no carrier and is not replaced by the collected one
     And a signal left unset is still collected
 
   Scenario: a cleared device configuration sends nothing until it is set again
@@ -122,3 +123,15 @@ Feature: Device carrier and category are collected for the publisher without any
     And app collection is turned off
     When it requests a decision
     Then the device details still include the carrier and the category
+
+  Scenario: hardware class is checked once per process
+    Given an app that configured its device details with a context
+    When it requests a decision twice
+    Then the hardware class is read once and the display is read both times
+
+  Scenario: turning off device collection never reads carrier or category
+    Given an app that configured its device details with a context
+    And device collection is turned off
+    When it requests a decision
+    Then no device details are sent
+    And neither the carrier nor the category is read from the platform

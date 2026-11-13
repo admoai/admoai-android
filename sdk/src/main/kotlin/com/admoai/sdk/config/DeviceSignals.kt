@@ -32,7 +32,16 @@ internal object DeviceSignals {
     @Volatile
     internal var categoryReader: (Context) -> DeviceCategory? = ::readCategory
 
+    /**
+     * Whether the hardware is a non-handheld class. Hardware class does not change during a
+     * process, so it is decided once; display and carrier can change and stay per request. A result
+     * produced by a failing check is not cached: the next request tries again.
+     */
+    @Volatile
+    private var nonHandheldCache: Boolean? = null
+
     internal fun resetForTests() {
+        nonHandheldCache = null
         appContext = null
         carrierReader = ::readCarrier
         categoryReader = ::readCategory
@@ -40,23 +49,23 @@ internal object DeviceSignals {
 
     /**
      * The carrier and category for one request. A value set on [config] wins (the carrier after
-     * [normalizeCarrier]; one that normalizes to null falls back to the collected one). A missing
-     * one is read now, only when the config asks for collection and a context was registered; each
-     * reader fails on its own.
+     * [normalizeCarrier]) wins absolutely: a carrier set by hand that normalizes to null (" wifi ")
+     * sends no carrier and the reader is not called. Only a field left null is read now, and only
+     * when the config asks for collection and a context was registered; each reader fails on its own.
      */
     internal fun resolve(config: DeviceConfig): Pair<String?, DeviceCategory?> {
         var carrier = normalizeCarrier(config.carrier)
         var category = config.category
         val context = appContext
         if (config.collectCarrierAndCategory && context != null) {
-            if (carrier == null) {
+            if (config.carrier == null) {
                 carrier = try {
                     normalizeCarrier(carrierReader(context))
                 } catch (_: Exception) {
                     null
                 }
             }
-            if (category == null) {
+            if (config.category == null) {
                 category = try {
                     categoryReader(context)
                 } catch (_: Exception) {
@@ -138,21 +147,13 @@ internal object DeviceSignals {
      * hardware (TV, watch, automotive, desktop) is [DeviceCategory.OTHER] whatever its screen
      * size; otherwise the real metrics of [Display.DEFAULT_DISPLAY] decide (the same source as
      * the Flutter SDK's native channel, cross-SDK ruling). A failing hardware check does not
-     * decide: the display rule applies. A missing or unreadable display yields null: no category
+     * decide: the display rule applies. The hardware class is decided once per process (it does
+     * not change); the display is read on every call, as it can. A missing or unreadable display yields null: no category
      * is sent rather than a guess.
      */
     fun readCategory(context: Context): DeviceCategory? = try {
         val app = context.applicationContext
-        val nonHandheld = try {
-            val uiMode = try {
-                app.getSystemService(UiModeManager::class.java)?.currentModeType
-            } catch (_: Exception) {
-                null
-            }
-            isNonHandheld(uiMode) { app.packageManager.hasSystemFeature(it) }
-        } catch (_: Exception) {
-            false
-        }
+        val nonHandheld = isNonHandheldHardware(app)
         if (nonHandheld) {
             DeviceCategory.OTHER
         } else {
@@ -170,5 +171,24 @@ internal object DeviceSignals {
         }
     } catch (_: Exception) {
         null
+    }
+
+    private fun isNonHandheldHardware(app: Context): Boolean {
+        nonHandheldCache?.let { return it }
+        var failed = false
+        val uiMode = try {
+            app.getSystemService(UiModeManager::class.java)?.currentModeType
+        } catch (_: Exception) {
+            failed = true
+            null
+        }
+        val result = try {
+            isNonHandheld(uiMode) { app.packageManager.hasSystemFeature(it) }
+        } catch (_: Exception) {
+            failed = true
+            false
+        }
+        if (!failed) nonHandheldCache = result
+        return result
     }
 }

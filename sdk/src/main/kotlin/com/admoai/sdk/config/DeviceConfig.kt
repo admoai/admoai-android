@@ -114,6 +114,10 @@ data class DeviceConfig(
          * wins over the collected one. No permission is needed; a signal that cannot be read is left
          * out. Only the application context is kept.
          *
+         * Carrier and category are only accepted when audience signals are enabled for the workspace;
+         * on a workspace without them the engine refuses the fields (400, code 10009). See the README's
+         * Audience Signals section.
+         *
          * @param context Any Context; the application context is used.
          * @param androidId Optional unique identifier for the device.
          */
