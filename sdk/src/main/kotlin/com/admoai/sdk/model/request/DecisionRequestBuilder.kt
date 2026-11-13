@@ -4,6 +4,7 @@ import com.admoai.sdk.exception.AdMoaiConfigurationException
 import com.admoai.sdk.model.common.JourneyOpt
 import com.admoai.sdk.model.common.normalizeSessionId
 import com.admoai.sdk.model.common.sessionIdRejectionReason
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -127,6 +128,45 @@ class DecisionRequestBuilder internal constructor(
             acc
         }
         targeting = targeting.copy(custom = deduped)
+    }
+
+    /**
+     * Sets the publisher's own audience segment codes, sent as the custom target
+     * `publisher_segments`.
+     *
+     * The value is ALWAYS a JSON array, even for a single code. Every code must fully match
+     * `^[a-zA-Z0-9_]+$`; codes are never trimmed or case-folded, so an empty, whitespace-only or
+     * padded code is rejected rather than repaired. Repeated codes are de-duplicated keeping
+     * first-seen order (exact, case-sensitive comparison). A null or empty list means absence:
+     * any `publisher_segments` entry is removed instead of sending an empty array.
+     *
+     * There is no catalog lookup: whether a well-formed code is known, archived or unknown is the
+     * server's call, not the SDK's.
+     *
+     * Shares the custom-target key space, so last write wins against [addCustomTarget] and
+     * [setCustomTargets] for the key `publisher_segments`.
+     *
+     * Audience reporting dimensions require `apiVersion = "2025-11-01"` in the SDK config.
+     *
+     * @throws IllegalArgumentException if any code does not match the rule. The message names the
+     *   offending index but never echoes the value. The whole call is rejected and the builder is
+     *   left unchanged.
+     */
+    fun setPublisherSegments(codes: Collection<String>?) = apply {
+        // Validate everything before touching `targeting`, so a bad code leaves no partial state.
+        codes?.forEachIndexed { index, code ->
+            require(PUBLISHER_SEGMENT_CODE.matches(code)) {
+                "publisher segment at index $index must match ^[a-zA-Z0-9_]+\$ " +
+                    "(letters, digits and underscore only; no spaces, no empty codes)"
+            }
+        }
+        val cleaned = codes.orEmpty().distinct()
+        if (cleaned.isEmpty()) {
+            val remaining = targeting.custom.orEmpty().filter { it.key != PUBLISHER_SEGMENTS_KEY }
+            targeting = targeting.copy(custom = remaining.ifEmpty { null })
+        } else {
+            addCustomTarget(PUBLISHER_SEGMENTS_KEY, JsonArray(cleaned.map { JsonPrimitive(it) }))
+        }
     }
 
     fun setUserId(id: String?) = apply { user = user.copy(id = id) }
@@ -300,3 +340,6 @@ class DecisionRequestBuilder internal constructor(
         )
     }
 }
+
+private const val PUBLISHER_SEGMENTS_KEY = "publisher_segments"
+private val PUBLISHER_SEGMENT_CODE = Regex("^[a-zA-Z0-9_]+$")

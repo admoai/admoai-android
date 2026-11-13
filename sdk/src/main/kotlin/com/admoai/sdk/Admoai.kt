@@ -242,7 +242,9 @@ class Admoai private constructor() {
                 manufacturer = devConf.manufacturer,
                 id = devConf.deviceId,
                 timezone = devConf.timezone,
-                language = devConf.language
+                language = devConf.language,
+                carrier = devConf.carrier,
+                category = devConf.category?.wireValue
             )
         } else {
             null
