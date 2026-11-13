@@ -3,6 +3,7 @@ package com.admoai.sdk
 import androidx.annotation.VisibleForTesting
 import com.admoai.sdk.config.AppConfig
 import com.admoai.sdk.config.DeviceConfig
+import com.admoai.sdk.config.DeviceSignals
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.config.UserConfig
 import com.admoai.sdk.exception.AdMoaiConfigurationException
@@ -243,7 +244,7 @@ class Admoai private constructor() {
                 id = devConf.deviceId,
                 timezone = devConf.timezone,
                 language = devConf.language,
-                carrier = devConf.carrier,
+                carrier = DeviceSignals.normalizeCarrier(devConf.carrier),
                 category = devConf.category?.wireValue
             )
         } else {

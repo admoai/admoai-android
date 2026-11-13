@@ -186,12 +186,17 @@ public final class com/admoai/sdk/config/DeviceConfig : com/admoai/sdk/core/Clea
 	public fun hashCode ()I
 	public fun resetToDefaults ()Lcom/admoai/sdk/config/DeviceConfig;
 	public synthetic fun resetToDefaults ()Ljava/lang/Object;
+	public static final fun systemDefault (Landroid/content/Context;)Lcom/admoai/sdk/config/DeviceConfig;
+	public static final fun systemDefault (Landroid/content/Context;Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
 	public static final fun systemDefault (Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
 	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/admoai/sdk/config/DeviceConfig$Companion {
+	public final fun systemDefault (Landroid/content/Context;)Lcom/admoai/sdk/config/DeviceConfig;
+	public final fun systemDefault (Landroid/content/Context;Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
 	public final fun systemDefault (Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
+	public static synthetic fun systemDefault$default (Lcom/admoai/sdk/config/DeviceConfig$Companion;Landroid/content/Context;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/config/DeviceConfig;
 	public static synthetic fun systemDefault$default (Lcom/admoai/sdk/config/DeviceConfig$Companion;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/config/DeviceConfig;
 }
 

@@ -83,6 +83,9 @@ data class DeviceConfig(
          * - OS version (from Build.VERSION.RELEASE)
          * - Current timezone (from TimeZone.getDefault().id)
          *
+         * Carrier and category stay null here because they need a [Context]: prefer the
+         * [systemDefault] overload that takes one to get them.
+         *
          * @param androidId Optional unique identifier for the device. If not provided, deviceId will be null
          * @return A DeviceConfig instance populated with system information
          */
@@ -95,6 +98,22 @@ data class DeviceConfig(
             deviceId = androidId,
             manufacturer = Build.MANUFACTURER,
             language = java.util.Locale.getDefault().toLanguageTag()
+        )
+
+        /**
+         * Like [systemDefault] with no context, and also fills [carrier] (operator of the default
+         * data subscription) and [category] (phone or tablet by the display's shortest side).
+         * No permission is needed; a signal that cannot be read is left out (carrier null,
+         * category [DeviceCategory.OTHER]).
+         *
+         * @param context Any Context; the application context is used.
+         * @param androidId Optional unique identifier for the device.
+         */
+        @JvmStatic
+        @JvmOverloads
+        fun systemDefault(context: Context, androidId: String? = null): DeviceConfig = systemDefault(androidId).copy(
+            carrier = DeviceSignals.readCarrier(context),
+            category = DeviceSignals.readCategory(context)
         )
     }
 }
