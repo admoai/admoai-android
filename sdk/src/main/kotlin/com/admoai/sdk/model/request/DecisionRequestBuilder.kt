@@ -4,6 +4,14 @@ import com.admoai.sdk.exception.AdMoaiConfigurationException
 import com.admoai.sdk.model.common.JourneyOpt
 import com.admoai.sdk.model.common.normalizeSessionId
 import com.admoai.sdk.model.common.sessionIdRejectionReason
+import com.admoai.sdk.model.request.audience.AccountTenure
+import com.admoai.sdk.model.request.audience.AccountType
+import com.admoai.sdk.model.request.audience.AgeGroup
+import com.admoai.sdk.model.request.audience.AudienceKeys
+import com.admoai.sdk.model.request.audience.Gender
+import com.admoai.sdk.model.request.audience.LastTripRecency
+import com.admoai.sdk.model.request.audience.SubscriptionStatus
+import com.admoai.sdk.model.request.audience.TripFrequency30d
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -162,11 +170,110 @@ class DecisionRequestBuilder internal constructor(
         }
         val cleaned = codes.orEmpty().distinct()
         if (cleaned.isEmpty()) {
-            val remaining = targeting.custom.orEmpty().filter { it.key != PUBLISHER_SEGMENTS_KEY }
-            targeting = targeting.copy(custom = remaining.ifEmpty { null })
+            removeCustomTarget(AudienceKeys.PUBLISHER_SEGMENTS)
         } else {
-            addCustomTarget(PUBLISHER_SEGMENTS_KEY, JsonArray(cleaned.map { JsonPrimitive(it) }))
+            addCustomTarget(AudienceKeys.PUBLISHER_SEGMENTS, JsonArray(cleaned.map { JsonPrimitive(it) }))
         }
+    }
+
+    /**
+     * Sets the custom target `age_group` to [value]'s `wireValue`, or removes it when [value] is null.
+     *
+     * Shares the custom-target key space, so last write wins against [addCustomTarget] and
+     * [setCustomTargets] for the key `age_group`. Null removes only that key's entry.
+     *
+     * Audience reporting dimensions require `apiVersion = "2025-11-01"` in the SDK config
+     * (targeting still matches on older versions).
+     */
+    fun setAgeGroup(value: AgeGroup?) = apply {
+        setAudienceTarget(AudienceKeys.AGE_GROUP, value?.wireValue)
+    }
+
+    /**
+     * Sets the custom target `gender` to [value]'s `wireValue`, or removes it when [value] is null.
+     *
+     * Shares the custom-target key space, so last write wins against [addCustomTarget] and
+     * [setCustomTargets] for the key `gender`. Null removes only that key's entry.
+     *
+     * Audience reporting dimensions require `apiVersion = "2025-11-01"` in the SDK config
+     * (targeting still matches on older versions).
+     */
+    fun setGender(value: Gender?) = apply {
+        setAudienceTarget(AudienceKeys.GENDER, value?.wireValue)
+    }
+
+    /**
+     * Sets the custom target `account_type` to [value]'s `wireValue`, or removes it when [value] is null.
+     *
+     * Shares the custom-target key space, so last write wins against [addCustomTarget] and
+     * [setCustomTargets] for the key `account_type`. Null removes only that key's entry.
+     *
+     * Audience reporting dimensions require `apiVersion = "2025-11-01"` in the SDK config
+     * (targeting still matches on older versions).
+     */
+    fun setAccountType(value: AccountType?) = apply {
+        setAudienceTarget(AudienceKeys.ACCOUNT_TYPE, value?.wireValue)
+    }
+
+    /**
+     * Sets the custom target `subscription_status` to [value]'s `wireValue`, or removes it when [value] is null.
+     *
+     * Shares the custom-target key space, so last write wins against [addCustomTarget] and
+     * [setCustomTargets] for the key `subscription_status`. Null removes only that key's entry.
+     *
+     * Audience reporting dimensions require `apiVersion = "2025-11-01"` in the SDK config
+     * (targeting still matches on older versions).
+     */
+    fun setSubscriptionStatus(value: SubscriptionStatus?) = apply {
+        setAudienceTarget(AudienceKeys.SUBSCRIPTION_STATUS, value?.wireValue)
+    }
+
+    /**
+     * Sets the custom target `account_tenure` to [value]'s `wireValue`, or removes it when [value] is null.
+     *
+     * Shares the custom-target key space, so last write wins against [addCustomTarget] and
+     * [setCustomTargets] for the key `account_tenure`. Null removes only that key's entry.
+     *
+     * Audience reporting dimensions require `apiVersion = "2025-11-01"` in the SDK config
+     * (targeting still matches on older versions).
+     */
+    fun setAccountTenure(value: AccountTenure?) = apply {
+        setAudienceTarget(AudienceKeys.ACCOUNT_TENURE, value?.wireValue)
+    }
+
+    /**
+     * Sets the custom target `trip_frequency_30d` to [value]'s `wireValue`, or removes it when [value] is null.
+     *
+     * Shares the custom-target key space, so last write wins against [addCustomTarget] and
+     * [setCustomTargets] for the key `trip_frequency_30d`. Null removes only that key's entry.
+     *
+     * Audience reporting dimensions require `apiVersion = "2025-11-01"` in the SDK config
+     * (targeting still matches on older versions).
+     */
+    fun setTripFrequency30d(value: TripFrequency30d?) = apply {
+        setAudienceTarget(AudienceKeys.TRIP_FREQUENCY_30D, value?.wireValue)
+    }
+
+    /**
+     * Sets the custom target `last_trip_recency` to [value]'s `wireValue`, or removes it when [value] is null.
+     *
+     * Shares the custom-target key space, so last write wins against [addCustomTarget] and
+     * [setCustomTargets] for the key `last_trip_recency`. Null removes only that key's entry.
+     *
+     * Audience reporting dimensions require `apiVersion = "2025-11-01"` in the SDK config
+     * (targeting still matches on older versions).
+     */
+    fun setLastTripRecency(value: LastTripRecency?) = apply {
+        setAudienceTarget(AudienceKeys.LAST_TRIP_RECENCY, value?.wireValue)
+    }
+
+    private fun setAudienceTarget(key: String, wireValue: String?) {
+        if (wireValue == null) removeCustomTarget(key) else addCustomTarget(key, wireValue)
+    }
+
+    private fun removeCustomTarget(key: String) {
+        val remaining = targeting.custom.orEmpty().filter { it.key != key }
+        targeting = targeting.copy(custom = remaining.ifEmpty { null })
     }
 
     fun setUserId(id: String?) = apply { user = user.copy(id = id) }
@@ -341,5 +448,4 @@ class DecisionRequestBuilder internal constructor(
     }
 }
 
-private const val PUBLISHER_SEGMENTS_KEY = "publisher_segments"
 private val PUBLISHER_SEGMENT_CODE = Regex("^[a-zA-Z0-9_]+$")

@@ -3,6 +3,13 @@ package com.admoai.sdk.model.request
 import com.admoai.sdk.Admoai
 import com.admoai.sdk.config.DeviceConfig
 import com.admoai.sdk.config.SDKConfig
+import com.admoai.sdk.model.request.audience.AccountTenure
+import com.admoai.sdk.model.request.audience.AccountType
+import com.admoai.sdk.model.request.audience.AgeGroup
+import com.admoai.sdk.model.request.audience.Gender
+import com.admoai.sdk.model.request.audience.LastTripRecency
+import com.admoai.sdk.model.request.audience.SubscriptionStatus
+import com.admoai.sdk.model.request.audience.TripFrequency30d
 import java.io.File
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -165,5 +172,79 @@ class AudienceTargetingTest {
         val b = builder().setPublisherSegments(listOf("a")).setPublisherSegments(listOf("b"))
         assertEquals(1, segmentEntries(b).size)
         assertTrue(wire(b).contains("\"value\":[\"b\"]"))
+    }
+
+    // --- Standard audience signals ---
+
+    private fun allStandard() = builder()
+        .setAgeGroup(AgeGroup.AGE_25_34)
+        .setGender(Gender.FEMALE)
+        .setAccountType(AccountType.BUSINESS)
+        .setSubscriptionStatus(SubscriptionStatus.TRIAL)
+        .setAccountTenure(AccountTenure.DAYS_91_365)
+        .setTripFrequency30d(TripFrequency30d.ZERO)
+        .setLastTripRecency(LastTripRecency.DAYS_8_30)
+        .setPublisherSegments(listOf("vip", "commuter"))
+
+    private val standardKeys = listOf(
+        "age_group",
+        "gender",
+        "account_type",
+        "subscription_status",
+        "account_tenure",
+        "trip_frequency_30d",
+        "last_trip_recency"
+    )
+
+    private val nullers: List<Pair<String, (DecisionRequestBuilder) -> DecisionRequestBuilder>> = listOf(
+        "age_group" to { b -> b.setAgeGroup(null) },
+        "gender" to { b -> b.setGender(null) },
+        "account_type" to { b -> b.setAccountType(null) },
+        "subscription_status" to { b -> b.setSubscriptionStatus(null) },
+        "account_tenure" to { b -> b.setAccountTenure(null) },
+        "trip_frequency_30d" to { b -> b.setTripFrequency30d(null) },
+        "last_trip_recency" to { b -> b.setLastTripRecency(null) }
+    )
+
+    @Test
+    fun `all standard audience signals match the golden`() {
+        val expected = File("src/test/resources/fixtures/request-golden/audience.all-standard.json")
+            .readText().trimEnd('\n')
+        val actual = wire(allStandard())
+        assertTrue(actual.contains("{\"key\":\"trip_frequency_30d\",\"value\":\"0\"}"))
+        assertEquals(expected, actual)
+    }
+
+    @Test
+    fun `null removes only that key for each setter`() {
+        nullers.forEach { (key, nuller) ->
+            val keys = nuller(allStandard()).build().targeting?.custom.orEmpty().map { it.key }
+            assertEquals(
+                "removing $key",
+                (standardKeys - key) + "publisher_segments",
+                keys
+            )
+        }
+    }
+
+    @Test
+    fun `setting all then nulling all leaves no targeting`() {
+        val b = nullers.fold(allStandard().setPublisherSegments(null)) { acc, (_, nuller) -> nuller(acc) }
+        assertNull(b.build().targeting)
+        assertFalse(wire(b).contains("targeting"))
+    }
+
+    @Test
+    fun `addCustomTarget then setGender - setter wins`() {
+        val b = builder().addCustomTarget("gender", "male").setGender(Gender.FEMALE)
+        assertEquals(listOf("gender"), b.build().targeting?.custom?.map { it.key })
+        assertTrue(wire(b).contains("{\"key\":\"gender\",\"value\":\"female\"}"))
+    }
+
+    @Test
+    fun `setGender then addCustomTarget - custom target wins`() {
+        val b = builder().setGender(Gender.FEMALE).addCustomTarget("gender", "male")
+        assertEquals(listOf("gender"), b.build().targeting?.custom?.map { it.key })
+        assertTrue(wire(b).contains("{\"key\":\"gender\",\"value\":\"male\"}"))
     }
 }
