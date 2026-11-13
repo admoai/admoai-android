@@ -102,9 +102,10 @@ data class DeviceConfig(
 
         /**
          * Like [systemDefault] with no context, and also fills [carrier] (operator of the default
-         * data subscription) and [category] (phone or tablet by the display's shortest side).
+         * data subscription) and [category] ([DeviceCategory.OTHER] for known TV, watch, automotive or
+         * desktop hardware, otherwise phone or tablet by the display's shortest side).
          * No permission is needed; a signal that cannot be read is left out (carrier null,
-         * category [DeviceCategory.OTHER]).
+         * category null).
          *
          * @param context Any Context; the application context is used.
          * @param androidId Optional unique identifier for the device.

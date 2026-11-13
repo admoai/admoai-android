@@ -1,6 +1,9 @@
 package com.admoai.sdk.config
 
+import android.app.UiModeManager
 import android.content.Context
+import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.hardware.display.DisplayManager
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
@@ -14,6 +17,7 @@ import io.mockk.mockk
 import io.mockk.mockkConstructor
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
+import io.mockk.verify
 import java.io.File
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -64,7 +68,13 @@ class DeviceSignalsTest {
     }
 
     /** A context whose default display reports the given real metrics. */
-    private fun contextWithDisplay(widthPx: Int, heightPx: Int, density: Float): Context {
+    private fun contextWithDisplay(
+        widthPx: Int,
+        heightPx: Int,
+        density: Float,
+        features: Set<String> = emptySet(),
+        uiModeType: Int? = null
+    ): Context {
         mockkConstructor(DisplayMetrics::class)
         val display = mockk<Display>()
         every { display.getRealMetrics(any()) } answers {
@@ -73,21 +83,43 @@ class DeviceSignalsTest {
             metrics.heightPixels = heightPx
             metrics.density = density
         }
-        return contextWithDisplayManager(display)
+        return contextWithDisplayManager(display, features, uiModeType)
     }
 
-    private fun contextWithDisplayManager(display: Display?): Context {
+    private fun packageManagerWith(features: Set<String>, throwing: Boolean = false): PackageManager {
+        val pm = mockk<PackageManager>()
+        if (throwing) {
+            every { pm.hasSystemFeature(any()) } throws RuntimeException("boom")
+        } else {
+            every { pm.hasSystemFeature(any()) } answers { firstArg<String>() in features }
+        }
+        return pm
+    }
+
+    private fun contextWithDisplayManager(
+        display: Display?,
+        features: Set<String> = emptySet(),
+        uiModeType: Int? = null
+    ): Context {
         val manager = mockk<DisplayManager>()
         every { manager.getDisplay(Display.DEFAULT_DISPLAY) } returns display
         val context = mockk<Context>()
         every { context.applicationContext } returns context
         every { context.getSystemService(DisplayManager::class.java) } returns manager
+        every { context.packageManager } returns packageManagerWith(features)
+        val uiMode = mockk<UiModeManager>()
+        every { uiMode.currentModeType } returns (uiModeType ?: Configuration.UI_MODE_TYPE_NORMAL)
+        every { context.getSystemService(UiModeManager::class.java) } returns uiMode
         return context
     }
 
-    private fun contextWithTelephony(telephony: TelephonyManager?): Context {
+    private fun contextWithTelephony(
+        telephony: TelephonyManager?,
+        features: Set<String> = setOf(PackageManager.FEATURE_TELEPHONY)
+    ): Context {
         val context = mockk<Context>()
         every { context.applicationContext } returns context
+        every { context.packageManager } returns packageManagerWith(features)
         every { context.getSystemService(TelephonyManager::class.java) } returns telephony
         return context
     }
@@ -152,21 +184,90 @@ class DeviceSignalsTest {
     }
 
     @Test
-    fun `an unreadable display reports other`() {
-        assertEquals(DeviceCategory.OTHER, DeviceSignals.categoryFor(1200, 1920, 0f))
-        assertEquals(DeviceCategory.OTHER, DeviceSignals.categoryFor(0, 1920, 2.0f))
-        assertEquals(DeviceCategory.OTHER, DeviceSignals.categoryFor(1200, 0, 2.0f))
-        assertEquals(DeviceCategory.OTHER, DeviceSignals.readCategory(contextWithDisplayManager(null)))
+    fun `a tv, watch, car or desktop device reports other whatever its screen size`() {
+        listOf(
+            PackageManager.FEATURE_LEANBACK,
+            PackageManager.FEATURE_WATCH,
+            PackageManager.FEATURE_AUTOMOTIVE,
+            PackageManager.FEATURE_PC
+        ).forEach {
+            assertTrue(it, DeviceSignals.isNonHandheld { f -> f == it })
+            assertEquals(
+                it,
+                DeviceCategory.OTHER,
+                DeviceSignals.readCategory(contextWithDisplay(1600, 2560, 2.0f, setOf(it)))
+            )
+        }
+        assertFalse(DeviceSignals.isNonHandheld { false })
+        listOf(Configuration.UI_MODE_TYPE_TELEVISION, Configuration.UI_MODE_TYPE_WATCH).forEach {
+            assertEquals(
+                it.toString(),
+                DeviceCategory.OTHER,
+                DeviceSignals.readCategory(contextWithDisplay(1600, 2560, 2.0f, uiModeType = it))
+            )
+        }
+        assertEquals(DeviceCategory.TABLET, DeviceSignals.readCategory(contextWithDisplay(1200, 1920, 2.0f)))
+
+        // A failing feature check does not decide: the display rule applies.
+        mockkConstructor(DisplayMetrics::class)
+        val display = mockk<Display>()
+        every { display.getRealMetrics(any()) } answers {
+            val metrics = firstArg<DisplayMetrics>()
+            metrics.widthPixels = 1200
+            metrics.heightPixels = 1920
+            metrics.density = 2.0f
+        }
+        val context = contextWithDisplayManager(display)
+        every { context.packageManager } returns packageManagerWith(emptySet(), throwing = true)
+        assertEquals(DeviceCategory.TABLET, DeviceSignals.readCategory(context))
+    }
+
+    @Test
+    fun `a phone in car mode still reports phone`() {
+        val car = contextWithDisplay(1080, 2400, 2.625f, uiModeType = Configuration.UI_MODE_TYPE_CAR)
+        assertEquals(DeviceCategory.PHONE, DeviceSignals.readCategory(car))
+        val desk = contextWithDisplay(1080, 2400, 2.625f, uiModeType = Configuration.UI_MODE_TYPE_DESK)
+        assertEquals(DeviceCategory.PHONE, DeviceSignals.readCategory(desk))
+    }
+
+    @Test
+    fun `an unreadable display sends no category`() {
+        assertNull(DeviceSignals.categoryFor(1200, 1920, 0f))
+        assertNull(DeviceSignals.categoryFor(0, 1920, 2.0f))
+        assertNull(DeviceSignals.categoryFor(1200, 0, 2.0f))
+        assertNull(DeviceSignals.readCategory(contextWithDisplayManager(null)))
 
         mockkConstructor(DisplayMetrics::class)
         val throwing = mockk<Display>()
         every { throwing.getRealMetrics(any()) } throws IllegalStateException("boom")
-        assertEquals(DeviceCategory.OTHER, DeviceSignals.readCategory(contextWithDisplayManager(throwing)))
+        assertNull(DeviceSignals.readCategory(contextWithDisplayManager(throwing)))
     }
 
     @Test
     fun `the carrier is the operator of the default data subscription`() {
         assertEquals("Movistar", readCarrierWith("Movistar"))
+    }
+
+    @Test
+    fun `a device without telephony sends no carrier`() {
+        mockkStatic(SubscriptionManager::class)
+        every { SubscriptionManager.getDefaultDataSubscriptionId() } returns 7
+        val telephony = mockk<TelephonyManager>()
+        val context = contextWithTelephony(telephony, features = emptySet())
+        assertNull(DeviceSignals.readCarrier(context))
+        verify(exactly = 0) { context.getSystemService(TelephonyManager::class.java) }
+        verify(exactly = 0) { telephony.createForSubscriptionId(any()) }
+        verify(exactly = 0) { telephony.networkOperatorName }
+    }
+
+    @Test
+    fun `no default data subscription sends no carrier`() {
+        mockkStatic(SubscriptionManager::class)
+        every { SubscriptionManager.getDefaultDataSubscriptionId() } returns SubscriptionManager.INVALID_SUBSCRIPTION_ID
+        val telephony = telephonyNamed("Claro")
+        assertNull(DeviceSignals.readCarrier(contextWithTelephony(telephony)))
+        verify(exactly = 0) { telephony.networkOperatorName }
+        verify(exactly = 0) { telephony.createForSubscriptionId(any()) }
     }
 
     @Test
@@ -176,14 +277,12 @@ class DeviceSignalsTest {
         }
         assertNull(readCarrierWith("unknown"))
 
-        // No default data subscription: the plain TelephonyManager answers.
         mockkStatic(SubscriptionManager::class)
-        every { SubscriptionManager.getDefaultDataSubscriptionId() } returns SubscriptionManager.INVALID_SUBSCRIPTION_ID
-        assertEquals("Claro", DeviceSignals.readCarrier(contextWithTelephony(telephonyNamed("Claro"))))
+        every { SubscriptionManager.getDefaultDataSubscriptionId() } returns 7
         assertNull(DeviceSignals.readCarrier(contextWithTelephony(null)))
 
         val throwing = mockk<TelephonyManager>()
-        every { throwing.networkOperatorName } throws SecurityException("no")
+        every { throwing.createForSubscriptionId(7) } throws SecurityException("no")
         assertNull(DeviceSignals.readCarrier(contextWithTelephony(throwing)))
     }
 

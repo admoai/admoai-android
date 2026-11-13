@@ -4,7 +4,7 @@ Feature: Device carrier and category are collected for the publisher without any
   So that reporting and targeting by carrier and device class work without extra code or permissions
 
   The category is a property of the device, not of the window: split-screen and rotation never
-  change it. The carrier is the operator of the default data subscription. Placeholder names the
+  change it. The carrier is the operator of the default data subscription, and nothing else: with no telephony or no default data subscription, no carrier is sent. Known TV, watch, automotive and desktop hardware is always other; an unreadable display sends no category. Placeholder names the
   platform reports when there is no operator are never sent.
 
   Scenario: a phone reports the phone category
@@ -27,16 +27,37 @@ Feature: Device carrier and category are collected for the publisher without any
     When the device is held in portrait and in landscape
     Then the category is tablet both times
 
-  Scenario: an unreadable display reports other
+  Scenario: a tv, watch, car or desktop device reports other whatever its screen size
+    Given a device that identifies as a tv, a watch, an automotive unit or a desktop
+    When the app builds its device details with a context
+    Then the category is other, even if its screen is 600 dp or wider
+
+  Scenario: a phone in car mode still reports phone
+    Given a handheld phone whose UI is in car mode
+    When the app builds its device details with a context
+    Then the category is phone
+
+  Scenario: an unreadable display sends no category
     Given a device whose display or density cannot be read
     When the app builds its device details with a context
-    Then the category is other
+    Then no category is sent
 
   Scenario: the carrier is the operator of the default data subscription
     Given a device with several subscriptions and a default data subscription
     When the app builds its device details with a context
     Then the carrier is the operator name of the default data subscription
     And no permission is requested
+
+  Scenario: a device without telephony sends no carrier
+    Given a device that has no telephony feature
+    When the app builds its device details with a context
+    Then no carrier is sent
+
+  Scenario: no default data subscription sends no carrier
+    Given a device with telephony but no default data subscription
+    When the app builds its device details with a context
+    Then no carrier is sent
+    And the default voice SIM or any other subscription is never used
 
   Scenario: placeholder carrier names are not sent
     Given a device that reports an empty name, a dash placeholder, unknown or wifi as its operator
