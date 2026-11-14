@@ -877,6 +877,9 @@ No carrier is sent when there is no SIM, no default data subscription or no tele
 sent when the display cannot be read. Placeholder operator names such as `--`, `unknown` or `wifi`
 are dropped.
 
+**Collection is opt-in.** By default the SDK sends neither field; only `systemDefault(context)`
+turns automatic collection on:
+
 ```kotlin
 sdk.setDeviceConfig(DeviceConfig.systemDefault(context))
 ```
