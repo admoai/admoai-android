@@ -21,6 +21,9 @@ import java.util.TimeZone
  *   [systemDefault] leaves it null; the publisher supplies it.
  * @property category The device category ([DeviceCategory.PHONE], [DeviceCategory.TABLET] or
  *   [DeviceCategory.OTHER]); omitted from the request when null. [systemDefault] leaves it null.
+ * @property collectCarrierAndCategory When true, the SDK reads the carrier and the device category fresh for
+ *   every request, unless carrier/category are set here; set by `systemDefault(context)`. Needs a context
+ *   registered through `systemDefault(context)`; without one, nothing is collected.
  */
 data class DeviceConfig(
     val model: String? = null,
@@ -32,7 +35,8 @@ data class DeviceConfig(
     // e.g., "en-US"
     val language: String? = null,
     val carrier: String? = null,
-    val category: DeviceCategory? = null
+    val category: DeviceCategory? = null,
+    val collectCarrierAndCategory: Boolean = false
 ) : Clearable<DeviceConfig> {
 
     // Binary compatibility (CONTRIBUTING, "When the API check fails"): integrators construct and
@@ -48,7 +52,7 @@ data class DeviceConfig(
         deviceId: String? = null,
         manufacturer: String? = null,
         language: String? = null
-    ) : this(model, osName, osVersion, timezone, deviceId, manufacturer, language, null, null)
+    ) : this(model, osName, osVersion, timezone, deviceId, manufacturer, language, null, null, false)
 
     @Deprecated("Binary compatibility with 1.8.x callers", level = DeprecationLevel.HIDDEN)
     fun copy(
@@ -60,7 +64,8 @@ data class DeviceConfig(
         manufacturer: String? = this.manufacturer,
         language: String? = this.language
     ): DeviceConfig = DeviceConfig(
-        model, osName, osVersion, timezone, deviceId, manufacturer, language, carrier, category
+        model, osName, osVersion, timezone, deviceId, manufacturer, language, carrier, category,
+        collectCarrierAndCategory
     )
 
     /**
@@ -83,6 +88,9 @@ data class DeviceConfig(
          * - OS version (from Build.VERSION.RELEASE)
          * - Current timezone (from TimeZone.getDefault().id)
          *
+         * Carrier and category stay null here because they need a [Context]: prefer the
+         * [systemDefault] overload that takes one to get them.
+         *
          * @param androidId Optional unique identifier for the device. If not provided, deviceId will be null
          * @return A DeviceConfig instance populated with system information
          */
@@ -96,5 +104,28 @@ data class DeviceConfig(
             manufacturer = Build.MANUFACTURER,
             language = java.util.Locale.getDefault().toLanguageTag()
         )
+
+        /**
+         * Like [systemDefault] with no context, and also makes the SDK read [carrier] (operator of the
+         * default data subscription) and [category] ([DeviceCategory.OTHER] for known TV, watch,
+         * automotive or desktop hardware, otherwise phone or tablet by the display's shortest side)
+         * fresh for every request, so a SIM or display change is picked up. They are not captured
+         * here: they are null on the returned object, and a carrier or category set on it by hand
+         * wins over the collected one. No permission is needed; a signal that cannot be read is left
+         * out. Only the application context is kept.
+         *
+         * Carrier and category are only accepted when audience signals are enabled for the workspace;
+         * on a workspace without them the engine refuses the fields (400, code 10009). See the README's
+         * Audience Signals section.
+         *
+         * @param context Any Context; the application context is used.
+         * @param androidId Optional unique identifier for the device.
+         */
+        @JvmStatic
+        @JvmOverloads
+        fun systemDefault(context: Context, androidId: String? = null): DeviceConfig {
+            DeviceSignals.appContext = context.applicationContext
+            return systemDefault(androidId).copy(collectCarrierAndCategory = true)
+        }
     }
 }
