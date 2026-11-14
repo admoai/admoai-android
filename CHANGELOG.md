@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0](https://github.com/admoai/admoai-android/compare/v1.8.0...v1.9.0) (2026-11-14)
+
+
+### Added
+
+* carrier and category collection ([#138](https://github.com/admoai/admoai-android/issues/138)) ([49ea261](https://github.com/admoai/admoai-android/commit/49ea261a41d30280bf42c1b713b3f835ebb5898c))
+* typed audience targeting helpers and device model ([#136](https://github.com/admoai/admoai-android/issues/136)) ([7572cf3](https://github.com/admoai/admoai-android/commit/7572cf340718f219cdb2d54e5cd54db3efc1c85f))
+
 ## [1.8.0](https://github.com/admoai/admoai-android/compare/v1.7.2...v1.8.0) (2026-11-10)
 
 
