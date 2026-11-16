@@ -869,11 +869,15 @@ The rules:
 - **A code is at most 32 characters.** The Ad Manager refuses to register a longer one, so a longer
   code can never match an Ad. The SDK does not check the length; keep your codes within it.
 - **At most 20 segments per request.** The Decision Engine refuses a request with more than 20
-  `publisher_segments` codes (HTTP 422), so no ad is served for it. The SDK does not trim the list
+  `publisher_segments` codes (HTTP 422, error code `10076`), so no ad is served for it. The SDK does not trim the list
   for you: send the 20 that matter most.
 - **Register codes in the Ad Manager first.** The SDK does not check whether a code is registered or
   archived; the engine decides. An archived code can still be sent by an app that is already
-  installed, and a code the engine does not know is rejected by the engine.
+  installed, and a code the workspace has not registered is rejected by the engine (HTTP 422, error
+  code `10029`).
+- **Use the helper, not a raw custom target.** `setPublisherSegments` removes duplicates and never
+  sends an empty list. A list built by hand with `addCustomTarget` is sent as given: a repeated code
+  is refused (HTTP 422, error code `10073`) and an empty list matches no Ad.
 
 ### Removing a value, and mixing with your own custom keys
 
