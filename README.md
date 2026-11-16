@@ -151,11 +151,23 @@ yours to compute and, for segments, to register in the Ad Manager before sending
 `apiVersion` must be `2025-11-01` for the keys to be reported as audience dimensions; on older
 versions they still target, but are not reported that way.
 
-> 📖 **The full integration guide lives in [`sdk/README.md` → Audience Signals](./sdk/README.md#audience-signals).**
-> It is the single source of truth and covers each helper and its values, publisher segment rules,
-> device carrier and category, a worked request and a pre-launch checklist. This page deliberately
-> does not summarise it — a partial copy would drift out of date and mislead.
+A request with Standard keys, publisher segments and device carrier and category:
 
+```kotlin
+// Opt-in: only systemDefault(context) collects carrier and category.
+sdk.setDeviceConfig(DeviceConfig.systemDefault(context))
+
+val request = sdk.createRequestBuilder()
+    .addPlacement(key = "home")
+    .setAgeGroup(AgeGroup.AGE_25_34)                      // targeting.custom: age_group = "25_34"
+    .setPublisherSegments(listOf("vip", "commuter"))      // ≤ 20 codes, each ≤ 32 chars, [a-zA-Z0-9_]
+    .build()
+// device: {"carrier": "Movistar", "category": "phone"} when both can be read; absent otherwise
+```
+
+> 📖 **The full integration guide lives in [`sdk/README.md` → Audience Signals](./sdk/README.md#audience-signals).**
+> It covers each helper and its values, publisher segment rules (set, clear, reset, limits), device
+> carrier and category (opt-in, manual values, absence), a worked request and a pre-launch checklist.
 
 ## Documentation
 

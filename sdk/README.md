@@ -823,20 +823,54 @@ val request = sdk.createRequestBuilder()
     .build()
 ```
 
+`targeting.custom` in the request body:
+
+```json
+[
+  {"key": "age_group", "value": "25_34"},
+  {"key": "trip_frequency_30d", "value": "0"}
+]
+```
+
 ### Publisher segments
 
 Segments are your own groupings ("vip", "commuter"), named by you and registered in the Ad Manager.
 
+**Set** them with one call; a later call replaces the earlier list:
+
 ```kotlin
-.setPublisherSegments(listOf("vip", "commuter"))
+val request = sdk.createRequestBuilder()
+    .addPlacement(key = "home")
+    .setPublisherSegments(listOf("vip", "commuter", "vip"))
+    .build()
 ```
 
+`targeting.custom` in the request body (duplicates removed, order kept):
+
+```json
+[
+  {"key": "publisher_segments", "value": ["vip", "commuter"]}
+]
+```
+
+**Clear** them with `setPublisherSegments(null)` or `setPublisherSegments(emptyList())`: the entry is
+removed and nothing else changes. The SDK never sends an empty array.
+
+**Reset** the builder with `clearCustomTargeting()` (removes segments together with every other
+custom key, Standard ones included), `clearTargeting()` or `clearAll()`. After any of them the
+request carries no `publisher_segments` until you set them again.
+
+The rules:
+
 - **Always a list on the wire**, even for one code.
-- **Duplicates are removed**, keeping the first occurrence.
-- **An empty list, or `null`, removes the entry**; the SDK never sends an empty array.
 - **Every code must match `^[a-zA-Z0-9_]+$`.** If any code does not, the whole call throws
   `IllegalArgumentException` and the builder is left unchanged. The SDK does not trim whitespace or
   change case to "repair" a code, and the error names the position of the bad code, not its value.
+- **A code is at most 32 characters.** The Ad Manager refuses to register a longer one, so a longer
+  code can never match an Ad. The SDK does not check the length; keep your codes within it.
+- **At most 20 segments per request.** The Decision Engine refuses a request with more than 20
+  `publisher_segments` codes (HTTP 422), so no ad is served for it. The SDK does not trim the list
+  for you: send the 20 that matter most.
 - **Register codes in the Ad Manager first.** The SDK does not check whether a code is registered or
   archived; the engine decides. An archived code can still be sent by an app that is already
   installed, and a code the engine does not know is rejected by the engine.
@@ -899,6 +933,18 @@ sdk.setDeviceConfig(
 A value you set always wins, even when it cleans to nothing: a carrier set to `" wifi "` sends no
 carrier at all, never the collected one.
 
+What each setup puts in the request's `device` object (other device fields left out):
+
+| Setup | `device` carries |
+|---|---|
+| Nothing set, or `DeviceConfig.systemDefault()` (default) | no `carrier`, no `category` |
+| `DeviceConfig.systemDefault(context)` on a phone with a SIM | `{"carrier": "Movistar", "category": "phone"}` |
+| `DeviceConfig.systemDefault(context)` on a Wi-Fi-only tablet | `{"category": "tablet"}` |
+| `DeviceConfig(carrier = "Movistar", category = DeviceCategory.TABLET)` | `{"carrier": "Movistar", "category": "tablet"}` |
+| Either of the above when the display cannot be read | no `category` |
+
+A missing `carrier` or `category` is normal: do not substitute a placeholder.
+
 `disableDeviceCollection()` on a request drops the whole device object, carrier and category
 included. After `sdk.clearDeviceConfig()` nothing is sent until you set a device config again.
 
@@ -950,6 +996,9 @@ Values are strings, except `publisher_segments`, which is a list of strings.
 - [ ] Compute each bucket from your own data, using the shared definitions: the same UTC and
       time windows (for example, what "the last 30 days" means) that every publisher uses.
 - [ ] Register your segment codes in the Ad Manager before sending them.
+- [ ] Keep segment codes to 32 characters and send at most 20 per request.
+- [ ] Turn on carrier and category only on purpose (`systemDefault(context)`), and only once Audience
+      Signals is enabled for your workspace.
 - [ ] Update your Ads deliberately: existing Ads with custom rules are **not** satisfied by the new
       keys automatically.
 - [ ] Do not plan on carrier or category targeting yet: there are no targeting controls for them.
