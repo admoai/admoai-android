@@ -100,7 +100,7 @@ private fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitiv
 private fun JsonObject.dbl(key: String): Double? = (this[key] as? JsonPrimitive)?.content?.toDoubleOrNull()
 
 /** The one manifest `schemaVersion` this runner executes. */
-private const val SUPPORTED_SCHEMA_VERSION = 5
+private const val SUPPORTED_SCHEMA_VERSION = 6
 
 internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) {
     val manifest = loadManifest()
@@ -361,6 +361,8 @@ internal fun deviceConfigFrom(id: String, device: JsonElement?): DeviceConfig? {
     val d = device as? JsonObject
     expect(d != null, "$id request.device must be a JSON object (got $device)")
     refuseUnknownKeys("$id request.device", d!!.keys, EXECUTED_DEVICE_KEYS)
+    // `{}` means "no manual device configuration" (AS8): keep the harness's own config.
+    if (d.isEmpty()) return null
     val carrier = d["carrier"]?.let {
         expect(it is JsonPrimitive && it.isString, "$id request.device.carrier must be a string (got $it)")
         (it as JsonPrimitive).content

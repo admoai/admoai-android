@@ -105,6 +105,33 @@ class ManifestRequestKeysTest {
     }
 
     @Test
+    fun `an empty device is no manual DeviceConfig`() {
+        assertNull(deviceConfigFrom("X5c", parse("{}")))
+    }
+
+    @Test
+    fun `a raw custom list is sent as given, duplicates and empty included`() {
+        val dup = builder()
+        applyCustom(dup, "X9", parse("""[{"key":"publisher_segments","value":["a","a"]}]"""))
+        assertTrue(wire(dup), wire(dup).contains(""""value":["a","a"]"""))
+        val empty = builder()
+        applyCustom(empty, "X10", parse("""[{"key":"publisher_segments","value":[]}]"""))
+        assertTrue(wire(empty), wire(empty).contains(""""value":[]"""))
+    }
+
+    @Test
+    fun `every custom value and device of the vendored manifest is accepted`() {
+        val stream = javaClass.classLoader!!.getResourceAsStream("e2e-scenarios.json")!!
+        val manifest = json.parseToJsonElement(stream.bufferedReader().readText()).jsonObject
+        for (scenario in manifest["scenarios"]!!.jsonArray.map { it.jsonObject }) {
+            val id = (scenario["id"] as JsonPrimitive).content
+            val request = scenario["request"]!!.jsonObject
+            applyCustom(builder(), id, request["custom"])
+            deviceConfigFrom(id, request["device"])
+        }
+    }
+
+    @Test
     fun `a device with an unknown key fails`() {
         assertFailsWith("[model]") {
             deviceConfigFrom("X6", parse("""{"carrier":"Movistar","model":"Pixel"}"""))
