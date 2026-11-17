@@ -792,6 +792,11 @@ database, count trips or work out an age bracket. You decide from your own first
 bucket applies, and the SDK puts that value on the wire as a custom target. Everything here is
 optional: a request that calls none of these helpers is byte-for-byte what earlier SDK versions sent.
 
+> **The Standard keys and publisher segments need Audience Signals enabled for your workspace.**
+> On a workspace without it, the Decision Engine does not know these keys and refuses a request that
+> sends one (HTTP 422, error code `10028`), so no ad is served for it. Ask your Admoai contact to
+> enable it before you ship any of the helpers below.
+
 ### The Standard keys
 
 Seven of the keys have a typed helper with an enum, so a typo does not compile. Each enum constant
@@ -1001,6 +1006,8 @@ Values are strings, except `publisher_segments`, which is a list of strings.
 
 - [ ] Compute each bucket from your own data, using the shared definitions: the same UTC and
       time windows (for example, what "the last 30 days" means) that every publisher uses.
+- [ ] Ship the helpers only once Audience Signals is enabled for your workspace; before that the
+      engine refuses the keys (HTTP 422, error code `10028`).
 - [ ] Register your segment codes in the Ad Manager before sending them.
 - [ ] Keep segment codes to 32 characters and send at most 20 per request.
 - [ ] Turn on carrier and category only on purpose (`systemDefault(context)`), and only once Audience
