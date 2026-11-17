@@ -172,7 +172,7 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
     // `request.device` is applied for this scenario only; the previous config is put back in `finally`.
     val previousDevice = Admoai.getInstance().getDeviceConfig()
     try {
-        deviceConfigFrom(entry.str("id")!!, request["device"])?.let { Admoai.getInstance().setDeviceConfig(it) }
+        applyManifestDevice(entry.str("id")!!, request["device"])
         val builder = Admoai.getInstance().createRequestBuilder()
         for (p in (request["placements"] as JsonArray)) {
             val placement = p.jsonObject
@@ -355,8 +355,20 @@ internal fun applyCustom(builder: DecisionRequestBuilder, id: String, custom: Js
     }
 }
 
-/** Parses `request.device` into the [DeviceConfig] the scenario runs under, or null when absent. */
-internal fun deviceConfigFrom(id: String, device: JsonElement?): DeviceConfig? {
+/**
+ * Lays `request.device` over the SDK's current device config, as an app setting carrier and category
+ * by hand would; the other device fields (language, model, OS) are kept. No-op when absent or `{}`.
+ */
+internal fun applyManifestDevice(id: String, device: JsonElement?) {
+    val sdk = Admoai.getInstance()
+    deviceConfigFrom(id, device, sdk.getDeviceConfig())?.let { sdk.setDeviceConfig(it) }
+}
+
+/**
+ * Parses `request.device` into the [DeviceConfig] the scenario runs under: [base] (or an empty config)
+ * with the manifest's carrier and category. Null when absent or `{}`.
+ */
+internal fun deviceConfigFrom(id: String, device: JsonElement?, base: DeviceConfig? = null): DeviceConfig? {
     if (device == null) return null
     val d = device as? JsonObject
     expect(d != null, "$id request.device must be a JSON object (got $device)")
@@ -374,7 +386,7 @@ internal fun deviceConfigFrom(id: String, device: JsonElement?): DeviceConfig? {
         expect(found != null, "$id request.device.category \"$raw\" is not one of phone, tablet, other")
         found
     }
-    return DeviceConfig(carrier = carrier, category = category)
+    return (base ?: DeviceConfig()).copy(carrier = carrier, category = category)
 }
 
 // ---- Sponsored Pin tracking (adhub#4410) ----

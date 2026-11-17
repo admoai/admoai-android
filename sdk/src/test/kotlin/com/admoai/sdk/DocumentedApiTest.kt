@@ -170,6 +170,33 @@ class DocumentedApiTest {
 
         @Suppress("UNUSED_VARIABLE")
         val other = DeviceCategory.OTHER
+
+        // Clear and reset, as the README's segments section shows them.
+        DecisionRequestBuilder()
+            .setPublisherSegments(null)
+            .setPublisherSegments(emptyList())
+            .clearCustomTargeting()
+            .clearTargeting()
+            .clearAll()
+            .disableDeviceCollection()
+    }
+
+    /**
+     * Reference-only: never executed. The Audience Signals README calls that need a live SDK or a
+     * real Context (the worked example's `initialize(baseUrl, apiVersion)`, device config set/clear,
+     * `systemDefault(context).copy(...)`, `requestAds`).
+     */
+    @Suppress("unused", "UNUSED_VARIABLE")
+    private fun documentedAudienceSignalsSdkCalls(context: android.content.Context) {
+        Admoai.initialize(baseUrl = "https://api.admoai.com", apiVersion = "2025-11-01")
+        val sdk = Admoai.getInstance()
+        sdk.setDeviceConfig(DeviceConfig.systemDefault(context))
+        sdk.setDeviceConfig(
+            DeviceConfig.systemDefault(context).copy(carrier = "Movistar", category = DeviceCategory.TABLET)
+        )
+        sdk.setDeviceConfig(DeviceConfig(carrier = "Movistar", category = DeviceCategory.TABLET))
+        sdk.clearDeviceConfig()
+        val flow = sdk.requestAds(sdk.createRequestBuilder().addPlacement(key = "home").build())
     }
 
     /**

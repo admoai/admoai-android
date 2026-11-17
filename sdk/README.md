@@ -876,8 +876,10 @@ The rules:
   installed, and a code the workspace has not registered is rejected by the engine (HTTP 422, error
   code `10029`).
 - **Use the helper, not a raw custom target.** `setPublisherSegments` removes duplicates and never
-  sends an empty list. A list built by hand with `addCustomTarget` is sent as given: a repeated code
-  is refused (HTTP 422, error code `10073`) and an empty list matches no Ad.
+  sends an empty list, and it rejects a malformed code before anything is sent. A list built by hand
+  with `addCustomTarget` is sent as given: a repeated code is refused (HTTP 422, error code `10073`),
+  a malformed one such as `airport-commuter` is refused (HTTP 422, error code `10029`), and an empty
+  list matches no Ad.
 
 ### Removing a value, and mixing with your own custom keys
 
@@ -945,7 +947,7 @@ What each setup puts in the request's `device` object (other device fields left 
 | `DeviceConfig.systemDefault(context)` on a phone with a SIM | `{"carrier": "Movistar", "category": "phone"}` |
 | `DeviceConfig.systemDefault(context)` on a Wi-Fi-only tablet | `{"category": "tablet"}` |
 | `DeviceConfig(carrier = "Movistar", category = DeviceCategory.TABLET)` | `{"carrier": "Movistar", "category": "tablet"}` |
-| Either of the above when the display cannot be read | no `category` |
+| `systemDefault(context)` when the display cannot be read | no `category` (a category you set is still sent) |
 
 A missing `carrier` or `category` is normal: do not substitute a placeholder.
 

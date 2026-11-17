@@ -162,7 +162,8 @@ val request = sdk.createRequestBuilder()
     .setAgeGroup(AgeGroup.AGE_25_34)                      // targeting.custom: age_group = "25_34"
     .setPublisherSegments(listOf("vip", "commuter"))      // ≤ 20 codes, each ≤ 32 chars, [a-zA-Z0-9_]
     .build()
-// device: {"carrier": "Movistar", "category": "phone"} when both can be read; absent otherwise
+// device carries "carrier" and "category" (e.g. "Movistar", "phone"); each is left out on its own
+// when it cannot be read (a Wi-Fi-only tablet sends "category": "tablet" and no carrier)
 ```
 
 > 📖 **The full integration guide lives in [`sdk/README.md` → Audience Signals](./sdk/README.md#audience-signals).**

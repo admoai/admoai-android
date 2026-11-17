@@ -1,6 +1,7 @@
 package com.admoai.sdk.e2e
 
 import com.admoai.sdk.Admoai
+import com.admoai.sdk.config.DeviceConfig
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.model.request.DecisionRequestBuilder
 import com.admoai.sdk.model.request.DeviceCategory
@@ -49,7 +50,7 @@ class ManifestRequestKeysTest {
     private fun wire(b: DecisionRequestBuilder): String =
         json.encodeToString(Admoai.getInstance().prepareFinalDecisionRequest(b.build()))
 
-    private fun assertFailsWith(fragment: String, block: () -> Unit) {
+    private fun assertRunnerRefuses(fragment: String, block: () -> Unit) {
         try {
             block()
         } catch (e: AssertionError) {
@@ -79,14 +80,14 @@ class ManifestRequestKeysTest {
 
     @Test
     fun `a number custom value fails naming the scenario and key`() {
-        assertFailsWith("X3 request.custom \"age\"") {
+        assertRunnerRefuses("X3 request.custom \"age\"") {
             applyCustom(builder(), "X3", parse("""[{"key":"age","value":42}]"""))
         }
     }
 
     @Test
     fun `an unknown custom entry key fails`() {
-        assertFailsWith("[extra]") {
+        assertRunnerRefuses("[extra]") {
             applyCustom(builder(), "X4", parse("""[{"key":"a","value":"b","extra":1}]"""))
         }
     }
@@ -102,6 +103,54 @@ class ManifestRequestKeysTest {
     @Test
     fun `an absent device is no DeviceConfig`() {
         assertNull(deviceConfigFrom("X5b", null))
+    }
+
+    @Test
+    fun `a device keeps the fields of the config it is laid over`() {
+        val config = deviceConfigFrom(
+            "X5d",
+            parse("""{"carrier":"Movistar"}"""),
+            DeviceConfig(language = "en", model = "Pixel")
+        )!!
+        assertEquals("en", config.language)
+        assertEquals("Pixel", config.model)
+        assertEquals("Movistar", config.carrier)
+        assertNull(config.category)
+    }
+
+    private fun manifestDeviceWire(id: String): JsonObject {
+        val stream = javaClass.classLoader!!.getResourceAsStream("e2e-scenarios.json")!!
+        val manifest = json.parseToJsonElement(stream.bufferedReader().readText()).jsonObject
+        val scenario = manifest["scenarios"]!!.jsonArray.map { it.jsonObject }
+            .single { (it["id"] as JsonPrimitive).content == id }
+        // The harness's own config (JourneyE2eRunner), then the scenario's device, as the runner applies it.
+        Admoai.getInstance().setDeviceConfig(DeviceConfig(language = "en"))
+        applyManifestDevice(id, scenario["request"]!!.jsonObject["device"])
+        return json.parseToJsonElement(wire(builder())).jsonObject["device"]!!.jsonObject
+    }
+
+    @Test
+    fun `AS6 sends the manifest's carrier and category on the wire`() {
+        val device = manifestDeviceWire("AS6")
+        assertEquals(JsonPrimitive("Example Mobile"), device["carrier"])
+        assertEquals(JsonPrimitive("phone"), device["category"])
+        assertEquals(JsonPrimitive("en"), device["language"])
+    }
+
+    @Test
+    fun `AS7 sends the tablet category and no carrier, because wifi is cleaned`() {
+        val device = manifestDeviceWire("AS7")
+        assertNull(device["carrier"])
+        assertEquals(JsonPrimitive("tablet"), device["category"])
+        assertEquals(JsonPrimitive("en"), device["language"])
+    }
+
+    @Test
+    fun `AS8 sends neither carrier nor category`() {
+        val device = manifestDeviceWire("AS8")
+        assertNull(device["carrier"])
+        assertNull(device["category"])
+        assertEquals(JsonPrimitive("en"), device["language"])
     }
 
     @Test
@@ -133,21 +182,21 @@ class ManifestRequestKeysTest {
 
     @Test
     fun `a device with an unknown key fails`() {
-        assertFailsWith("[model]") {
+        assertRunnerRefuses("[model]") {
             deviceConfigFrom("X6", parse("""{"carrier":"Movistar","model":"Pixel"}"""))
         }
     }
 
     @Test
     fun `an unknown device category fails`() {
-        assertFailsWith("\"watch\"") {
+        assertRunnerRefuses("\"watch\"") {
             deviceConfigFrom("X7", parse("""{"category":"watch"}"""))
         }
     }
 
     @Test
     fun `an unknown top-level request key is refused`() {
-        assertFailsWith("[geo]") {
+        assertRunnerRefuses("[geo]") {
             refuseUnknownKeys("X8 request", setOf("placements", "geo"), EXECUTED_REQUEST_KEYS)
         }
     }
