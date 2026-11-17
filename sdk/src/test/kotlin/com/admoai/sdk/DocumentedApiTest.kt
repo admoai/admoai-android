@@ -9,8 +9,17 @@ import com.admoai.sdk.model.request.Consent
 import com.admoai.sdk.model.request.CustomTargetingInfo
 import com.admoai.sdk.model.request.DecisionRequestBuilder
 import com.admoai.sdk.model.request.DestinationTargetingInfo
+import com.admoai.sdk.model.request.DeviceCategory
 import com.admoai.sdk.model.request.LocationTargetingInfo
 import com.admoai.sdk.model.request.PlacementFormat
+import com.admoai.sdk.model.request.audience.AccountTenure
+import com.admoai.sdk.model.request.audience.AccountType
+import com.admoai.sdk.model.request.audience.AgeGroup
+import com.admoai.sdk.model.request.audience.AudienceKeys
+import com.admoai.sdk.model.request.audience.Gender
+import com.admoai.sdk.model.request.audience.LastTripRecency
+import com.admoai.sdk.model.request.audience.SubscriptionStatus
+import com.admoai.sdk.model.request.audience.TripFrequency30d
 import com.admoai.sdk.model.response.ContentType
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.TrackingInfo
@@ -125,6 +134,69 @@ class DocumentedApiTest {
         builder.clearJourneyOpt()
         builder.clearPlacements()
         builder.addPlacement("home").clearAll().addPlacement("home").build()
+    }
+
+    // sdk/README.md "Audience Signals": every helper, enum constant family and device API it shows.
+    @Test
+    fun `documented audience signals surface exists`() {
+        DecisionRequestBuilder()
+            .addPlacement(key = "home")
+            .setAgeGroup(AgeGroup.AGE_25_34)
+            .setGender(Gender.PREFER_NOT_TO_SAY)
+            .setAccountType(AccountType.BUSINESS)
+            .setSubscriptionStatus(SubscriptionStatus.NONE)
+            .setAccountTenure(AccountTenure.DAYS_366_PLUS)
+            .setTripFrequency30d(TripFrequency30d.ZERO)
+            .setLastTripRecency(LastTripRecency.DAYS_91_PLUS)
+            .setPublisherSegments(listOf("vip", "commuter"))
+            .setAgeGroup(null)
+            .addCustomTarget(key = "loyalty_tier", value = "gold")
+            .build()
+
+        @Suppress("UNUSED_VARIABLE")
+        val key: String = AudienceKeys.AGE_GROUP
+
+        @Suppress("UNUSED_VARIABLE")
+        val wire: String = TripFrequency30d.ZERO.wireValue
+
+        // systemDefault(context) needs a real Context; referencing it proves the documented
+        // overload exists without calling it.
+        @Suppress("UNUSED_VARIABLE")
+        val withContext: (android.content.Context) -> DeviceConfig = { DeviceConfig.systemDefault(it) }
+        val manual = DeviceConfig(carrier = "Movistar", category = DeviceCategory.TABLET)
+
+        @Suppress("UNUSED_VARIABLE")
+        val copied = manual.copy(carrier = "Claro", category = DeviceCategory.PHONE)
+
+        @Suppress("UNUSED_VARIABLE")
+        val other = DeviceCategory.OTHER
+
+        // Clear and reset, as the README's segments section shows them.
+        DecisionRequestBuilder()
+            .setPublisherSegments(null)
+            .setPublisherSegments(emptyList())
+            .clearCustomTargeting()
+            .clearTargeting()
+            .clearAll()
+            .disableDeviceCollection()
+    }
+
+    /**
+     * Reference-only: never executed. The Audience Signals README calls that need a live SDK or a
+     * real Context (the worked example's `initialize(baseUrl, apiVersion)`, device config set/clear,
+     * `systemDefault(context).copy(...)`, `requestAds`).
+     */
+    @Suppress("unused", "UNUSED_VARIABLE")
+    private fun documentedAudienceSignalsSdkCalls(context: android.content.Context) {
+        Admoai.initialize(baseUrl = "https://api.admoai.com", apiVersion = "2025-11-01")
+        val sdk = Admoai.getInstance()
+        sdk.setDeviceConfig(DeviceConfig.systemDefault(context))
+        sdk.setDeviceConfig(
+            DeviceConfig.systemDefault(context).copy(carrier = "Movistar", category = DeviceCategory.TABLET)
+        )
+        sdk.setDeviceConfig(DeviceConfig(carrier = "Movistar", category = DeviceCategory.TABLET))
+        sdk.clearDeviceConfig()
+        val flow = sdk.requestAds(sdk.createRequestBuilder().addPlacement(key = "home").build())
     }
 
     /**

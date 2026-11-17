@@ -11,6 +11,9 @@ The Admoai Android SDK is a lightweight wrapper around the Decision Engine API, 
   Read [Sponsored Pin Locations](#sponsored-pin-locations) before integrating: the SDK
   renders nothing and never infers that a pin was seen, so the measurement contract is
   yours to honour
+- **Audience Signals** – Send eight Standard audience keys, plus your own segment codes, that advertisers
+  can target the same way across publishers. Read [Audience Signals](#audience-signals): you compute
+  the values, the SDK only sends them
 - **Rich Targeting** – Geo, location, destination, and custom key-value targeting
 - **Format Filter** – Request native-only, video-only, or any format
 - **User Consent** – GDPR compliance with consent management
@@ -773,6 +776,239 @@ A stored opt-out is remembered and an omitted field does not clear it. Send an e
 See [Why a journey can stop serving](#why-a-journey-can-stop-serving).
 
 <!-- MIRRORED SECTION END -->
+
+---
+
+## Audience Signals
+
+Advertisers want to reach "business accounts that took a trip last week" the same way on every
+publisher they buy. Audience Signals make that possible: Admoai defines **eight Standard audience
+keys**, with a fixed set of values each, and your request sends the ones that describe the current
+user. An advertiser targets those keys in the Ad Manager once, and the campaign works across
+publishers.
+
+**You compute the values; the SDK never infers or calculates them.** It does not read your user
+database, count trips or work out an age bracket. You decide from your own first-party facts which
+bucket applies, and the SDK puts that value on the wire as a custom target. Everything here is
+optional: a request that calls none of these helpers is byte-for-byte what earlier SDK versions sent.
+
+### The Standard keys
+
+Seven of the keys have a typed helper with an enum, so a typo does not compile. Each enum constant
+carries the exact, case-sensitive string sent on the wire (`wireValue`).
+
+| Key | Setter | Enum | Values (wire string → Kotlin constant) |
+|---|---|---|---|
+| `age_group` | `setAgeGroup(...)` | `AgeGroup` | `under_18` → `UNDER_18`, `18_24` → `AGE_18_24`, `25_34` → `AGE_25_34`, `35_44` → `AGE_35_44`, `45_54` → `AGE_45_54`, `55_64` → `AGE_55_64`, `65_plus` → `AGE_65_PLUS` |
+| `gender` | `setGender(...)` | `Gender` | `female` → `FEMALE`, `male` → `MALE`, `other` → `OTHER`, `prefer_not_to_say` → `PREFER_NOT_TO_SAY` |
+| `account_type` | `setAccountType(...)` | `AccountType` | `personal` → `PERSONAL`, `business` → `BUSINESS`, `family` → `FAMILY`, `student` → `STUDENT`, `other` → `OTHER` |
+| `subscription_status` | `setSubscriptionStatus(...)` | `SubscriptionStatus` | `none` → `NONE`, `trial` → `TRIAL`, `active` → `ACTIVE`, `paused` → `PAUSED`, `expired` → `EXPIRED` |
+| `account_tenure` | `setAccountTenure(...)` | `AccountTenure` | `0_30d` → `DAYS_0_30`, `31_90d` → `DAYS_31_90`, `91_365d` → `DAYS_91_365`, `366d_plus` → `DAYS_366_PLUS` |
+| `trip_frequency_30d` | `setTripFrequency30d(...)` | `TripFrequency30d` | `0` → `ZERO`, `1_2` → `TRIPS_1_2`, `3_9` → `TRIPS_3_9`, `10_plus` → `TRIPS_10_PLUS` |
+| `last_trip_recency` | `setLastTripRecency(...)` | `LastTripRecency` | `never` → `NEVER`, `0_7d` → `DAYS_0_7`, `8_30d` → `DAYS_8_30`, `31_90d` → `DAYS_31_90`, `91d_plus` → `DAYS_91_PLUS` |
+
+The eighth key, `publisher_segments`, is your own list of segment codes; see
+[Publisher segments](#publisher-segments).
+
+The enums live in `com.admoai.sdk.model.request.audience`. One value deserves a warning:
+`setTripFrequency30d(TripFrequency30d.ZERO)` sends `"0"` — a **string**, never the number `0`. The
+key names are also available as constants in `AudienceKeys` (for example
+`AudienceKeys.AGE_GROUP`).
+
+```kotlin
+val request = sdk.createRequestBuilder()
+    .addPlacement(key = "home")
+    .setAgeGroup(AgeGroup.AGE_25_34)
+    .setTripFrequency30d(TripFrequency30d.ZERO)
+    .build()
+```
+
+`targeting.custom` in the request body:
+
+```json
+[
+  {"key": "age_group", "value": "25_34"},
+  {"key": "trip_frequency_30d", "value": "0"}
+]
+```
+
+### Publisher segments
+
+Segments are your own groupings ("vip", "commuter"), named by you and registered in the Ad Manager.
+
+**Set** them with one call; a later call replaces the earlier list:
+
+```kotlin
+val request = sdk.createRequestBuilder()
+    .addPlacement(key = "home")
+    .setPublisherSegments(listOf("vip", "commuter", "vip"))
+    .build()
+```
+
+`targeting.custom` in the request body (duplicates removed, order kept):
+
+```json
+[
+  {"key": "publisher_segments", "value": ["vip", "commuter"]}
+]
+```
+
+**Clear** them with `setPublisherSegments(null)` or `setPublisherSegments(emptyList())`: the entry is
+removed and nothing else changes. The SDK never sends an empty array.
+
+**Reset** the builder with `clearCustomTargeting()` (removes segments together with every other
+custom key, Standard ones included), `clearTargeting()` or `clearAll()`. After any of them the
+request carries no `publisher_segments` until you set them again.
+
+The rules:
+
+- **Always a list on the wire**, even for one code.
+- **Every code must match `^[a-zA-Z0-9_]+$`.** If any code does not, the whole call throws
+  `IllegalArgumentException` and the builder is left unchanged. The SDK does not trim whitespace or
+  change case to "repair" a code, and the error names the position of the bad code, not its value.
+- **A code is at most 32 characters.** The Ad Manager refuses to register a longer one, so a longer
+  code can never match an Ad. The SDK does not check the length; keep your codes within it.
+- **At most 20 segments per request.** The Decision Engine refuses a request with more than 20
+  `publisher_segments` codes (HTTP 422, error code `10076`), so no ad is served for it. The SDK does not trim the list
+  for you: send the 20 that matter most.
+- **Register codes in the Ad Manager first.** The SDK does not check whether a code is registered or
+  archived; the engine decides. An archived code can still be sent by an app that is already
+  installed, and a code the workspace has not registered is rejected by the engine (HTTP 422, error
+  code `10029`).
+- **Use the helper, not a raw custom target.** `setPublisherSegments` removes duplicates and never
+  sends an empty list, and it rejects a malformed code before anything is sent. A list built by hand
+  with `addCustomTarget` is sent as given: a repeated code is refused (HTTP 422, error code `10073`),
+  a malformed one such as `airport-commuter` is refused (HTTP 422, error code `10029`), and an empty
+  list matches no Ad.
+
+### Removing a value, and mixing with your own custom keys
+
+Passing `null` to a typed helper (`setAgeGroup(null)`) removes that key and nothing else. Typed
+helpers and `addCustomTarget` share one key space, so for the same key **the last write wins**. Your
+existing custom keys keep working next to the Standard ones, unchanged. The SDK does no alias
+conversion: if your old rule used `25-34`, it keeps sending `25-34`; it is not turned into `25_34`.
+
+### API version
+
+Audience **reporting dimensions** require `apiVersion = "2025-11-01"`:
+
+```kotlin
+val config = SDKConfig(
+    baseUrl = "https://api.admoai.com",
+    apiVersion = "2025-11-01"
+)
+Admoai.initialize(sdkConfig = config)
+```
+
+On older versions the keys still target, but they are not reported as audience dimensions.
+
+### Device carrier and category
+
+Two more signals live on the device object rather than in targeting. Both are optional, and their
+absence is normal.
+
+- **Carrier** is the operator of the device's *default data subscription*. It is **not** proof of
+  the network in use: a phone on Wi-Fi can still report its mobile operator.
+- **Category** is `PHONE`, `TABLET` or `OTHER`. A device is a tablet when the shortest side of its
+  full display is at least 600 dp; rotation and split-screen do not change that. Known TV, watch,
+  car or desktop hardware is `OTHER`.
+
+No carrier is sent when there is no SIM, no default data subscription or no telephony. No category is
+sent when the display cannot be read. Placeholder operator names such as `--`, `unknown` or `wifi`
+are dropped.
+
+**Collection is opt-in.** By default the SDK sends neither field; only `systemDefault(context)`
+turns automatic collection on:
+
+```kotlin
+sdk.setDeviceConfig(DeviceConfig.systemDefault(context))
+```
+
+`systemDefault(context)` keeps only the application context, reads both values **fresh for every
+request** (so a SIM or display change is picked up), and needs no permission. The context-free
+`DeviceConfig.systemDefault()` keeps working and sends neither value. To set them yourself, which
+wins over the collected values:
+
+```kotlin
+sdk.setDeviceConfig(
+    DeviceConfig.systemDefault(context).copy(carrier = "Movistar", category = DeviceCategory.TABLET)
+)
+// or: DeviceConfig(carrier = "Movistar", category = DeviceCategory.TABLET)
+```
+
+A value you set always wins, even when it cleans to nothing: a carrier set to `" wifi "` sends no
+carrier at all, never the collected one.
+
+What each setup puts in the request's `device` object (other device fields left out):
+
+| Setup | `device` carries |
+|---|---|
+| Nothing set, or `DeviceConfig.systemDefault()` (default) | no `carrier`, no `category` |
+| `DeviceConfig.systemDefault(context)` on a phone with a SIM | `{"carrier": "Movistar", "category": "phone"}` |
+| `DeviceConfig.systemDefault(context)` on a Wi-Fi-only tablet | `{"category": "tablet"}` |
+| `DeviceConfig(carrier = "Movistar", category = DeviceCategory.TABLET)` | `{"carrier": "Movistar", "category": "tablet"}` |
+| `systemDefault(context)` when the display cannot be read | no `category` (a category you set is still sent) |
+
+A missing `carrier` or `category` is normal: do not substitute a placeholder.
+
+`disableDeviceCollection()` on a request drops the whole device object, carrier and category
+included. After `sdk.clearDeviceConfig()` nothing is sent until you set a device config again.
+
+> **Carrier and category need Audience Signals enabled for your workspace.** On a workspace without
+> it, the Decision Engine refuses a request that carries either field (HTTP 400, error code `10009`).
+> Ask your Admoai contact to enable it before you ship `systemDefault(context)` or manual values.
+
+> The iOS SDK does not collect the carrier automatically (a platform limit), so do not promise
+> identical carrier coverage across platforms.
+
+### Worked example
+
+```kotlin
+Admoai.initialize(
+    baseUrl = "https://api.admoai.com",
+    apiVersion = "2025-11-01"
+)
+val sdk = Admoai.getInstance()
+sdk.setDeviceConfig(DeviceConfig.systemDefault(context))
+
+val request = sdk.createRequestBuilder()
+    .addPlacement(key = "home")
+    .setAgeGroup(AgeGroup.AGE_25_34)
+    .setAccountType(AccountType.BUSINESS)
+    .setTripFrequency30d(TripFrequency30d.ZERO)
+    .setPublisherSegments(listOf("vip", "commuter"))
+    .addCustomTarget(key = "loyalty_tier", value = "gold")   // your existing key, unchanged
+    .build()
+
+sdk.requestAds(request).collect { response -> /* render */ }
+```
+
+`targeting.custom` in the request body is:
+
+```json
+[
+  {"key": "age_group", "value": "25_34"},
+  {"key": "account_type", "value": "business"},
+  {"key": "trip_frequency_30d", "value": "0"},
+  {"key": "publisher_segments", "value": ["vip", "commuter"]},
+  {"key": "loyalty_tier", "value": "gold"}
+]
+```
+
+Values are strings, except `publisher_segments`, which is a list of strings.
+
+### Before you ship
+
+- [ ] Compute each bucket from your own data, using the shared definitions: the same UTC and
+      time windows (for example, what "the last 30 days" means) that every publisher uses.
+- [ ] Register your segment codes in the Ad Manager before sending them.
+- [ ] Keep segment codes to 32 characters and send at most 20 per request.
+- [ ] Turn on carrier and category only on purpose (`systemDefault(context)`), and only once Audience
+      Signals is enabled for your workspace.
+- [ ] Update your Ads deliberately: existing Ads with custom rules are **not** satisfied by the new
+      keys automatically.
+- [ ] Do not plan on carrier or category targeting yet: there are no targeting controls for them.
+- [ ] Set `apiVersion = "2025-11-01"` so audience reporting dimensions are recorded.
 
 ---
 

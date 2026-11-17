@@ -11,11 +11,14 @@ import com.admoai.sdk.checkMetadata
 import com.admoai.sdk.checkSlides
 import com.admoai.sdk.checkStyleIn
 import com.admoai.sdk.checkTemplateKey
+import com.admoai.sdk.config.DeviceConfig
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.exception.AdMoaiConfigurationException
 import com.admoai.sdk.exception.AdMoaiValidationException
 import com.admoai.sdk.expectationFailure
 import com.admoai.sdk.model.common.JourneyOpt
+import com.admoai.sdk.model.request.DecisionRequestBuilder
+import com.admoai.sdk.model.request.DeviceCategory
 import com.admoai.sdk.model.request.DistanceBounds
 import com.admoai.sdk.model.request.PlacementFormat
 import com.admoai.sdk.model.response.Creative
@@ -54,6 +57,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
@@ -96,7 +100,7 @@ private fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitiv
 private fun JsonObject.dbl(key: String): Double? = (this[key] as? JsonPrimitive)?.content?.toDoubleOrNull()
 
 /** The one manifest `schemaVersion` this runner executes. */
-private const val SUPPORTED_SCHEMA_VERSION = 5
+private const val SUPPORTED_SCHEMA_VERSION = 6
 
 internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) {
     val manifest = loadManifest()
@@ -138,6 +142,7 @@ private fun reconfigure(baseUrl: String, apiVersion: String?, engine: HttpClient
 private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersion: String) {
     val request = entry["request"]!!.jsonObject
     val expect = entry["expect"]!!.jsonObject
+    refuseUnknownKeys("${entry.str("id")} request", request.keys, EXECUTED_REQUEST_KEYS)
     refuseUnknownKeys("${entry.str("id")} expect", expect.keys, EXECUTED_EXPECT_KEYS)
 
     // "none" means: no apiVersion at all, so no version header is sent.
@@ -164,7 +169,10 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
         reconfigure(baseUrl, version)
     }
 
+    // `request.device` is applied for this scenario only; the previous config is put back in `finally`.
+    val previousDevice = Admoai.getInstance().getDeviceConfig()
     try {
+        applyManifestDevice(entry.str("id")!!, request["device"])
         val builder = Admoai.getInstance().createRequestBuilder()
         for (p in (request["placements"] as JsonArray)) {
             val placement = p.jsonObject
@@ -180,10 +188,7 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
                 templateId = placement.str("templateId")
             )
         }
-        (request["custom"] as? JsonArray)?.forEach {
-            val c = it.jsonObject
-            builder.addCustomTarget(c.str("key")!!, c.str("value")!!)
-        }
+        applyCustom(builder, entry.str("id")!!, request["custom"])
         request.str("session")?.let { builder.setSessionId(freshSession(entry.str("id")!!.lowercase())) }
         request.str("journeyOpt")?.let {
             builder.setJourneyOpt(if (it == "in") JourneyOpt.OPT_IN else JourneyOpt.OPT_OUT)
@@ -292,7 +297,96 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
     } finally {
         // Restore the suite-wide version so later hand-written groups are unaffected.
         reconfigure(baseUrl, defaultVersion)
+        Admoai.getInstance().setDeviceConfig(previousDevice)
     }
+}
+
+/**
+ * Every `request` key this runner executes. Same reason as [EXECUTED_EXPECT_KEYS]: a key outside
+ * this set FAILS the scenario instead of being silently left out of the request it describes.
+ */
+internal val EXECUTED_REQUEST_KEYS = setOf(
+    "apiVersion",
+    "placements",
+    "custom",
+    "session",
+    "journeyOpt",
+    "distance",
+    "device"
+)
+
+internal val EXECUTED_CUSTOM_ENTRY_KEYS = setOf("key", "value")
+internal val EXECUTED_DEVICE_KEYS = setOf("carrier", "category")
+
+/**
+ * Applies `request.custom`. A `value` is a JSON string or a JSON array of strings, sent exactly as
+ * the manifest says: the engine's answer is what the scenario asserts, so no SDK-side validation.
+ */
+internal fun applyCustom(builder: DecisionRequestBuilder, id: String, custom: JsonElement?) {
+    if (custom == null) return
+    val entries = custom as? JsonArray
+    expect(entries != null, "$id request.custom must be a JSON array")
+    for (element in entries!!) {
+        val c = element as? JsonObject
+        expect(c != null, "$id request.custom entries must be JSON objects (got $element)")
+        refuseUnknownKeys("$id request.custom entry", c!!.keys, EXECUTED_CUSTOM_ENTRY_KEYS)
+        val key = c.str("key")
+        expect(key != null, "$id request.custom entry has no string \"key\"")
+        when (val value = c["value"]) {
+            is JsonPrimitive -> {
+                expect(
+                    value.isString,
+                    "$id request.custom \"$key\": value must be a string or an array of strings (got $value)"
+                )
+                builder.addCustomTarget(key!!, value.content)
+            }
+
+            is JsonArray -> {
+                val allStrings = value.all { it is JsonPrimitive && it.isString }
+                expect(allStrings, "$id request.custom \"$key\": an array value must hold only strings (got $value)")
+                builder.addCustomTarget(key!!, value)
+            }
+
+            else -> expect(
+                false,
+                "$id request.custom \"$key\": value must be a string or an array of strings (got $value)"
+            )
+        }
+    }
+}
+
+/**
+ * Lays `request.device` over the SDK's current device config, as an app setting carrier and category
+ * by hand would; the other device fields (language, model, OS) are kept. No-op when absent or `{}`.
+ */
+internal fun applyManifestDevice(id: String, device: JsonElement?) {
+    val sdk = Admoai.getInstance()
+    deviceConfigFrom(id, device, sdk.getDeviceConfig())?.let { sdk.setDeviceConfig(it) }
+}
+
+/**
+ * Parses `request.device` into the [DeviceConfig] the scenario runs under: [base] (or an empty config)
+ * with the manifest's carrier and category. Null when absent or `{}`.
+ */
+internal fun deviceConfigFrom(id: String, device: JsonElement?, base: DeviceConfig? = null): DeviceConfig? {
+    if (device == null) return null
+    val d = device as? JsonObject
+    expect(d != null, "$id request.device must be a JSON object (got $device)")
+    refuseUnknownKeys("$id request.device", d!!.keys, EXECUTED_DEVICE_KEYS)
+    // `{}` means "no manual device configuration" (AS8): keep the harness's own config.
+    if (d.isEmpty()) return null
+    val carrier = d["carrier"]?.let {
+        expect(it is JsonPrimitive && it.isString, "$id request.device.carrier must be a string (got $it)")
+        (it as JsonPrimitive).content
+    }
+    val category = d["category"]?.let {
+        expect(it is JsonPrimitive && it.isString, "$id request.device.category must be a string (got $it)")
+        val raw = (it as JsonPrimitive).content
+        val found = DeviceCategory.values().firstOrNull { c -> c.wireValue == raw }
+        expect(found != null, "$id request.device.category \"$raw\" is not one of phone, tablet, other")
+        found
+    }
+    return (base ?: DeviceConfig()).copy(carrier = carrier, category = category)
 }
 
 // ---- Sponsored Pin tracking (adhub#4410) ----
