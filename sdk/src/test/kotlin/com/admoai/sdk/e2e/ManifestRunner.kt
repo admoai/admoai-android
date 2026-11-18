@@ -145,13 +145,7 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
     refuseUnknownKeys("${entry.str("id")} request", request.keys, EXECUTED_REQUEST_KEYS)
     refuseUnknownKeys("${entry.str("id")} expect", expect.keys, EXECUTED_EXPECT_KEYS)
 
-    // "none" means: no apiVersion at all, so no version header is sent.
-    val rawVersion = request.str("apiVersion")
-    val version = when (rawVersion) {
-        null -> defaultVersion
-        "none" -> null
-        else -> rawVersion
-    }
+    val version = manifestApiVersion(request.str("apiVersion"), defaultVersion)
     val pinTracking = entry["pinTracking"] as? JsonObject
     val slideTracking = entry["slideTracking"] as? JsonObject
     if (slideTracking != null) {
@@ -362,6 +356,16 @@ internal fun applyCustom(builder: DecisionRequestBuilder, id: String, custom: Js
 internal fun applyManifestDevice(id: String, device: JsonElement?) {
     val sdk = Admoai.getInstance()
     deviceConfigFrom(id, device, sdk.getDeviceConfig())?.let { sdk.setDeviceConfig(it) }
+}
+
+/**
+ * The SDK `apiVersion` for a scenario's `request.apiVersion`: absent → the run's default, `"none"` →
+ * no apiVersion at all (so no `X-Decision-Version` header is sent), anything else verbatim.
+ */
+internal fun manifestApiVersion(raw: String?, defaultVersion: String?): String? = when (raw) {
+    null -> defaultVersion
+    "none" -> null
+    else -> raw
 }
 
 /**
