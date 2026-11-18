@@ -22,6 +22,7 @@ import com.admoai.sdk.model.request.audience.LastActivityRecency
 import com.admoai.sdk.model.request.audience.SubscriptionStatus
 import com.admoai.sdk.model.response.ContentType
 import com.admoai.sdk.model.response.Creative
+import com.admoai.sdk.model.response.Slide
 import com.admoai.sdk.model.response.TrackingInfo
 import com.admoai.sdk.model.response.TrackingType
 import com.admoai.sdk.model.response.getClickUrl
@@ -37,6 +38,7 @@ import com.admoai.sdk.model.response.hasTrackingFor
 import com.admoai.sdk.model.response.isNoAd
 import com.admoai.sdk.model.response.isRawType
 import com.admoai.sdk.model.response.isType
+import com.admoai.sdk.model.response.slides
 import com.admoai.sdk.utils.getSkipOffset
 import com.admoai.sdk.utils.getVastTagUrl
 import com.admoai.sdk.utils.getVastXmlBase64
@@ -265,6 +267,28 @@ class DocumentedApiTest {
         val session = sdk.getSessionId()
         val builder = sdk.createRequestBuilder()
         val http = sdk.getHttpRequestData(builder.addPlacement("home").build())
+    }
+
+    /** Reference-only: the README's Carousel, Branded Assets and Sponsored Pin content calls. */
+    @Suppress("unused", "UNUSED_VARIABLE")
+    private fun documentedStandardFormatSurface(sdk: Admoai, creative: Creative) {
+        val slides: List<Slide> = creative.slides
+        slides.forEach { slide ->
+            val id: String = slide.slideId
+            val position: Int = slide.position
+            val image = slide.contents.getContent("image")
+            sdk.trackSlideView(slide)
+            sdk.trackSlideClick(slide, creative)
+        }
+        sdk.trackSlideViews(slides)
+
+        val assetContext: String? = creative.metadata?.assetContext
+        val brandedImage = creative.contents.getContent("branded_image")
+        val label = creative.contents.getContent("accessible_label")
+        val destination = creative.contents.getContent("destination_url")
+        sdk.fireAssetTap(creative.tracking)
+
+        val pinImage = creative.contents.getContent("pinImage")
     }
 
     @Suppress("unused", "UNUSED_VARIABLE")

@@ -4,7 +4,8 @@ The Admoai Android SDK is a lightweight wrapper around the Decision Engine API, 
 
 ## Features
 
-- **Native Ads** – Multiple template types (wide, image+text, text-only, carousel)
+- **Native Ads** – Multiple template types (wide, image+text, text-only), plus the standard
+  [Carousel](#carousel) and [Branded Assets](#branded-assets) formats
 - **Video Ads** – JSON, VAST Tag, and VAST XML delivery methods
 - **Journey Ads** – Multi-stage, single-advertiser takeovers across a user session
 - **Sponsored Pin Locations** – Promote an advertiser's real places as pins on your map.
@@ -1348,6 +1349,9 @@ A creative that is not a Sponsored Pin creative returns an empty list, never an 
 does not know about pins keeps working unchanged: the points ride inside `contents` as one more
 entry, and every version of this SDK has tolerated entries it does not recognise.
 
+The pin's own image, `pinImage`, is a creative-level content key: read it like any other content,
+with `creative.contents.getContent("pinImage")` (see [Reading content](#reading-content)).
+
 ### The click URL is already decided
 
 `point.clickUrl` is the answer. The server has already applied the precedence — the location's own
@@ -1592,6 +1596,164 @@ eligible for that placement.
 
 **Does any of this fan out third-party trackers?** No. Third-party trackers stay at the creative
 level and are not duplicated per pin.
+
+## Reading content
+
+Every standard format below reads its values from `contents` by key. `getContent(key)` (in
+`com.admoai.sdk.model.response`) returns the entry or `null`. A small helper turns a text or URL
+entry into a `String`, and opens a destination; the examples below use both:
+
+```kotlin
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import com.admoai.sdk.model.response.Content
+import com.admoai.sdk.model.response.getContent
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+
+/** The text or URL for a key, or null when the key is absent or empty. */
+fun List<Content>.text(key: String): String? =
+    (getContent(key)?.value as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotEmpty() }
+
+/** Opens a destination. Returns true only if an app handled it. */
+fun Context.open(url: String): Boolean = try {
+    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    true
+} catch (e: ActivityNotFoundException) {
+    false
+}
+```
+
+When an optional key is absent, hide its view: do not show a blank label, an empty image view or a
+default text in its place. Standard formats need `apiVersion = "2025-11-01"` in the SDK config;
+without it, standard-format ads are skipped.
+
+## Carousel
+
+A Carousel is one ad with two to ten slides. Each slide has its own image, its own destination and
+its own tracking. The format key is `carousel`.
+
+### Content keys
+
+At creative level: `slides` (required), `brand_logo` (image, optional) and `disclaimer` (text,
+optional). Show `brand_logo` and `disclaimer` once for the whole Carousel.
+
+`creative.slides` (import `com.admoai.sdk.model.response.slides`) is the list of `Slide`s. It is
+empty for any creative that is not a Carousel. Each `Slide` has:
+
+| Field | Notes |
+|---|---|
+| `slideId` | A stable id such as `slide_01J...`. Use it as the key of your list item. |
+| `position` | The slide's number, starting at 1. For information only. |
+| `contents` | The slide's own content: `image` and `destination_url` (required), `headline`, `supporting_text`, `cta_text` (optional). |
+| `tracking` | The slide's own view and click beacons. A slide without tracking can still be rendered. |
+
+### How to render it
+
+- **Render `creative.slides` in the order the SDK gives you.** That is the server's order. Never
+  re-sort the list by `position`.
+- **Key each slide by `slideId`**, so a recycled view never fires the wrong slide's tracking.
+- Pass the `Slide` you rendered to the tracking calls. Do not pass the creative, and do not look a
+  slide up by its index.
+- You choose how slides scroll or page; the SDK draws nothing.
+
+### Tracking
+
+| Event | When | Call |
+|---|---|---|
+| Impression | The Carousel is shown to the user. | `fireImpression(creative.tracking)` |
+| Slide view | A slide is at least 50% visible for one continuous second. | `trackSlideView(slide)` |
+| Slide click | The user taps a slide and its destination opens. | `trackSlideClick(slide, creative)` |
+
+Your app applies the view rule. If the slide drops below 50% before the second ends, start counting
+again the next time it is at least 50% visible. The SDK never fires a slide view on its own.
+
+A slide's view is sent once per decision response: scrolling back or redrawing the list sends
+nothing. `trackSlideViews(slides)` does the same for a list of slides.
+
+`trackSlideClick` sends the slide's view first if it was not sent yet, then the slide's `default`
+click, then the creative's third-party click trackers once. **A Carousel has no creative-level
+click: never call `fireClick` for a Carousel**, it sends nothing.
+
+```kotlin
+import com.admoai.sdk.model.response.slides
+
+val sdk = Admoai.getInstance()
+
+fun renderCarousel(creative: Creative) {
+    creative.slides.forEach { slide ->                    // server order
+        addItem(id = slide.slideId,                       // identity = slideId
+                image = slide.contents.text("image"),
+                headline = slide.contents.text("headline"))
+    }
+}
+
+// Call this from your visibility callback, once the Carousel is on screen.
+fun carouselBecameVisible(creative: Creative) {
+    sdk.fireImpression(creative.tracking)
+}
+
+// Call this when your visibility check passes: 50% visible for one continuous second.
+fun slideWasViewed(slide: Slide) {
+    sdk.trackSlideView(slide)
+}
+
+fun slideTapped(slide: Slide, creative: Creative) {
+    val url = slide.contents.text("destination_url") ?: return
+    if (context.open(url)) sdk.trackSlideClick(slide, creative)   // not fireClick
+}
+```
+
+## Branded Assets
+
+Branded Assets is a transparent branded image that your app places in its own interface. The first
+asset context is a vehicle marker on a map. The format key is `branded_assets`.
+
+### Content keys
+
+| Key | Type | Required | Read it with |
+|---|---|---|---|
+| `branded_image` | image | Yes | `creative.contents.getContent("branded_image")` |
+| `accessible_label` | text | No | `creative.contents.getContent("accessible_label")` |
+| `destination_url` | url | No | `creative.contents.getContent("destination_url")` |
+
+`creative.metadata?.assetContext` says what the asset stands for; today it is `"vehicle_marker"`.
+Use `accessible_label`, when present, as the image's accessibility label (`contentDescription`).
+
+### How to render it
+
+1. Draw `branded_image` where your interface needs it, for example as the vehicle marker on your map.
+2. When the user taps the asset, call `fireAssetTap(creative.tracking)` and do what your interface
+   does for a tap, for example show a detail view.
+3. If the creative has a `destination_url` and the user opens it, call `fireClick(creative.tracking)`.
+
+**An asset tap is not a click.** `fireAssetTap` is a custom event: it sends no click and is never
+billed as one. When a tap opens the destination straight away, call `fireAssetTap` and then
+`fireClick` once the destination opened. Without `destination_url` there is no click to send, so do
+not show a button that opens nothing. Admoai counts at most one asset tap per served ad.
+
+```kotlin
+val sdk = Admoai.getInstance()
+
+// Call this from your visibility callback, once the asset is on screen.
+fun assetBecameVisible(creative: Creative) {
+    sdk.fireImpression(creative.tracking)
+}
+
+// The user tapped the asset.
+fun onAssetTapped(creative: Creative) {
+    sdk.fireAssetTap(creative.tracking)                   // not a click
+    showAssetDetail(creative)                             // what your interface does for a tap
+}
+
+// The user chose to open the destination, for example from the detail view.
+fun onDestinationChosen(creative: Creative) {
+    val url = creative.contents.text("destination_url") ?: return   // no destination, no click
+    if (context.open(url)) sdk.fireClick(creative.tracking)
+}
+```
 
 ## Video Ad Support
 
