@@ -31,6 +31,11 @@ Feature: Publishers send Standard audience signals and device details with a dec
     When it requests a decision
     Then the key is sent once, with the value written last
 
+  Scenario: replacing the whole custom list drops the Standard keys set before it
+    Given an app that sets an age group and publisher segments
+    When it then replaces its custom targets with its own list
+    Then the request carries only that list, without the age group or the segments
+
   Scenario: publisher segments are always sent as a list, even for one code
     Given an app that sets one publisher segment code
     When it requests a decision

@@ -123,6 +123,10 @@ class DecisionRequestBuilder internal constructor(
     /**
      * Replaces the custom-targeting list, keeping the LAST entry for any repeated key.
      *
+     * The Standard audience keys and `publisher_segments` live in that list, so values set earlier
+     * with the typed helpers ([setAgeGroup], [setPublisherSegments], ...) are dropped too. Call the
+     * helpers after this, or use [addCustomTarget] to add your own keys next to them.
+     *
      * The dedupe is not cosmetic. The engine rejects a duplicate custom key with
      * `ErrDuplicateCustomKey` and returns immediately from validation, so a single repeated key
      * fails the ENTIRE decision request — every placement in it, not just the offending target.

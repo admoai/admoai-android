@@ -291,6 +291,17 @@ class DocumentedApiTest {
         val pinImage = creative.contents.getContent("pinImage")
     }
 
+    /** Reference-only: README "Reading the error code" — the engine's codes on both exceptions. */
+    @Suppress("unused", "UNUSED_VARIABLE")
+    private fun documentedErrorCodeSurface(e: Throwable) {
+        val codes: List<Int> = when (e) {
+            is com.admoai.sdk.exception.AdMoaiValidationException -> e.errors.map { it.code }
+            is com.admoai.sdk.exception.AdMoaiNetworkException -> e.errors.map { it.code }
+            else -> emptyList()
+        }
+        val status: Int? = (e as? com.admoai.sdk.exception.AdMoaiNetworkException)?.statusCode
+    }
+
     @Suppress("unused", "UNUSED_VARIABLE")
     private fun documentedNoAdSurface(data: com.admoai.sdk.model.response.AdData) {
         val hasOne = data.hasCreative()

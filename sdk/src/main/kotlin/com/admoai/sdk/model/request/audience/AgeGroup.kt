@@ -1,7 +1,11 @@
 package com.admoai.sdk.model.request.audience
 
 /**
- * Age bracket of the user, sent as the custom target `age_group`.
+ * Age of the user in completed years at the time of the request, sent as the custom target `age_group`.
+ * `UNDER_18` is below 18, each numbered bucket includes both end ages, and `AGE_65_PLUS` starts at 65.
+ *
+ * Send a value only when you know the fact; when you do not, call the setter with null so the
+ * key is left out. The SDK never infers or computes a value.
  *
  * @property wireValue The exact, case-sensitive string sent on the wire.
  */

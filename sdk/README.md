@@ -793,10 +793,12 @@ database, count activity or work out an age bracket. You decide from your own fi
 bucket applies, and the SDK puts that value on the wire as a custom target. Everything here is
 optional: a request that calls none of these helpers is byte-for-byte what earlier SDK versions sent.
 
-> **The Standard keys and publisher segments need Audience Signals enabled for your workspace.**
-> On a workspace without it, the Decision Engine does not know these keys and refuses a request that
-> sends one (HTTP 422, error code `10028`), so no ad is served for it. Ask your Admoai contact to
-> enable it before you ship any of the helpers below.
+> **Everything in this section needs Audience Signals enabled for your workspace.** On a workspace
+> without it, the Decision Engine refuses the **whole request**, so it serves zero ads, not just
+> fewer: a Standard key or `publisher_segments` gets HTTP 422 with error code `10028`, and a device
+> `carrier` or `category` gets HTTP 400 with error code `10009`. Ask your Admoai contact to enable it
+> before you ship any of the helpers or `systemDefault(context)`. See
+> [Reading the error code](#reading-the-error-code).
 
 ### The Standard keys
 
@@ -815,6 +817,28 @@ carries the exact, case-sensitive string sent on the wire (`wireValue`).
 
 The eighth key, `publisher_segments`, is your own list of segment codes; see
 [Publisher segments](#publisher-segments).
+
+#### What each value means
+
+Every publisher computes the buckets the same way, so an advertiser's audience means the same thing
+on every app it buys. **Send a value only when you know the fact.** When you do not, call the setter
+with `null` (or never call it): a missing key is valid and matches no rule that needs it. Never fill
+the gap with `NONE`, `ZERO`, `NEVER`, `OTHER` or `PREFER_NOT_TO_SAY`; each of those states a known fact.
+
+| Key | What it measures | Values that need care |
+|---|---|---|
+| `age_group` | The user's age in **completed years** at the time of the request. `under_18` is below 18, each numbered bucket includes both end ages (`25_34` is 25 to 34), `65_plus` starts at 65. | Unknown age: leave it out. |
+| `gender` | The gender the user stated in their profile. Never inferred. | `prefer_not_to_say` is a choice the user recorded, never a default for a missing answer. `other` is a stated gender other than female or male. |
+| `account_type` | The account or profile the request is made for: the one selected now, not every membership the user has. | `other` is a known type outside the four named ones, not "unknown". |
+| `subscription_status` | The state of the one subscription or pass relevant to this request. | `none` means known to have no current or previous relevant subscription. With no single relevant subscription, leave it out or use a segment. |
+| `account_tenure` | The age of the user's **account**, from its creation: not the age of the app installation. | Days are explained below. |
+| `activity_frequency_30d` | How many activities the user **completed** in the last 30 days, that is 30 × 24 hours up to the request. An activity is one completed use of your service: a ride, a parking session, a ticket, a rental. Booked, cancelled or failed ones do not count. | `0` (`ZERO`) means known to have completed none in the window. |
+| `last_activity_recency` | Days since the user's latest **completed** activity. | `never` means known to have never completed one. |
+
+**Days** (`account_tenure`, `last_activity_recency`) are completed 24-hour periods between two UTC
+instants: `floor(seconds / 86400)`. Day 0 starts at the moment the account was created or the activity
+was completed, so `0_7d` is days 0 to 7. A negative or unavailable duration is unknown: leave the key
+out rather than sending day 0.
 
 The enums live in `com.admoai.sdk.model.request.audience`. One value deserves a warning:
 `setActivityFrequency30d(ActivityFrequency30d.ZERO)` sends `"0"` — a **string**, never the number `0`. The
@@ -894,6 +918,34 @@ helpers and `addCustomTarget` share one key space, so for the same key **the las
 existing custom keys keep working next to the Standard ones, unchanged. The SDK does no alias
 conversion: if your old rule used `25-34`, it keeps sending `25-34`; it is not turned into `25_34`.
 
+`setCustomTargets(list)` replaces the **whole** custom list, and the Standard keys and
+`publisher_segments` live in that list. Call the typed helpers after it, or add your own keys with
+`addCustomTarget`: a `setCustomTargets` call after `setAgeGroup` drops the age group.
+
+### Reading the error code
+
+When the engine refuses a request, the flow throws, and the engine's error code is on the exception:
+
+- **HTTP 422** (a key or value it does not accept, for example `10028`, `10029`, `10073`, `10076`):
+  `AdMoaiValidationException`, with the codes in `e.errors`.
+- **Any other 4xx** (for example the 400 `10009` for a device carrier or category on a workspace
+  without Audience Signals): `AdMoaiNetworkException`, with `e.statusCode` and the codes in `e.errors`.
+
+```kotlin
+sdk.requestAds(request)
+    .catch { e ->
+        val codes = when (e) {
+            is AdMoaiValidationException -> e.errors.map { it.code }   // 422
+            is AdMoaiNetworkException -> e.errors.map { it.code }      // 400 and other 4xx
+            else -> emptyList()
+        }
+        log("ad request refused: $codes ${e.message}")                // the message carries them too
+    }
+    .collect { response -> /* render */ }
+```
+
+`errors` is empty when the response had no readable body, and on a 5xx.
+
 ### API version
 
 Audience **reporting dimensions** require `apiVersion = "2025-11-01"`:
@@ -932,7 +984,9 @@ sdk.setDeviceConfig(DeviceConfig.systemDefault(context))
 
 `systemDefault(context)` keeps only the application context, reads both values **fresh for every
 request** (so a SIM or display change is picked up), and needs no permission. The context-free
-`DeviceConfig.systemDefault()` keeps working and sends neither value. To set them yourself, which
+`DeviceConfig.systemDefault()` keeps working and sends neither value. From Java, the overload with a
+context is `DeviceConfig.systemDefaultWithSignals(context)`, and `systemDefault()`,
+`systemDefault("id")` and `systemDefault(null)` keep their 1.8.x meaning. To set them yourself, which
 wins over the collected values:
 
 ```kotlin
@@ -961,8 +1015,13 @@ A missing `carrier` or `category` is normal: do not substitute a placeholder.
 included. After `sdk.clearDeviceConfig()` nothing is sent until you set a device config again.
 
 > **Carrier and category need Audience Signals enabled for your workspace.** On a workspace without
-> it, the Decision Engine refuses a request that carries either field (HTTP 400, error code `10009`).
-> Ask your Admoai contact to enable it before you ship `systemDefault(context)` or manual values.
+> it, the Decision Engine refuses the whole request when it carries either field (HTTP 400, error code
+> `10009`, read from `AdMoaiNetworkException.errors`), so **every** request gets zero ads, not only
+> the field. Ask your Admoai contact to enable it before you ship `systemDefault(context)` or manual
+> values.
+
+Carrier and category are **reported, not targetable** in this version: an advertiser cannot target
+them yet, so they never decide which ad serves.
 
 > The iOS SDK does not collect the carrier automatically (a platform limit), so do not promise
 > identical carrier coverage across platforms.
@@ -1005,8 +1064,8 @@ Values are strings, except `publisher_segments`, which is a list of strings.
 
 ### Before you ship
 
-- [ ] Compute each bucket from your own data, using the shared definitions: the same UTC and
-      time windows (for example, what "the last 30 days" means) that every publisher uses.
+- [ ] Compute each bucket from your own data, using the shared definitions in
+      [What each value means](#what-each-value-means), and leave a key out when you do not know it.
 - [ ] Ship the helpers only once Audience Signals is enabled for your workspace; before that the
       engine refuses the keys (HTTP 422, error code `10028`).
 - [ ] Register your segment codes in the Ad Manager before sending them.

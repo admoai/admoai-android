@@ -1,12 +1,17 @@
 package com.admoai.sdk.model.request.audience
 
 /**
- * How long ago the user's last activity in your app (a ride, a parking session, a booking) was, sent as the custom target `last_activity_recency`.
+ * Days since the user's latest completed activity (see [ActivityFrequency30d] for what counts), sent
+ * as the custom target `last_activity_recency`. Days are completed 24-hour periods:
+ * `floor(seconds / 86400)`, day 0 at completion.
+ *
+ * Send a value only when you know the fact; when you do not, call the setter with null so the
+ * key is left out. The SDK never infers or computes a value.
  *
  * @property wireValue The exact, case-sensitive string sent on the wire.
  */
 enum class LastActivityRecency(val wireValue: String) {
-    /** No activity yet. */
+    /** Known to have never completed an activity. Not "unknown". */
     NEVER("never"),
 
     /** 0 to 7 days ago. */
