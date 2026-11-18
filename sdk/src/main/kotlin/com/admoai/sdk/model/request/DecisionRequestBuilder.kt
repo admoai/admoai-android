@@ -6,12 +6,12 @@ import com.admoai.sdk.model.common.normalizeSessionId
 import com.admoai.sdk.model.common.sessionIdRejectionReason
 import com.admoai.sdk.model.request.audience.AccountTenure
 import com.admoai.sdk.model.request.audience.AccountType
+import com.admoai.sdk.model.request.audience.ActivityFrequency30d
 import com.admoai.sdk.model.request.audience.AgeGroup
 import com.admoai.sdk.model.request.audience.AudienceKeys
 import com.admoai.sdk.model.request.audience.Gender
-import com.admoai.sdk.model.request.audience.LastTripRecency
+import com.admoai.sdk.model.request.audience.LastActivityRecency
 import com.admoai.sdk.model.request.audience.SubscriptionStatus
-import com.admoai.sdk.model.request.audience.TripFrequency30d
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -236,29 +236,29 @@ class DecisionRequestBuilder internal constructor(
     }
 
     /**
-     * Sets the custom target `trip_frequency_30d` to [value]'s `wireValue`, or removes it when [value] is null.
+     * Sets the custom target `activity_frequency_30d` to [value]'s `wireValue`, or removes it when [value] is null.
      *
      * Shares the custom-target key space, so last write wins against [addCustomTarget] and
-     * [setCustomTargets] for the key `trip_frequency_30d`. Null removes only that key's entry.
+     * [setCustomTargets] for the key `activity_frequency_30d`. Null removes only that key's entry.
      *
      * Audience reporting dimensions require `apiVersion = "2025-11-01"` in the SDK config
      * (targeting still matches on older versions).
      */
-    fun setTripFrequency30d(value: TripFrequency30d?) = apply {
-        setAudienceTarget(AudienceKeys.TRIP_FREQUENCY_30D, value?.wireValue)
+    fun setActivityFrequency30d(value: ActivityFrequency30d?) = apply {
+        setAudienceTarget(AudienceKeys.ACTIVITY_FREQUENCY_30D, value?.wireValue)
     }
 
     /**
-     * Sets the custom target `last_trip_recency` to [value]'s `wireValue`, or removes it when [value] is null.
+     * Sets the custom target `last_activity_recency` to [value]'s `wireValue`, or removes it when [value] is null.
      *
      * Shares the custom-target key space, so last write wins against [addCustomTarget] and
-     * [setCustomTargets] for the key `last_trip_recency`. Null removes only that key's entry.
+     * [setCustomTargets] for the key `last_activity_recency`. Null removes only that key's entry.
      *
      * Audience reporting dimensions require `apiVersion = "2025-11-01"` in the SDK config
      * (targeting still matches on older versions).
      */
-    fun setLastTripRecency(value: LastTripRecency?) = apply {
-        setAudienceTarget(AudienceKeys.LAST_TRIP_RECENCY, value?.wireValue)
+    fun setLastActivityRecency(value: LastActivityRecency?) = apply {
+        setAudienceTarget(AudienceKeys.LAST_ACTIVITY_RECENCY, value?.wireValue)
     }
 
     private fun setAudienceTarget(key: String, wireValue: String?) {

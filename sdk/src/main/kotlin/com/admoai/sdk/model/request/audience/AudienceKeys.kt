@@ -7,7 +7,7 @@ object AudienceKeys {
     const val ACCOUNT_TYPE = "account_type"
     const val SUBSCRIPTION_STATUS = "subscription_status"
     const val ACCOUNT_TENURE = "account_tenure"
-    const val TRIP_FREQUENCY_30D = "trip_frequency_30d"
-    const val LAST_TRIP_RECENCY = "last_trip_recency"
+    const val ACTIVITY_FREQUENCY_30D = "activity_frequency_30d"
+    const val LAST_ACTIVITY_RECENCY = "last_activity_recency"
     const val PUBLISHER_SEGMENTS = "publisher_segments"
 }

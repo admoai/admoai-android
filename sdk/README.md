@@ -781,14 +781,14 @@ See [Why a journey can stop serving](#why-a-journey-can-stop-serving).
 
 ## Audience Signals
 
-Advertisers want to reach "business accounts that took a trip last week" the same way on every
+Advertisers want to reach "business accounts that were active last week" the same way on every
 publisher they buy. Audience Signals make that possible: Admoai defines **eight Standard audience
 keys**, with a fixed set of values each, and your request sends the ones that describe the current
 user. An advertiser targets those keys in the Ad Manager once, and the campaign works across
 publishers.
 
 **You compute the values; the SDK never infers or calculates them.** It does not read your user
-database, count trips or work out an age bracket. You decide from your own first-party facts which
+database, count activity or work out an age bracket. You decide from your own first-party facts which
 bucket applies, and the SDK puts that value on the wire as a custom target. Everything here is
 optional: a request that calls none of these helpers is byte-for-byte what earlier SDK versions sent.
 
@@ -809,14 +809,14 @@ carries the exact, case-sensitive string sent on the wire (`wireValue`).
 | `account_type` | `setAccountType(...)` | `AccountType` | `personal` → `PERSONAL`, `business` → `BUSINESS`, `family` → `FAMILY`, `student` → `STUDENT`, `other` → `OTHER` |
 | `subscription_status` | `setSubscriptionStatus(...)` | `SubscriptionStatus` | `none` → `NONE`, `trial` → `TRIAL`, `active` → `ACTIVE`, `paused` → `PAUSED`, `expired` → `EXPIRED` |
 | `account_tenure` | `setAccountTenure(...)` | `AccountTenure` | `0_30d` → `DAYS_0_30`, `31_90d` → `DAYS_31_90`, `91_365d` → `DAYS_91_365`, `366d_plus` → `DAYS_366_PLUS` |
-| `trip_frequency_30d` | `setTripFrequency30d(...)` | `TripFrequency30d` | `0` → `ZERO`, `1_2` → `TRIPS_1_2`, `3_9` → `TRIPS_3_9`, `10_plus` → `TRIPS_10_PLUS` |
-| `last_trip_recency` | `setLastTripRecency(...)` | `LastTripRecency` | `never` → `NEVER`, `0_7d` → `DAYS_0_7`, `8_30d` → `DAYS_8_30`, `31_90d` → `DAYS_31_90`, `91d_plus` → `DAYS_91_PLUS` |
+| `activity_frequency_30d` | `setActivityFrequency30d(...)` | `ActivityFrequency30d` | `0` → `ZERO`, `1_2` → `TIMES_1_2`, `3_9` → `TIMES_3_9`, `10_plus` → `TIMES_10_PLUS` |
+| `last_activity_recency` | `setLastActivityRecency(...)` | `LastActivityRecency` | `never` → `NEVER`, `0_7d` → `DAYS_0_7`, `8_30d` → `DAYS_8_30`, `31_90d` → `DAYS_31_90`, `91d_plus` → `DAYS_91_PLUS` |
 
 The eighth key, `publisher_segments`, is your own list of segment codes; see
 [Publisher segments](#publisher-segments).
 
 The enums live in `com.admoai.sdk.model.request.audience`. One value deserves a warning:
-`setTripFrequency30d(TripFrequency30d.ZERO)` sends `"0"` — a **string**, never the number `0`. The
+`setActivityFrequency30d(ActivityFrequency30d.ZERO)` sends `"0"` — a **string**, never the number `0`. The
 key names are also available as constants in `AudienceKeys` (for example
 `AudienceKeys.AGE_GROUP`).
 
@@ -824,7 +824,7 @@ key names are also available as constants in `AudienceKeys` (for example
 val request = sdk.createRequestBuilder()
     .addPlacement(key = "home")
     .setAgeGroup(AgeGroup.AGE_25_34)
-    .setTripFrequency30d(TripFrequency30d.ZERO)
+    .setActivityFrequency30d(ActivityFrequency30d.ZERO)
     .build()
 ```
 
@@ -833,7 +833,7 @@ val request = sdk.createRequestBuilder()
 ```json
 [
   {"key": "age_group", "value": "25_34"},
-  {"key": "trip_frequency_30d", "value": "0"}
+  {"key": "activity_frequency_30d", "value": "0"}
 ]
 ```
 
@@ -980,7 +980,7 @@ val request = sdk.createRequestBuilder()
     .addPlacement(key = "home")
     .setAgeGroup(AgeGroup.AGE_25_34)
     .setAccountType(AccountType.BUSINESS)
-    .setTripFrequency30d(TripFrequency30d.ZERO)
+    .setActivityFrequency30d(ActivityFrequency30d.ZERO)
     .setPublisherSegments(listOf("vip", "commuter"))
     .addCustomTarget(key = "loyalty_tier", value = "gold")   // your existing key, unchanged
     .build()
@@ -994,7 +994,7 @@ sdk.requestAds(request).collect { response -> /* render */ }
 [
   {"key": "age_group", "value": "25_34"},
   {"key": "account_type", "value": "business"},
-  {"key": "trip_frequency_30d", "value": "0"},
+  {"key": "activity_frequency_30d", "value": "0"},
   {"key": "publisher_segments", "value": ["vip", "commuter"]},
   {"key": "loyalty_tier", "value": "gold"}
 ]

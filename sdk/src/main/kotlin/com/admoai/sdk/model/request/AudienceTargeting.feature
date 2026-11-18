@@ -16,10 +16,10 @@ Feature: Publishers send Standard audience signals and device details with a dec
     When it requests a decision
     Then each key is sent as a custom target with its catalog value
 
-  Scenario: trip frequency zero is sent as a string, never a number
-    Given an app that sets trip frequency to zero
+  Scenario: activity frequency zero is sent as a string, never a number
+    Given an app that sets activity frequency to zero
     When it requests a decision
-    Then the trip_frequency_30d target carries the string "0"
+    Then the activity_frequency_30d target carries the string "0"
 
   Scenario: setting a helper to null removes only that key
     Given an app that has set several audience helpers

@@ -14,12 +14,12 @@ import com.admoai.sdk.model.request.LocationTargetingInfo
 import com.admoai.sdk.model.request.PlacementFormat
 import com.admoai.sdk.model.request.audience.AccountTenure
 import com.admoai.sdk.model.request.audience.AccountType
+import com.admoai.sdk.model.request.audience.ActivityFrequency30d
 import com.admoai.sdk.model.request.audience.AgeGroup
 import com.admoai.sdk.model.request.audience.AudienceKeys
 import com.admoai.sdk.model.request.audience.Gender
-import com.admoai.sdk.model.request.audience.LastTripRecency
+import com.admoai.sdk.model.request.audience.LastActivityRecency
 import com.admoai.sdk.model.request.audience.SubscriptionStatus
-import com.admoai.sdk.model.request.audience.TripFrequency30d
 import com.admoai.sdk.model.response.ContentType
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.TrackingInfo
@@ -146,8 +146,8 @@ class DocumentedApiTest {
             .setAccountType(AccountType.BUSINESS)
             .setSubscriptionStatus(SubscriptionStatus.NONE)
             .setAccountTenure(AccountTenure.DAYS_366_PLUS)
-            .setTripFrequency30d(TripFrequency30d.ZERO)
-            .setLastTripRecency(LastTripRecency.DAYS_91_PLUS)
+            .setActivityFrequency30d(ActivityFrequency30d.ZERO)
+            .setLastActivityRecency(LastActivityRecency.DAYS_91_PLUS)
             .setPublisherSegments(listOf("vip", "commuter"))
             .setAgeGroup(null)
             .addCustomTarget(key = "loyalty_tier", value = "gold")
@@ -157,7 +157,7 @@ class DocumentedApiTest {
         val key: String = AudienceKeys.AGE_GROUP
 
         @Suppress("UNUSED_VARIABLE")
-        val wire: String = TripFrequency30d.ZERO.wireValue
+        val wire: String = ActivityFrequency30d.ZERO.wireValue
 
         // systemDefault(context) needs a real Context; referencing it proves the documented
         // overload exists without calling it.

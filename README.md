@@ -142,8 +142,8 @@ report. A tap that opens a card is free; a click that opens the shop is billable
 ## Audience Signals
 
 Audience Signals let advertisers target your users by the same eight Standard keys on every
-publisher: age group, gender, account type, subscription status, account tenure, trip frequency,
-last trip recency, and your own segment codes. You work out which bucket applies from your own
+publisher: age group, gender, account type, subscription status, account tenure, activity in 30 days,
+last activity, and your own segment codes. You work out which bucket applies from your own
 first-party data; the SDK only sends what you give it, and never infers or calculates a value.
 
 **Audience Signals put two obligations on your app.** First, the values and segment codes are

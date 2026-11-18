@@ -5,11 +5,11 @@ import com.admoai.sdk.config.DeviceConfig
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.model.request.audience.AccountTenure
 import com.admoai.sdk.model.request.audience.AccountType
+import com.admoai.sdk.model.request.audience.ActivityFrequency30d
 import com.admoai.sdk.model.request.audience.AgeGroup
 import com.admoai.sdk.model.request.audience.Gender
-import com.admoai.sdk.model.request.audience.LastTripRecency
+import com.admoai.sdk.model.request.audience.LastActivityRecency
 import com.admoai.sdk.model.request.audience.SubscriptionStatus
-import com.admoai.sdk.model.request.audience.TripFrequency30d
 import java.io.File
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -180,8 +180,8 @@ class AudienceTargetingTest {
         .setAccountType(AccountType.BUSINESS)
         .setSubscriptionStatus(SubscriptionStatus.TRIAL)
         .setAccountTenure(AccountTenure.DAYS_91_365)
-        .setTripFrequency30d(TripFrequency30d.ZERO)
-        .setLastTripRecency(LastTripRecency.DAYS_8_30)
+        .setActivityFrequency30d(ActivityFrequency30d.ZERO)
+        .setLastActivityRecency(LastActivityRecency.DAYS_8_30)
         .setPublisherSegments(listOf("vip", "commuter"))
 
     private val standardKeys = listOf(
@@ -190,8 +190,8 @@ class AudienceTargetingTest {
         "account_type",
         "subscription_status",
         "account_tenure",
-        "trip_frequency_30d",
-        "last_trip_recency"
+        "activity_frequency_30d",
+        "last_activity_recency"
     )
 
     private val nullers: List<Pair<String, (DecisionRequestBuilder) -> DecisionRequestBuilder>> = listOf(
@@ -200,15 +200,15 @@ class AudienceTargetingTest {
         "account_type" to { b -> b.setAccountType(null) },
         "subscription_status" to { b -> b.setSubscriptionStatus(null) },
         "account_tenure" to { b -> b.setAccountTenure(null) },
-        "trip_frequency_30d" to { b -> b.setTripFrequency30d(null) },
-        "last_trip_recency" to { b -> b.setLastTripRecency(null) }
+        "activity_frequency_30d" to { b -> b.setActivityFrequency30d(null) },
+        "last_activity_recency" to { b -> b.setLastActivityRecency(null) }
     )
 
     private fun `all standard audience signals match the golden`() {
         val expected = File("src/test/resources/fixtures/request-golden/audience.all-standard.json")
             .readText().trimEnd('\n')
         val actual = wire(allStandard())
-        assertTrue(actual.contains("{\"key\":\"trip_frequency_30d\",\"value\":\"0\"}"))
+        assertTrue(actual.contains("{\"key\":\"activity_frequency_30d\",\"value\":\"0\"}"))
         assertEquals(expected, actual)
     }
 
@@ -383,9 +383,9 @@ class AudienceTargetingTest {
     }
 
     @Test
-    fun `trip frequency zero is sent as a string, never a number`() {
-        val b = builder().setTripFrequency30d(TripFrequency30d.ZERO)
-        assertTrue(wire(b).contains("{\"key\":\"trip_frequency_30d\",\"value\":\"0\"}"))
+    fun `activity frequency zero is sent as a string, never a number`() {
+        val b = builder().setActivityFrequency30d(ActivityFrequency30d.ZERO)
+        assertTrue(wire(b).contains("{\"key\":\"activity_frequency_30d\",\"value\":\"0\"}"))
     }
 
     @Test
