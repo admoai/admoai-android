@@ -20,9 +20,10 @@ class AdMoaiNetworkException(
     val errors: List<Error> = emptyList()
 ) : AdMoaiException(message, cause) {
 
-    // Binary compatibility (CONTRIBUTING, "When the API check fails"): the 3-parameter constructor
-    // and its default-arguments form that 1.8.x callers were compiled against keep existing.
-    @Deprecated("Binary compatibility with 1.8.x callers", level = DeprecationLevel.HIDDEN)
+    // Source and binary compatibility (CONTRIBUTING, "When the API check fails"): the 3-parameter
+    // constructor of 1.8.x stays public, so Java source keeps compiling against it and Kotlin and
+    // Java binaries keep linking, including its default-arguments form. Kotlin resolves a call that
+    // names no errors here; one that passes errors reaches the primary constructor.
     constructor(message: String, cause: Throwable? = null, statusCode: Int? = null) :
         this(message, cause, statusCode, emptyList())
 }

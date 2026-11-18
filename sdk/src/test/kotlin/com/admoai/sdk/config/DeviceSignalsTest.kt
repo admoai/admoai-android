@@ -33,6 +33,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -254,7 +255,12 @@ class DeviceSignalsTest {
         mockkConstructor(DisplayMetrics::class)
         val throwing = mockk<Display>()
         every { throwing.getRealMetrics(any()) } throws IllegalStateException("boom")
-        assertNull(DeviceSignals.readCategory(contextWithDisplayManager(throwing)))
+        val context = contextWithDisplayManager(throwing)
+        assertThrows(IllegalStateException::class.java) { DeviceSignals.readCategory(context) }
+        DeviceSignals.carrierReader = { "Claro" }
+        val device = deviceOnWire(DeviceConfig.systemDefault(context))!!
+        assertFalse(device.containsKey("category"))
+        assertEquals("Claro", device.text("carrier"))
     }
 
     @Test
@@ -297,7 +303,7 @@ class DeviceSignalsTest {
 
         val throwing = mockk<TelephonyManager>()
         every { throwing.createForSubscriptionId(7) } throws SecurityException("no")
-        assertNull(DeviceSignals.readCarrier(contextWithTelephony(throwing)))
+        assertThrows(SecurityException::class.java) { DeviceSignals.readCarrier(contextWithTelephony(throwing)) }
     }
 
     @Test
@@ -479,8 +485,15 @@ class DeviceSignalsTest {
         )
         val logs = mutableListOf<Pair<String, Admoai.LogLevel>>()
         Admoai.getInstance().logSink = { message, level, _ -> logs.add(message to level) }
-        injectReaders({ throw SecurityException("operator Movistar") }, { DeviceCategory.PHONE }, IntArray(2))
-        deviceOnWire(DeviceConfig.systemDefault(appContextMock()))
+        // The production carrier reader, over a platform call that fails.
+        mockkStatic(SubscriptionManager::class)
+        every { SubscriptionManager.getDefaultDataSubscriptionId() } returns 7
+        val telephony = mockk<TelephonyManager>()
+        every { telephony.createForSubscriptionId(7) } throws SecurityException("operator Movistar")
+        DeviceSignals.categoryReader = { DeviceCategory.PHONE }
+        val device = deviceOnWire(DeviceConfig.systemDefault(contextWithTelephony(telephony)))!!
+        assertFalse(device.containsKey("carrier"))
+        assertEquals("phone", device.text("category"))
         assertEquals(listOf("Device carrier unavailable: SecurityException" to Admoai.LogLevel.DEBUG), logs)
         assertFalse(logs.any { it.first.contains("Movistar") })
     }
