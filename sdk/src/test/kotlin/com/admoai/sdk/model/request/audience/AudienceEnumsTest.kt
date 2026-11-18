@@ -42,14 +42,14 @@ class AudienceEnumsTest {
     ) { it.wireValue }
 
     @Test
-    fun `TripFrequency30d wire values`() = assertCatalog(
+    fun `ActivityFrequency30d wire values`() = assertCatalog(
         listOf("0", "1_2", "3_9", "10_plus"),
-        TripFrequency30d.values()
+        ActivityFrequency30d.values()
     ) { it.wireValue }
 
     @Test
-    fun `LastTripRecency wire values`() = assertCatalog(
+    fun `LastActivityRecency wire values`() = assertCatalog(
         listOf("never", "0_7d", "8_30d", "31_90d", "91d_plus"),
-        LastTripRecency.values()
+        LastActivityRecency.values()
     ) { it.wireValue }
 }

@@ -4,7 +4,8 @@ The Admoai Android SDK is a lightweight wrapper around the Decision Engine API, 
 
 ## Features
 
-- **Native Ads** – Multiple template types (wide, image+text, text-only, carousel)
+- **Native Ads** – Multiple template types (wide, image+text, text-only), plus the standard
+  [Carousel](#carousel) and [Branded Assets](#branded-assets) formats
 - **Video Ads** – JSON, VAST Tag, and VAST XML delivery methods
 - **Journey Ads** – Multi-stage, single-advertiser takeovers across a user session
 - **Sponsored Pin Locations** – Promote an advertiser's real places as pins on your map.
@@ -781,14 +782,14 @@ See [Why a journey can stop serving](#why-a-journey-can-stop-serving).
 
 ## Audience Signals
 
-Advertisers want to reach "business accounts that took a trip last week" the same way on every
+Advertisers want to reach "business accounts that were active last week" the same way on every
 publisher they buy. Audience Signals make that possible: Admoai defines **eight Standard audience
 keys**, with a fixed set of values each, and your request sends the ones that describe the current
 user. An advertiser targets those keys in the Ad Manager once, and the campaign works across
 publishers.
 
 **You compute the values; the SDK never infers or calculates them.** It does not read your user
-database, count trips or work out an age bracket. You decide from your own first-party facts which
+database, count activity or work out an age bracket. You decide from your own first-party facts which
 bucket applies, and the SDK puts that value on the wire as a custom target. Everything here is
 optional: a request that calls none of these helpers is byte-for-byte what earlier SDK versions sent.
 
@@ -809,14 +810,14 @@ carries the exact, case-sensitive string sent on the wire (`wireValue`).
 | `account_type` | `setAccountType(...)` | `AccountType` | `personal` → `PERSONAL`, `business` → `BUSINESS`, `family` → `FAMILY`, `student` → `STUDENT`, `other` → `OTHER` |
 | `subscription_status` | `setSubscriptionStatus(...)` | `SubscriptionStatus` | `none` → `NONE`, `trial` → `TRIAL`, `active` → `ACTIVE`, `paused` → `PAUSED`, `expired` → `EXPIRED` |
 | `account_tenure` | `setAccountTenure(...)` | `AccountTenure` | `0_30d` → `DAYS_0_30`, `31_90d` → `DAYS_31_90`, `91_365d` → `DAYS_91_365`, `366d_plus` → `DAYS_366_PLUS` |
-| `trip_frequency_30d` | `setTripFrequency30d(...)` | `TripFrequency30d` | `0` → `ZERO`, `1_2` → `TRIPS_1_2`, `3_9` → `TRIPS_3_9`, `10_plus` → `TRIPS_10_PLUS` |
-| `last_trip_recency` | `setLastTripRecency(...)` | `LastTripRecency` | `never` → `NEVER`, `0_7d` → `DAYS_0_7`, `8_30d` → `DAYS_8_30`, `31_90d` → `DAYS_31_90`, `91d_plus` → `DAYS_91_PLUS` |
+| `activity_frequency_30d` | `setActivityFrequency30d(...)` | `ActivityFrequency30d` | `0` → `ZERO`, `1_2` → `TIMES_1_2`, `3_9` → `TIMES_3_9`, `10_plus` → `TIMES_10_PLUS` |
+| `last_activity_recency` | `setLastActivityRecency(...)` | `LastActivityRecency` | `never` → `NEVER`, `0_7d` → `DAYS_0_7`, `8_30d` → `DAYS_8_30`, `31_90d` → `DAYS_31_90`, `91d_plus` → `DAYS_91_PLUS` |
 
 The eighth key, `publisher_segments`, is your own list of segment codes; see
 [Publisher segments](#publisher-segments).
 
 The enums live in `com.admoai.sdk.model.request.audience`. One value deserves a warning:
-`setTripFrequency30d(TripFrequency30d.ZERO)` sends `"0"` — a **string**, never the number `0`. The
+`setActivityFrequency30d(ActivityFrequency30d.ZERO)` sends `"0"` — a **string**, never the number `0`. The
 key names are also available as constants in `AudienceKeys` (for example
 `AudienceKeys.AGE_GROUP`).
 
@@ -824,7 +825,7 @@ key names are also available as constants in `AudienceKeys` (for example
 val request = sdk.createRequestBuilder()
     .addPlacement(key = "home")
     .setAgeGroup(AgeGroup.AGE_25_34)
-    .setTripFrequency30d(TripFrequency30d.ZERO)
+    .setActivityFrequency30d(ActivityFrequency30d.ZERO)
     .build()
 ```
 
@@ -833,7 +834,7 @@ val request = sdk.createRequestBuilder()
 ```json
 [
   {"key": "age_group", "value": "25_34"},
-  {"key": "trip_frequency_30d", "value": "0"}
+  {"key": "activity_frequency_30d", "value": "0"}
 ]
 ```
 
@@ -980,7 +981,7 @@ val request = sdk.createRequestBuilder()
     .addPlacement(key = "home")
     .setAgeGroup(AgeGroup.AGE_25_34)
     .setAccountType(AccountType.BUSINESS)
-    .setTripFrequency30d(TripFrequency30d.ZERO)
+    .setActivityFrequency30d(ActivityFrequency30d.ZERO)
     .setPublisherSegments(listOf("vip", "commuter"))
     .addCustomTarget(key = "loyalty_tier", value = "gold")   // your existing key, unchanged
     .build()
@@ -994,7 +995,7 @@ sdk.requestAds(request).collect { response -> /* render */ }
 [
   {"key": "age_group", "value": "25_34"},
   {"key": "account_type", "value": "business"},
-  {"key": "trip_frequency_30d", "value": "0"},
+  {"key": "activity_frequency_30d", "value": "0"},
   {"key": "publisher_segments", "value": ["vip", "commuter"]},
   {"key": "loyalty_tier", "value": "gold"}
 ]
@@ -1348,6 +1349,9 @@ A creative that is not a Sponsored Pin creative returns an empty list, never an 
 does not know about pins keeps working unchanged: the points ride inside `contents` as one more
 entry, and every version of this SDK has tolerated entries it does not recognise.
 
+The pin's own image, `pinImage`, is a creative-level content key: read it like any other content,
+with `creative.contents.getContent("pinImage")` (see [Reading content](#reading-content)).
+
 ### The click URL is already decided
 
 `point.clickUrl` is the answer. The server has already applied the precedence — the location's own
@@ -1592,6 +1596,170 @@ eligible for that placement.
 
 **Does any of this fan out third-party trackers?** No. Third-party trackers stay at the creative
 level and are not duplicated per pin.
+
+## Reading content
+
+Every standard format below reads its values from `contents` by key. `getContent(key)` (in
+`com.admoai.sdk.model.response`) returns the entry or `null`. A small helper turns a text or URL
+entry into a `String`, and opens a destination; the examples below use both:
+
+```kotlin
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import com.admoai.sdk.model.response.Content
+import com.admoai.sdk.model.response.getContent
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+
+/** The text or URL for a key, or null when the key is absent or empty. */
+fun List<Content>.text(key: String): String? =
+    (getContent(key)?.value as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotEmpty() }
+
+/**
+ * Opens a destination. Returns true only if an app handled it. Outside an Activity (for example
+ * `applicationContext`), Android requires FLAG_ACTIVITY_NEW_TASK, so the helper adds it there.
+ */
+fun Context.open(url: String): Boolean = try {
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+    if (this !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    startActivity(intent)
+    true
+} catch (e: ActivityNotFoundException) {
+    false
+}
+```
+
+When an optional key is absent, hide its view: do not show a blank label, an empty image view or a
+default text in its place. Standard formats need `apiVersion = "2025-11-01"` in the SDK config;
+without it, standard-format ads are skipped.
+
+## Carousel
+
+A Carousel is one ad with two to ten slides. Each slide has its own image, its own destination and
+its own tracking. The format key is `carousel`.
+
+### Content keys
+
+At creative level: `slides` (required), `brand_logo` (image, optional) and `disclaimer` (text,
+optional). Show `brand_logo` and `disclaimer` once for the whole Carousel.
+
+`creative.slides` (import `com.admoai.sdk.model.response.slides`) is the list of `Slide`s. It is
+empty for any creative that is not a Carousel. Each `Slide` has:
+
+| Field | Notes |
+|---|---|
+| `slideId` | A stable id such as `slide_01J...`. Use it as the key of your list item. |
+| `position` | The slide's number, starting at 1. For information only. |
+| `contents` | The slide's own content: `image` and `destination_url` (required), `headline`, `supporting_text`, `cta_text` (optional). |
+| `tracking` | The slide's own view and click beacons. A slide without tracking can still be rendered. |
+
+### How to render it
+
+- **Render `creative.slides` in the order the SDK gives you.** That is the server's order. Never
+  re-sort the list by `position`.
+- **Key each slide by `slideId`**, so a recycled view never fires the wrong slide's tracking.
+- Pass the `Slide` you rendered to the tracking calls. Do not pass the creative, and do not look a
+  slide up by its index.
+- You choose how slides scroll or page; the SDK draws nothing.
+
+### Tracking
+
+| Event | When | Call |
+|---|---|---|
+| Impression | The Carousel is shown to the user. | `fireImpression(creative.tracking)` |
+| Slide view | A slide is at least 50% visible for one continuous second. | `trackSlideView(slide)` |
+| Slide click | The user taps a slide and its destination opens. | `trackSlideClick(slide, creative)` |
+
+Your app applies the view rule. If the slide drops below 50% before the second ends, start counting
+again the next time it is at least 50% visible. The SDK never fires a slide view on its own.
+
+A slide's view is sent once per decision response: scrolling back or redrawing the list sends
+nothing. `trackSlideViews(slides)` does the same for a list of slides.
+
+`trackSlideClick` sends the slide's view first if it was not sent yet, then the slide's `default`
+click, then the creative's third-party click trackers once. **A Carousel has no creative-level
+click: never call `fireClick` for a Carousel**, it sends nothing.
+
+```kotlin
+import com.admoai.sdk.model.response.slides
+
+val sdk = Admoai.getInstance()
+
+fun renderCarousel(creative: Creative) {
+    creative.slides.forEach { slide ->                    // server order
+        addItem(id = slide.slideId,                       // identity = slideId
+                image = slide.contents.text("image"),
+                headline = slide.contents.text("headline"))
+    }
+}
+
+// Call this from your visibility callback, once the Carousel is on screen.
+fun carouselBecameVisible(creative: Creative) {
+    sdk.fireImpression(creative.tracking)
+}
+
+// Call this when your visibility check passes: 50% visible for one continuous second.
+fun slideWasViewed(slide: Slide) {
+    sdk.trackSlideView(slide)
+}
+
+fun slideTapped(slide: Slide, creative: Creative) {
+    val url = slide.contents.text("destination_url") ?: return
+    if (context.open(url)) sdk.trackSlideClick(slide, creative)   // not fireClick
+}
+```
+
+## Branded Assets
+
+Branded Assets is a transparent branded image that your app places in its own interface. The first
+asset context is a vehicle marker on a map. The format key is `branded_assets`.
+
+### Content keys
+
+| Key | Type | Required | Read it with |
+|---|---|---|---|
+| `branded_image` | image | Yes | `creative.contents.getContent("branded_image")` |
+| `accessible_label` | text | No | `creative.contents.getContent("accessible_label")` |
+| `destination_url` | url | No | `creative.contents.getContent("destination_url")` |
+
+`creative.metadata?.assetContext` says what the asset stands for; today it is `"vehicle_marker"`.
+Use `accessible_label`, when present, as the image's accessibility label (`contentDescription`).
+
+### How to render it
+
+1. Draw `branded_image` where your interface needs it, for example as the vehicle marker on your map.
+2. When the user taps the asset, call `fireAssetTap(creative.tracking)` and do what your interface
+   does for a tap, for example show a detail view.
+3. If the creative has a `destination_url` and the user opens it, call `fireClick(creative.tracking)`.
+
+**An asset tap is not a click.** `fireAssetTap` is a custom event: it sends no click and is never
+billed as one. When a tap opens the destination straight away, call `fireAssetTap` and then
+`fireClick` once the destination opened. Without `destination_url` there is no click to send, so do
+not show a button that opens nothing. Admoai counts at most one asset tap per served ad.
+
+```kotlin
+val sdk = Admoai.getInstance()
+
+// Call this from your visibility callback, once the asset is on screen.
+fun assetBecameVisible(creative: Creative) {
+    sdk.fireImpression(creative.tracking)
+}
+
+// The user tapped the asset.
+fun onAssetTapped(creative: Creative) {
+    sdk.fireAssetTap(creative.tracking)                   // not a click
+    showAssetDetail(creative)                             // what your interface does for a tap
+}
+
+// The user chose to open the destination, for example from the detail view.
+fun onDestinationChosen(creative: Creative) {
+    val url = creative.contents.text("destination_url") ?: return   // no destination, no click
+    if (context.open(url)) sdk.fireClick(creative.tracking)
+}
+```
 
 ## Video Ad Support
 

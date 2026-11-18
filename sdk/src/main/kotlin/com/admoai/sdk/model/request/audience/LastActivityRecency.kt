@@ -1,12 +1,12 @@
 package com.admoai.sdk.model.request.audience
 
 /**
- * How long ago the user's last trip was, sent as the custom target `last_trip_recency`.
+ * How long ago the user's last activity in your app (a ride, a parking session, a booking) was, sent as the custom target `last_activity_recency`.
  *
  * @property wireValue The exact, case-sensitive string sent on the wire.
  */
-enum class LastTripRecency(val wireValue: String) {
-    /** Never took a trip. */
+enum class LastActivityRecency(val wireValue: String) {
+    /** No activity yet. */
     NEVER("never"),
 
     /** 0 to 7 days ago. */

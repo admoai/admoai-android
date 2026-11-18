@@ -29,8 +29,8 @@ class AudienceCatalogConformanceTest {
         AudienceKeys.ACCOUNT_TYPE to AccountType.values().map { it.wireValue },
         AudienceKeys.SUBSCRIPTION_STATUS to SubscriptionStatus.values().map { it.wireValue },
         AudienceKeys.ACCOUNT_TENURE to AccountTenure.values().map { it.wireValue },
-        AudienceKeys.TRIP_FREQUENCY_30D to TripFrequency30d.values().map { it.wireValue },
-        AudienceKeys.LAST_TRIP_RECENCY to LastTripRecency.values().map { it.wireValue }
+        AudienceKeys.ACTIVITY_FREQUENCY_30D to ActivityFrequency30d.values().map { it.wireValue },
+        AudienceKeys.LAST_ACTIVITY_RECENCY to LastActivityRecency.values().map { it.wireValue }
     )
 
     @Test
