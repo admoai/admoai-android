@@ -1604,6 +1604,7 @@ Every standard format below reads its values from `contents` by key. `getContent
 entry into a `String`, and opens a destination; the examples below use both:
 
 ```kotlin
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -1617,9 +1618,14 @@ import kotlinx.serialization.json.contentOrNull
 fun List<Content>.text(key: String): String? =
     (getContent(key)?.value as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotEmpty() }
 
-/** Opens a destination. Returns true only if an app handled it. */
+/**
+ * Opens a destination. Returns true only if an app handled it. Outside an Activity (for example
+ * `applicationContext`), Android requires FLAG_ACTIVITY_NEW_TASK, so the helper adds it there.
+ */
 fun Context.open(url: String): Boolean = try {
-    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+    if (this !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    startActivity(intent)
     true
 } catch (e: ActivityNotFoundException) {
     false
