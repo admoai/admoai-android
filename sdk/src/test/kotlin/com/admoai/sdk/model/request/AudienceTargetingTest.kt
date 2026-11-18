@@ -405,6 +405,18 @@ class AudienceTargetingTest {
     }
 
     @Test
+    fun `replacing the whole custom list drops the Standard keys set before it`() {
+        val b = builder()
+            .setAgeGroup(AgeGroup.AGE_25_34)
+            .setPublisherSegments(listOf("vip"))
+            .setCustomTargets(listOf(CustomTargetingInfo("loyalty_tier", JsonPrimitive("gold"))))
+        val sent = wire(b)
+        assertTrue(sent.contains("{\"key\":\"loyalty_tier\",\"value\":\"gold\"}"))
+        assertFalse(sent.contains("age_group"))
+        assertFalse(sent.contains("publisher_segments"))
+    }
+
+    @Test
     fun `publisher segments are always sent as a list, even for one code`() {
         `one code is still an array`()
     }

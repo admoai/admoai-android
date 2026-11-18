@@ -107,6 +107,19 @@ Feature: Device carrier and category are collected for the publisher without any
     When it requests a decision
     Then the category and the other device fields are still sent without a carrier
 
+  Scenario: carrier and category are read off the caller's thread, when the request runs
+    Given an app that configured its device details with a context
+    When it asks for ads from its own thread
+    Then nothing is read from the platform until the request is collected
+    And the platform is read on a background thread, not the caller's
+
+  Scenario: a failing reader leaves a debug log naming only the failure
+    Given an app that configured its device details with a context and turned on SDK logging
+    And the platform fails while reading the carrier with a message that contains a value
+    When it requests a decision
+    Then a debug log says the carrier was unavailable and names the exception class
+    And the log does not contain the exception's message
+
   Scenario: the SDK keeps only the application context
     Given an app that configures its device details with an activity
     When the SDK registers the context

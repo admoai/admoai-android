@@ -1,12 +1,18 @@
 package com.admoai.sdk.model.request.audience
 
 /**
- * How many times the user did your app's main activity (a ride, a parking session, a booking) in the last 30 days ("0" is sent as a JSON string, never a number), sent as the custom target `activity_frequency_30d`.
+ * How many activities the user completed in the last 30 days (30 × 24 hours up to the request), sent
+ * as the custom target `activity_frequency_30d`. An activity is one completed use of your service: a
+ * ride, a parking session, a ticket, a rental. Booked, cancelled or failed ones do not count. `"0"` is
+ * sent as a JSON string, never a number.
+ *
+ * Send a value only when you know the fact; when you do not, call the setter with null so the
+ * key is left out. The SDK never infers or computes a value.
  *
  * @property wireValue The exact, case-sensitive string sent on the wire.
  */
 enum class ActivityFrequency30d(val wireValue: String) {
-    /** None. */
+    /** Known to have completed no activity in the window. Not "unknown". */
     ZERO("0"),
 
     /** 1 to 2 times. */

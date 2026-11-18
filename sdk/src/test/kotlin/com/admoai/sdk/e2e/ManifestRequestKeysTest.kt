@@ -93,6 +93,31 @@ class ManifestRequestKeysTest {
     }
 
     @Test
+    fun `apiVersion none sends no version header, absent uses the run default`() {
+        assertNull(manifestApiVersion("none", "2025-11-01"))
+        assertEquals("2025-11-01", manifestApiVersion(null, "2025-11-01"))
+        assertEquals("2025-01-01", manifestApiVersion("2025-01-01", "2025-11-01"))
+
+        Admoai.resetForTesting()
+        Admoai.initialize(
+            SDKConfig(
+                baseUrl = "https://test.admoai.com",
+                apiVersion = manifestApiVersion("none", "2025-11-01"),
+                networkClientEngine = null
+            )
+        )
+        val headers = Admoai.getInstance().getHttpRequestData(
+            DecisionRequestBuilder().addPlacement("home").build()
+        ).headers
+        assertTrue(
+            "no X-Decision-Version in $headers",
+            headers.keys.none {
+                it.equals("X-Decision-Version", ignoreCase = true)
+            }
+        )
+    }
+
+    @Test
     fun `a device with carrier and category becomes a DeviceConfig`() {
         val config = deviceConfigFrom("X5", parse("""{"carrier":"Movistar","category":"tablet"}"""))
         assertNotNull(config)

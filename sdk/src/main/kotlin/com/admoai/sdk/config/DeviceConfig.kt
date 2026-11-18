@@ -18,9 +18,13 @@ import java.util.TimeZone
  * @property manufacturer The device manufacturer (e.g., "Google")
  * @property language The device language (e.g., "en-US")
  * @property carrier The mobile network operator name (e.g., "Movistar"); omitted from the request when null.
- *   [systemDefault] leaves it null; the publisher supplies it.
+ *   A value set here is sent (after trimming; a placeholder such as "wifi" sends nothing). When it is
+ *   null, `systemDefault(context)` makes the SDK read it for every request; the context-free
+ *   `systemDefault()` never does. Reported, not targetable, in this version. On a workspace without
+ *   Audience Signals the engine refuses the whole request (400, code 10009).
  * @property category The device category ([DeviceCategory.PHONE], [DeviceCategory.TABLET] or
- *   [DeviceCategory.OTHER]); omitted from the request when null. [systemDefault] leaves it null.
+ *   [DeviceCategory.OTHER]); omitted from the request when null. Read for every request by
+ *   `systemDefault(context)` when left null, like [carrier], with the same workspace rule.
  * @property collectCarrierAndCategory When true, the SDK reads the carrier and the device category fresh for
  *   every request, unless carrier/category are set here; set by `systemDefault(context)`. Needs a context
  *   registered through `systemDefault(context)`; without one, nothing is collected.
@@ -91,10 +95,15 @@ data class DeviceConfig(
          * Carrier and category stay null here because they need a [Context]: prefer the
          * [systemDefault] overload that takes one to get them.
          *
+         * From Java: `DeviceConfig.systemDefault()`, `systemDefault("id")` or, as before 1.9.0,
+         * `systemDefault(null)`. The overload that takes a context is `systemDefaultWithSignals(context)`
+         * in Java, so a `null` argument stays unambiguous.
+         *
          * @param androidId Optional unique identifier for the device. If not provided, deviceId will be null
          * @return A DeviceConfig instance populated with system information
          */
         @JvmStatic
+        @JvmOverloads
         fun systemDefault(androidId: String? = null): DeviceConfig = DeviceConfig(
             model = Build.MODEL,
             osName = "Android",
@@ -118,11 +127,16 @@ data class DeviceConfig(
          * on a workspace without them the engine refuses the fields (400, code 10009). See the README's
          * Audience Signals section.
          *
+         * In Java this is `DeviceConfig.systemDefaultWithSignals(context)`: under the Kotlin name, a
+         * Java call `systemDefault(null)` written for 1.8.x would match both overloads and stop
+         * compiling.
+         *
          * @param context Any Context; the application context is used.
          * @param androidId Optional unique identifier for the device.
          */
         @JvmStatic
         @JvmOverloads
+        @JvmName("systemDefaultWithSignals")
         fun systemDefault(context: Context, androidId: String? = null): DeviceConfig {
             DeviceSignals.appContext = context.applicationContext
             return systemDefault(androidId).copy(collectCarrierAndCategory = true)

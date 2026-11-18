@@ -1,7 +1,12 @@
 package com.admoai.sdk.model.request.audience
 
 /**
- * How long the account has existed, sent as the custom target `account_tenure`.
+ * Age of the user's account (days since it was created), not of the app installation, sent as the
+ * custom target `account_tenure`. Days are completed 24-hour periods: `floor(seconds / 86400)`, day 0
+ * at creation.
+ *
+ * Send a value only when you know the fact; when you do not, call the setter with null so the
+ * key is left out. The SDK never infers or computes a value.
  *
  * @property wireValue The exact, case-sensitive string sent on the wire.
  */

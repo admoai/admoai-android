@@ -188,18 +188,20 @@ public final class com/admoai/sdk/config/DeviceConfig : com/admoai/sdk/core/Clea
 	public fun hashCode ()I
 	public fun resetToDefaults ()Lcom/admoai/sdk/config/DeviceConfig;
 	public synthetic fun resetToDefaults ()Ljava/lang/Object;
-	public static final fun systemDefault (Landroid/content/Context;)Lcom/admoai/sdk/config/DeviceConfig;
-	public static final fun systemDefault (Landroid/content/Context;Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
+	public static final fun systemDefault ()Lcom/admoai/sdk/config/DeviceConfig;
 	public static final fun systemDefault (Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
+	public static final fun systemDefaultWithSignals (Landroid/content/Context;)Lcom/admoai/sdk/config/DeviceConfig;
+	public static final fun systemDefaultWithSignals (Landroid/content/Context;Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
 	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/admoai/sdk/config/DeviceConfig$Companion {
-	public final fun systemDefault (Landroid/content/Context;)Lcom/admoai/sdk/config/DeviceConfig;
-	public final fun systemDefault (Landroid/content/Context;Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
+	public final fun systemDefault ()Lcom/admoai/sdk/config/DeviceConfig;
 	public final fun systemDefault (Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
-	public static synthetic fun systemDefault$default (Lcom/admoai/sdk/config/DeviceConfig$Companion;Landroid/content/Context;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/config/DeviceConfig;
 	public static synthetic fun systemDefault$default (Lcom/admoai/sdk/config/DeviceConfig$Companion;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/config/DeviceConfig;
+	public final fun systemDefaultWithSignals (Landroid/content/Context;)Lcom/admoai/sdk/config/DeviceConfig;
+	public final fun systemDefaultWithSignals (Landroid/content/Context;Ljava/lang/String;)Lcom/admoai/sdk/config/DeviceConfig;
+	public static synthetic fun systemDefaultWithSignals$default (Lcom/admoai/sdk/config/DeviceConfig$Companion;Landroid/content/Context;Ljava/lang/String;ILjava/lang/Object;)Lcom/admoai/sdk/config/DeviceConfig;
 }
 
 public final class com/admoai/sdk/config/SDKConfig : com/admoai/sdk/core/Clearable {
@@ -283,6 +285,9 @@ public final class com/admoai/sdk/exception/AdMoaiNetworkException : com/admoai/
 	public static final field $stable I
 	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;Ljava/lang/Integer;)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;Ljava/lang/Integer;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;Ljava/lang/Integer;Ljava/util/List;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;Ljava/lang/Integer;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getErrors ()Ljava/util/List;
 	public final fun getStatusCode ()Ljava/lang/Integer;
 }
 

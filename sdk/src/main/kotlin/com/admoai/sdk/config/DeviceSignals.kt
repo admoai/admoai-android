@@ -51,9 +51,13 @@ internal object DeviceSignals {
      * The carrier and category for one request. A value set on [config] wins (the carrier after
      * [normalizeCarrier]) wins absolutely: a carrier set by hand that normalizes to null (" wifi ")
      * sends no carrier and the reader is not called. Only a field left null is read now, and only
-     * when the config asks for collection and a context was registered; each reader fails on its own.
+     * when the config asks for collection and a context was registered; each reader fails on its own,
+     * and [onReaderFailure] hears which signal ("carrier" or "category") failed and why.
      */
-    internal fun resolve(config: DeviceConfig): Pair<String?, DeviceCategory?> {
+    internal fun resolve(
+        config: DeviceConfig,
+        onReaderFailure: (signal: String, error: Exception) -> Unit = { _, _ -> }
+    ): Pair<String?, DeviceCategory?> {
         var carrier = normalizeCarrier(config.carrier)
         var category = config.category
         val context = appContext
@@ -61,14 +65,16 @@ internal object DeviceSignals {
             if (config.carrier == null) {
                 carrier = try {
                     normalizeCarrier(carrierReader(context))
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    onReaderFailure("carrier", e)
                     null
                 }
             }
             if (config.category == null) {
                 category = try {
                     categoryReader(context)
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    onReaderFailure("category", e)
                     null
                 }
             }
@@ -103,11 +109,11 @@ internal object DeviceSignals {
      * requests one. Omitted (null) when the device has no telephony feature, when there is no
      * valid default data subscription, or when the name is not reliable (empty or a placeholder).
      * It never falls back to the default voice SIM, an arbitrary subscription, or the home-SIM
-     * name. Any failure yields null.
+     * name. A failing platform call throws: [resolve] then omits the carrier and reports the failure.
      */
-    fun readCarrier(context: Context): String? = try {
+    fun readCarrier(context: Context): String? {
         val app = context.applicationContext
-        if (!app.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+        return if (!app.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
             null
         } else {
             val subId = SubscriptionManager.getDefaultDataSubscriptionId()
@@ -118,8 +124,6 @@ internal object DeviceSignals {
                 normalizeCarrier(telephony?.createForSubscriptionId(subId)?.networkOperatorName)
             }
         }
-    } catch (_: Exception) {
-        null
     }
 
     /**
@@ -149,12 +153,13 @@ internal object DeviceSignals {
      * the Flutter SDK's native channel, cross-SDK ruling). A failing hardware check does not
      * decide: the display rule applies. The hardware class is decided once per process (it does
      * not change); the display is read on every call, as it can. A missing or unreadable display yields null: no category
-     * is sent rather than a guess.
+     * is sent rather than a guess. A failing display read throws: [resolve] then omits the category
+     * and reports the failure.
      */
-    fun readCategory(context: Context): DeviceCategory? = try {
+    fun readCategory(context: Context): DeviceCategory? {
         val app = context.applicationContext
         val nonHandheld = isNonHandheldHardware(app)
-        if (nonHandheld) {
+        return if (nonHandheld) {
             DeviceCategory.OTHER
         } else {
             val display = app
@@ -169,8 +174,6 @@ internal object DeviceSignals {
                 categoryFor(metrics.widthPixels, metrics.heightPixels, metrics.density)
             }
         }
-    } catch (_: Exception) {
-        null
     }
 
     private fun isNonHandheldHardware(app: Context): Boolean {
