@@ -139,27 +139,32 @@ internal class AdMoaiApiServiceImpl(
     /**
      * Maps a non-2xx decision response to a typed SDK exception.
      *
-     * 422 is the engine's validation rejection and is the one status whose body is worth parsing:
-     * its `errors[]` tells the publisher which placement key, custom-targeting key or journeyOpt
-     * value was refused. Everything else surfaces as [AdMoaiNetworkException] carrying the status
-     * code, matching the pre-existing contract asserted by Ktor3IntegrationTest.
+     * 422 is the engine's validation rejection: its `errors[]` tells the publisher which placement
+     * key, custom-targeting key or journeyOpt value was refused, and it raises
+     * [AdMoaiValidationException]. Every other status surfaces as [AdMoaiNetworkException] carrying
+     * the status code, matching the pre-existing contract asserted by Ktor3IntegrationTest; on a
+     * 4xx it also carries the envelope's `errors[]` (a 400 `10009` is how a workspace without
+     * Audience Signals refuses a device carrier or category), and the codes join the message.
      *
-     * A 422 whose body is absent or unparseable still raises a validation exception, just with an
-     * empty `errors` list — the status alone is enough to know the request was rejected, and
-     * degrading to "network error" here would lose that.
+     * A body that is absent or unparseable leaves `errors` empty: the status alone is enough to
+     * know the request was rejected, and degrading a 422 to "network error" would lose that.
      */
     private suspend fun errorForStatus(response: HttpResponse): AdMoaiException {
         val status = response.status
+        val errors = if (status.value in 400..499) {
+            runCatching { response.body<DecisionResponse>().errors }.getOrNull().orEmpty()
+        } else {
+            emptyList()
+        }
         if (status == HttpStatusCode.UnprocessableEntity) {
-            val errors = runCatching { response.body<DecisionResponse>().errors }
-                .getOrNull()
-                .orEmpty()
             return AdMoaiValidationException(errors)
         }
         val kind = if (status.value in 500..599) "Server" else "Client"
+        val codes = if (errors.isEmpty()) "" else ": " + errors.joinToString("; ") { "${it.code} ${it.message}" }
         return AdMoaiNetworkException(
-            message = "$kind error: ${status.value} ${status.description}",
-            statusCode = status.value
+            message = "$kind error: ${status.value} ${status.description}$codes",
+            statusCode = status.value,
+            errors = errors
         )
     }
 

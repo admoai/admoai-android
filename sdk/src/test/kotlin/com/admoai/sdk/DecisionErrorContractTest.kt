@@ -116,7 +116,7 @@ class DecisionErrorContractTest {
             MockResponse()
                 .setResponseCode(400)
                 .setHeader("Content-Type", "application/json")
-                .setBody(jsonBody(10009, "unknown field journeyOpt"))
+                .setBody(jsonBody(10009, "The body contains an unknown field \\\"carrier\\\""))
         )
         try {
             requestAds()
@@ -124,6 +124,26 @@ class DecisionErrorContractTest {
         } catch (e: AdMoaiNetworkException) {
             assertEquals(400, e.statusCode)
             assertTrue(e.message!!.contains("Client error"))
+            // The gate-OFF device refusal: the README tells the publisher to look for 10009, so the
+            // code has to reach them, on the exception and in the crash-report message.
+            assertEquals(1, e.errors.size)
+            assertEquals(10009, e.errors.first().code)
+            assertEquals("The body contains an unknown field \"carrier\"", e.errors.first().message)
+            assertTrue(e.message!!.contains("10009"))
+        }
+    }
+
+    // Scenario: a 4xx arrives with a body the SDK cannot parse.
+    @Test
+    fun `400 with an unparseable body still throws a network exception with no errors`() {
+        server.enqueue(MockResponse().setResponseCode(400).setBody("Bad Request"))
+        try {
+            requestAds()
+            fail("A 400 must be raised even when its body cannot be parsed")
+        } catch (e: AdMoaiNetworkException) {
+            assertEquals(400, e.statusCode)
+            assertTrue(e.errors.isEmpty())
+            assertTrue(e.message!!.startsWith("Client error: 400"))
         }
     }
 
@@ -142,6 +162,8 @@ class DecisionErrorContractTest {
         } catch (e: AdMoaiNetworkException) {
             assertEquals(500, e.statusCode)
             assertTrue(e.message!!.contains("Server error"))
+            // A 5xx body is the engine's failure, not a refusal of this request: it is not parsed.
+            assertTrue(e.errors.isEmpty())
         }
     }
 

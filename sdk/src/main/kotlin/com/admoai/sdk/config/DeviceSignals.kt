@@ -51,9 +51,13 @@ internal object DeviceSignals {
      * The carrier and category for one request. A value set on [config] wins (the carrier after
      * [normalizeCarrier]) wins absolutely: a carrier set by hand that normalizes to null (" wifi ")
      * sends no carrier and the reader is not called. Only a field left null is read now, and only
-     * when the config asks for collection and a context was registered; each reader fails on its own.
+     * when the config asks for collection and a context was registered; each reader fails on its own,
+     * and [onReaderFailure] hears which signal ("carrier" or "category") failed and why.
      */
-    internal fun resolve(config: DeviceConfig): Pair<String?, DeviceCategory?> {
+    internal fun resolve(
+        config: DeviceConfig,
+        onReaderFailure: (signal: String, error: Exception) -> Unit = { _, _ -> }
+    ): Pair<String?, DeviceCategory?> {
         var carrier = normalizeCarrier(config.carrier)
         var category = config.category
         val context = appContext
@@ -61,14 +65,16 @@ internal object DeviceSignals {
             if (config.carrier == null) {
                 carrier = try {
                     normalizeCarrier(carrierReader(context))
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    onReaderFailure("carrier", e)
                     null
                 }
             }
             if (config.category == null) {
                 category = try {
                     categoryReader(context)
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    onReaderFailure("category", e)
                     null
                 }
             }

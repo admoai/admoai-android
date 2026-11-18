@@ -12,6 +12,8 @@ import android.view.Display
 import com.admoai.sdk.Admoai
 import com.admoai.sdk.model.request.DecisionRequestBuilder
 import com.admoai.sdk.model.request.DeviceCategory
+import com.admoai.sdk.model.response.DecisionResponse
+import com.admoai.sdk.network.AdMoaiApiService
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
@@ -19,6 +21,9 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import io.mockk.verify
 import java.io.File
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -443,6 +448,41 @@ class DeviceSignalsTest {
         val other = deviceOnWire(DeviceConfig.systemDefault(appContextMock()))!!
         assertEquals("Claro", other.text("carrier"))
         assertFalse(other.containsKey("category"))
+    }
+
+    @Test
+    fun `carrier and category are read off the caller's thread, when the request runs`() {
+        val readOn = mutableListOf<Thread>()
+        injectReaders({
+            readOn.add(Thread.currentThread())
+            "Claro"
+        }, { DeviceCategory.PHONE }, IntArray(2))
+        val api = mockk<AdMoaiApiService>()
+        every { api.requestAds(any()) } returns flowOf(mockk<DecisionResponse>())
+        Admoai.getInstance().apiService = api
+        Admoai.getInstance().setDeviceConfig(DeviceConfig.systemDefault(appContextMock()))
+
+        val flow = Admoai.getInstance().requestAds(DecisionRequestBuilder().addPlacement("home").build())
+        assertTrue("nothing is read before the flow is collected", readOn.isEmpty())
+
+        val caller = Thread.currentThread()
+        runBlocking { flow.first() }
+        assertEquals(1, readOn.size)
+        assertTrue("read on ${readOn.single().name}", readOn.single() !== caller)
+    }
+
+    @Test
+    fun `a failing reader leaves a debug log naming only the failure`() {
+        Admoai.resetForTesting()
+        Admoai.initialize(
+            SDKConfig(baseUrl = "https://test.admoai.com", enableLogging = true, networkClientEngine = null)
+        )
+        val logs = mutableListOf<Pair<String, Admoai.LogLevel>>()
+        Admoai.getInstance().logSink = { message, level, _ -> logs.add(message to level) }
+        injectReaders({ throw SecurityException("operator Movistar") }, { DeviceCategory.PHONE }, IntArray(2))
+        deviceOnWire(DeviceConfig.systemDefault(appContextMock()))
+        assertEquals(listOf("Device carrier unavailable: SecurityException" to Admoai.LogLevel.DEBUG), logs)
+        assertFalse(logs.any { it.first.contains("Movistar") })
     }
 
     @Test

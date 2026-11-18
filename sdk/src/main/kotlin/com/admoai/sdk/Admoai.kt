@@ -36,6 +36,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -62,8 +65,14 @@ class Admoai private constructor() {
 
     private val configurationMutex = Mutex()
 
+    @Volatile
     private var userConfig: UserConfig? = null
+
+    // Read once per request into a local: a concurrent clearDeviceConfig() must not null it between reads.
+    @Volatile
     private var deviceConfig: DeviceConfig? = null
+
+    @Volatile
     private var appConfig: AppConfig? = null
 
     /** Sticky publisher-provided Journey session id; seeded into each builder, per-request setter wins. */
@@ -185,9 +194,11 @@ class Admoai private constructor() {
     fun prepareFinalDecisionRequest(initialDecisionRequest: DecisionRequest): DecisionRequest {
         val requestUser = initialDecisionRequest.user
         val globalUser = this.userConfig
+        val deviceConf = this.deviceConfig
+        val appConf = this.appConfig
         val mergedUserId = requestUser?.id ?: globalUser?.id
         val mergedUserIp = requestUser?.ip ?: globalUser?.ip
-        val mergedUserTimezone = requestUser?.timezone ?: globalUser?.timezone ?: this.deviceConfig?.timezone
+        val mergedUserTimezone = requestUser?.timezone ?: globalUser?.timezone ?: deviceConf?.timezone
         val mergedUserConsent = requestUser?.consent ?: globalUser?.consentData
         val mergedUser: User? = if (mergedUserId != null || mergedUserIp != null || mergedUserTimezone != null ||
             mergedUserConsent != null
@@ -221,8 +232,7 @@ class Admoai private constructor() {
             null
         }
 
-        val appObject = if (initialDecisionRequest.collectAppData && this.appConfig != null) {
-            val appConf = this.appConfig!!
+        val appObject = if (initialDecisionRequest.collectAppData && appConf != null) {
             App(
                 name = appConf.appName,
                 version = appConf.appVersion,
@@ -234,9 +244,12 @@ class Admoai private constructor() {
             null
         }
 
-        val deviceObject = if (initialDecisionRequest.collectDeviceData && this.deviceConfig != null) {
-            val devConf = this.deviceConfig!!
-            val (carrier, category) = DeviceSignals.resolve(devConf)
+        val deviceObject = if (initialDecisionRequest.collectDeviceData && deviceConf != null) {
+            val devConf = deviceConf
+            val (carrier, category) = DeviceSignals.resolve(devConf) { signal, e ->
+                // The exception class only: a message could carry a value read from the device.
+                log("Device $signal unavailable: ${e.javaClass.simpleName}", LogLevel.DEBUG)
+            }
             Device(
                 os = devConf.osName,
                 osVersion = devConf.osVersion,
@@ -276,6 +289,10 @@ class Admoai private constructor() {
     /**
      * Requests ads from the AdMoai decision engine.
      *
+     * The final request (the global user, app and device details merged in, and the device carrier
+     * and category read) is built when the flow is collected, on [Dispatchers.IO], so the platform
+     * reads never run on the caller's thread.
+     *
      * @param initialDecisionRequest Decision request with placements and targeting
      * @return Flow emitting the decision response
      * @throws AdMoaiConfigurationException if SDK not initialized
@@ -285,8 +302,9 @@ class Admoai private constructor() {
             throw AdMoaiConfigurationException("SDK not initialized")
         }
         val currentApiService = apiService ?: throw AdMoaiConfigurationException("API service not initialized")
-        val finalDecisionRequest = prepareFinalDecisionRequest(initialDecisionRequest)
-        return currentApiService.requestAds(finalDecisionRequest)
+        return flow {
+            emitAll(currentApiService.requestAds(prepareFinalDecisionRequest(initialDecisionRequest)))
+        }.flowOn(Dispatchers.IO)
     }
 
     fun getHttpRequestData(initialDecisionRequest: DecisionRequest): AdmoaiHttpRequest {
