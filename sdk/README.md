@@ -1767,8 +1767,8 @@ The SDK never fires anything on its own.
 ## Reading content
 
 Every standard format below reads its values from `contents` by key. `getContent(key)` (in
-`com.admoai.sdk.model.response`) returns the entry or `null`. A small helper turns a text or URL
-entry into a `String`, and opens a destination; the examples below use both:
+`com.admoai.sdk.model.response`) returns the entry or `null`. Small helpers turn a text or URL
+entry into a `String`, open a destination, and report each impression once; the examples below use them:
 
 ```kotlin
 import android.app.Activity
@@ -1777,6 +1777,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import com.admoai.sdk.model.response.Content
+import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.getContent
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -1796,6 +1797,22 @@ fun Context.open(url: String): Boolean = try {
     true
 } catch (e: ActivityNotFoundException) {
     false
+}
+
+/**
+ * Reports each served creative's impression once. A composable can leave and re-enter the
+ * composition (a lazy list scrolling back, a configuration change), and `fireImpression` also
+ * sends the third-party trackers on every call, so the "already reported" state must outlive the
+ * composition. Each decision response has its own signed impression URL, so a new ad is new here.
+ * Keep one per ad holder if you want its lifetime to match; this one lives as long as the process.
+ */
+object Impressions {
+    private val reported = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    fun once(creative: Creative, send: () -> Unit) {
+        val id = creative.tracking.impressions?.firstOrNull()?.url ?: return
+        if (reported.add(id)) send()
+    }
 }
 ```
 
@@ -1835,8 +1852,10 @@ An operator can allow several styles on one ad and each decision picks one, so s
 Native Display has one click, with the key `default`; `fireClick` uses it when you pass no key.
 
 The Compose example below loads images with Coil (`io.coil-kt:coil-compose`); use your own image
-loader if you prefer. `LaunchedEffect(creative)` runs once when the ad enters the composition, which
-is the minimum visibility signal: use your own rule when the ad can be partly off screen in a list.
+loader if you prefer. `LaunchedEffect(creative)` runs when the ad enters the composition, which
+is the minimum visibility signal: in a lazy list an item can be composed before it is on screen, so
+use your own visibility rule there. `Impressions.once` keeps the ad from reporting twice when it
+leaves and re-enters the composition.
 
 ```kotlin
 import androidx.compose.foundation.clickable
@@ -1863,7 +1882,8 @@ fun NativeDisplay(creative: Creative) {
     val destination = c.text("destination_url") ?: return
     val height = when (creative.template?.style) { "compact" -> 120.dp; "tall" -> 360.dp; else -> 220.dp }
 
-    LaunchedEffect(creative) { sdk.fireImpression(creative.tracking) }   // once, when on screen
+    // When composed (add your own visibility rule in a list); once per served ad.
+    LaunchedEffect(creative) { Impressions.once(creative) { sdk.fireImpression(creative.tracking) } }
 
     Column(
         Modifier.fillMaxWidth().clickable {
@@ -2036,7 +2056,8 @@ fun TapToExpand(
     val destination = c.text("destination_url") ?: return
     var expanded by remember(creative) { mutableStateOf(false) }
 
-    LaunchedEffect(creative) { sdk.fireImpression(creative.tracking) }   // once, teaser on screen
+    // When composed (add your own visibility rule in a list); once per served ad.
+    LaunchedEffect(creative) { Impressions.once(creative) { sdk.fireImpression(creative.tracking) } }
 
     if (!expanded) {
         Column(Modifier.fillMaxWidth().clickable {
@@ -2049,15 +2070,16 @@ fun TapToExpand(
         }
     } else {
         Column(Modifier.fillMaxWidth()) {
-            AsyncImage(model = expandedImage, contentDescription = null, contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth())
-            c.text("headline")?.let { Text(it) }
-            c.text("supporting_text")?.let { Text(it) }
-            expandedExtra()
-            c.text("cta_text")?.let { cta ->
-                Button(onClick = {
-                    if (context.open(destination)) sdk.fireClick(creative.tracking)   // only when it opened
-                }) { Text(cta) }
+            // The expanded content opens the destination, so it works without cta_text.
+            Column(Modifier.fillMaxWidth().clickable {
+                if (context.open(destination)) sdk.fireClick(creative.tracking)   // only when it opened
+            }) {
+                AsyncImage(model = expandedImage, contentDescription = null, contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxWidth())
+                c.text("headline")?.let { Text(it) }
+                c.text("supporting_text")?.let { Text(it) }
+                expandedExtra()
+                c.text("cta_text")?.let { Text(it) }
             }
             c.text("disclaimer")?.let { Text(it) }
             Button(onClick = {
@@ -2069,7 +2091,8 @@ fun TapToExpand(
 }
 ```
 
-Fire the impression when the teaser is first on screen, not while you build the view.
+Fire the impression when the teaser is first on screen, not while you build the view. The expanded
+content opens the destination too, so an ad without `cta_text` can still be opened.
 
 ## Branded Assets
 
@@ -2157,7 +2180,9 @@ really happened.
 tracker: show no tappable call to action, and `fireClick` sends nothing. Admoai stores the events as
 you send them and adds no `start` or quartile for you.
 
-The example plays the file with the platform `VideoView` and reads its progress.
+The example plays the file with the platform `VideoView` and reads its progress. The view is
+attached from the start (it needs a surface before it can prepare), the poster covers it until
+playback starts, and an error brings the poster back.
 
 ```kotlin
 import android.net.Uri
@@ -2166,12 +2191,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -2188,33 +2215,39 @@ fun StandardVideo(creative: Creative) {
     val poster = c.text("poster_image") ?: return
     val video = c.text("video_asset") ?: return
     val destination = c.text("destination_url")             // null: no tap, no click
-    val view = remember { VideoView(context) }
+    val view = remember(creative) { VideoView(context) }
     var playing by remember(creative) { mutableStateOf(false) }
+    var failed by remember(creative) { mutableStateOf(false) }
+    val fired = remember(creative) { mutableSetOf<String>() }
+    val steps = listOf("start" to 0.0, "first_quartile" to 0.25, "midpoint" to 0.5,
+        "third_quartile" to 0.75, "complete" to 0.98)
 
-    LaunchedEffect(creative) {                               // once, when the ad is on screen
-        sdk.fireImpression(creative.tracking)                // before playback
-        view.setVideoURI(Uri.parse(video))
-        view.setOnPreparedListener { view.start(); playing = true }
-        val fired = mutableSetOf<String>()
-        val steps = listOf("start" to 0.0, "first_quartile" to 0.25, "midpoint" to 0.5,
-            "third_quartile" to 0.75, "complete" to 0.98)
-        while (true) {
-            delay(250)
-            if (!view.isPlaying || view.duration <= 0) continue
-            val progress = view.currentPosition.toDouble() / view.duration
-            for ((key, threshold) in steps) {
-                if (progress >= threshold && fired.add(key)) sdk.fireVideoEvent(creative.tracking, key)
-            }
-            if ("complete" in fired) break
+    fun report(progress: Double) {                           // every point playback has reached, once
+        for ((key, threshold) in steps) {
+            if (progress >= threshold && fired.add(key)) sdk.fireVideoEvent(creative.tracking, key)
         }
     }
+
+    LaunchedEffect(creative) {                               // when composed (use your own visibility rule in a list)
+        Impressions.once(creative) { sdk.fireImpression(creative.tracking) }   // before playback
+        view.setOnPreparedListener { view.start(); playing = true }
+        view.setOnErrorListener { _, _, _ -> failed = true; playing = false; true }   // the poster comes back
+        view.setOnCompletionListener { report(1.0) }         // the video ended between two polls
+        view.setVideoURI(Uri.parse(video))
+        while (!failed && "complete" !in fired) {
+            delay(250)
+            if (!view.isPlaying || view.duration <= 0) continue
+            report(view.currentPosition.toDouble() / view.duration)
+        }
+    }
+    DisposableEffect(creative) { onDispose { view.stopPlayback() } }   // leaving the screen stops it
 
     Box(Modifier.fillMaxWidth().clickable(enabled = destination != null) {
         if (destination != null && context.open(destination)) sdk.fireClick(creative.tracking)
     }) {
+        if (!failed) AndroidView(factory = { view }, modifier = Modifier.matchParentSize())
         AsyncImage(model = poster, contentDescription = null, contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxWidth())              // also the fallback if playback fails
-        if (playing) AndroidView(factory = { view }, modifier = Modifier.fillMaxWidth())
+            modifier = Modifier.fillMaxWidth().alpha(if (playing) 0f else 1f))   // covers the player until it plays
     }
 }
 ```
