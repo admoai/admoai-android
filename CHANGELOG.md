@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0](https://github.com/admoai/admoai-android/compare/v1.8.0...v1.9.0) (2026-11-19)
+
+
+### Added
+
+* carrier and category collection ([#138](https://github.com/admoai/admoai-android/issues/138)) ([49ea261](https://github.com/admoai/admoai-android/commit/49ea261a41d30280bf42c1b713b3f835ebb5898c))
+* scenarios runner executes device and segment scenarios, and the audience signals guide ([#142](https://github.com/admoai/admoai-android/issues/142)) ([bd84d1a](https://github.com/admoai/admoai-android/commit/bd84d1ac4397e085bc3c84cdb11488f2b6e697ef))
+* the activity presets activity_frequency_30d and last_activity_recency replace the trip ones ([b671b46](https://github.com/admoai/admoai-android/commit/b671b46773ca9fca0d028a4903139a2bd647d07c))
+* typed audience targeting helpers and device model ([#136](https://github.com/admoai/admoai-android/issues/136)) ([7572cf3](https://github.com/admoai/admoai-android/commit/7572cf340718f219cdb2d54e5cd54db3efc1c85f))
+
+
+### Fixed
+
+* 4xx errors carry the engine's error codes in AdMoaiNetworkException.errors ([63af895](https://github.com/admoai/admoai-android/commit/63af89551b878fcffd34b3d86930ee8f203dead5))
+* Java callers can call DeviceConfig.systemDefault(null) again ([63af895](https://github.com/admoai/admoai-android/commit/63af89551b878fcffd34b3d86930ee8f203dead5))
+* the request and its device reads are built off the caller's thread ([63af895](https://github.com/admoai/admoai-android/commit/63af89551b878fcffd34b3d86930ee8f203dead5))
+
+
+### Documentation
+
+* README sections for Carousel and Branded Assets ([b671b46](https://github.com/admoai/admoai-android/commit/b671b46773ca9fca0d028a4903139a2bd647d07c))
+* the Standard keys and publisher segments need Audience Signals enabled for the workspace ([#145](https://github.com/admoai/admoai-android/issues/145)) ([1d3a63e](https://github.com/admoai/admoai-android/commit/1d3a63e989da3edf83299db470d7bbcc331a5687))
+* what each audience value means, reading the error code, and setCustomTargets dropping the Standard keys ([63af895](https://github.com/admoai/admoai-android/commit/63af89551b878fcffd34b3d86930ee8f203dead5))
+
 ## [1.8.0](https://github.com/admoai/admoai-android/compare/v1.7.2...v1.8.0) (2026-11-10)
 
 
