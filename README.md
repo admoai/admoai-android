@@ -20,6 +20,9 @@ AdMoai Android SDK provides a comprehensive native advertising solution for Andr
   can target your users the same way across publishers.
   Read [Audience Signals](./sdk/README.md#audience-signals): you compute the values, the SDK
   only sends them
+- **Admoai Standard Formats** - Native Display, Carousel, Tap-to-expand, Branded Assets, Standard Video and
+  templates based on a standard. Read [Admoai standard formats](./sdk/README.md#admoai-standard-formats):
+  the SDK draws none of them, so the guide shows the rendering and the tracking calls for each
 - **Advanced Targeting** - Geo, location, destination, and custom targeting options
 - **Jetpack Compose** - First-class Compose support with `rememberAdState`
 - **GDPR Compliance** - Built-in user consent management

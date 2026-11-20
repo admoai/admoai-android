@@ -6,6 +6,10 @@ The Admoai Android SDK is a lightweight wrapper around the Decision Engine API, 
 
 - **Native Ads** – Multiple template types (wide, image+text, text-only), plus the standard
   [Carousel](#carousel) and [Branded Assets](#branded-assets) formats
+- **Admoai standard formats** – Native Display, Carousel, Tap-to-expand, Branded Assets, Standard Video
+  and Sponsored Pin Locations, plus templates based on a standard. Read
+  [Admoai standard formats](#admoai-standard-formats): the SDK draws none of them, and it never
+  fires a beacon on its own
 - **Video Ads** – JSON, VAST Tag, and VAST XML delivery methods
 - **Journey Ads** – Multi-stage, single-advertiser takeovers across a user session
 - **Sponsored Pin Locations** – Promote an advertiser's real places as pins on your map.
@@ -1656,11 +1660,115 @@ eligible for that placement.
 **Does any of this fan out third-party trackers?** No. Third-party trackers stay at the creative
 level and are not duplicated per pin.
 
+## Admoai standard formats
+
+Admoai defines six standard ad formats. Each has a fixed set of content keys and a fixed set of
+tracking events. The decision response tells your app what to show; your app draws it and reports
+what the user did. **The SDK draws none of them**: it decodes the response and gives you the
+tracking helpers.
+
+| Format | Format key | What it is | Section |
+|---|---|---|---|
+| Native Display | `card` | One image with optional text and one destination. | [Native Display](#native-display) |
+| Carousel | `carousel` | Two to ten slides, each with its own destination. | [Carousel](#carousel) |
+| Tap-to-expand | `expandable_banner` | A small teaser that expands into a larger view. | [Tap-to-expand](#tap-to-expand) |
+| Branded Assets | `branded_assets` | A transparent branded image, for example a vehicle marker on a map. | [Branded Assets](#branded-assets) |
+| Standard Video | `standard_video` | A video with a poster image and playback tracking. | [Standard Video](#standard-video) |
+| Sponsored Pin Locations | `sponsored_pin_location` | An advertiser's real places, shown as pins on your map. | [Sponsored Pin Locations](#sponsored-pin-locations) |
+
+An operator can also create a template **based on** a standard and add fields of their own. See
+[Templates based on a standard](#templates-based-on-a-standard).
+
+### What you need
+
+- **SDK 1.8.0 or newer.** Older versions decode the response but do not expose the format metadata
+  or the Carousel slides, and have no slide, expand, close or asset-tap helpers.
+- **`apiVersion = "2025-11-01"` in `SDKConfig`**, as in [Quick Start](#1-initialize-the-sdk). The SDK
+  sends the version header only when `apiVersion` is set. Without it the engine answers with its
+  default version: it skips standard-format campaigns (warning `10025`, so the placement returns no
+  ad from them) and serves a template based on a standard without its format metadata.
+- **The `text` and `open` helpers from [Reading content](#reading-content)**, used by every example
+  below.
+
+### Detecting the format
+
+Every creative served as a standard format has these properties on `creative.metadata`
+(`CreativeMetadata`). All are nullable.
+
+| Property | Meaning |
+|---|---|
+| `effectiveStandardFormatKey` | The standard the creative follows: one of the format keys above. |
+| `effectiveStandardFormatVersion` | The version of that standard, a whole number starting at 1. A published version never changes. |
+| `templateSource` | `admoai_standard` (the standard itself) or `based_on_standard` (an operator's template built on it). |
+| `assetContext` | Branded Assets only: what the asset is for, today `vehicle_marker`. |
+
+Choose the renderer from the format key, and always have an `else`:
+
+```kotlin
+when (creative.metadata?.effectiveStandardFormatKey) {
+    "card" -> renderNativeDisplay(creative)
+    "carousel" -> renderCarousel(creative)
+    "expandable_banner" -> renderTapToExpand(creative)
+    "branded_assets" -> renderBrandedAsset(creative)
+    "standard_video" -> renderStandardVideo(creative)
+    "sponsored_pin_location" -> renderPins(creative)
+    else -> renderExistingWay(creative)   // absent, or a value this app does not know
+}
+```
+
+The properties are `null` on ads that do not use a standard format, so your existing rendering does
+not change. For a template based on a standard, the key and version are the standard's, not the
+operator's template's: a derived Carousel still reports `carousel`. In the `else` branch do not
+crash and do not throw; if your app cannot render the creative, show nothing for the slot and fire
+no event. Do not branch on `templateSource` or the version to hide an ad.
+
+### Optional content: absent means not set
+
+Some content keys are optional. When an operator leaves one empty, Admoai leaves it out of the
+response: it never sends an empty string, an empty image or a placeholder. So a missing key is
+normal and never an error. `contents.text(key)` returns `null` for it; hide the view instead of
+showing a blank label, an empty image or a default text, and lay the ad out so it looks right
+without each optional key.
+
+### Who does what
+
+| Admoai | Your app |
+|---|---|
+| Decides which ad is served and which format it uses. | Draws the format. |
+| Sends the content for each key, and only the keys that have a value. | Treats a missing key as "not set". |
+| Signs every tracking URL and removes duplicate events on the server. | Calls the tracking helper at the right moment, and passes it the object it received. |
+| | Opens the destination when the user taps, and fires the click only when it opened. |
+
+Never build or edit a tracking URL. Fire impressions from your own visibility callback, only when
+the ad is really on screen.
+
+### Tolerant-reader rules
+
+1. **Ignore unknown fields.** Admoai adds fields over time without a new API version.
+2. **Strings with a fixed set of values are open sets**: format keys, template sources, content types, styles and tracking keys. A value you do not know must not crash your app.
+3. **A `when` over a server string needs an `else`.**
+4. **Absent is not an error.**
+5. **Find a content entry by its `key`, never by its index.** The exception is Carousel slides, which you render in the order sent.
+6. **One bad entry is not a bad ad.** The SDK drops a malformed entry and keeps the rest; do the same in your own parsing. A content type this SDK version does not know is `ContentType.UNKNOWN`, and `rawType` keeps what the engine sent.
+
+### Tracking at a glance
+
+| Format | Fire | Never fire |
+|---|---|---|
+| Native Display | `fireImpression`, `fireClick` | |
+| Carousel | `fireImpression`, `trackSlideView`, `trackSlideClick` | `fireClick` |
+| Tap-to-expand | `fireImpression`, `fireExpand`, `fireClose`, `fireClick` | `fireClick` on expand |
+| Branded Assets | `fireImpression`, `fireAssetTap`, `fireClick` | `fireClick` for a tap that opens nothing |
+| Standard Video | `fireImpression`, `fireVideoEvent`, `fireClick` | a skip event, `fireClick` without a destination |
+| Sponsored Pin Locations | see [Sponsored Pin Locations](#sponsored-pin-locations) | |
+
+The SDK never fires anything on its own.
+
 ## Reading content
 
 Every standard format below reads its values from `contents` by key. `getContent(key)` (in
-`com.admoai.sdk.model.response`) returns the entry or `null`. A small helper turns a text or URL
-entry into a `String`, and opens a destination; the examples below use both:
+`com.admoai.sdk.model.response`) returns the entry or `null`. Small helpers turn a text or URL
+entry into a `String`, open a destination, and report each impression once; the examples below use them:
 
 ```kotlin
 import android.app.Activity
@@ -1669,6 +1777,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import com.admoai.sdk.model.response.Content
+import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.getContent
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -1689,11 +1798,106 @@ fun Context.open(url: String): Boolean = try {
 } catch (e: ActivityNotFoundException) {
     false
 }
+
+/**
+ * Reports each served creative's impression once. A composable can leave and re-enter the
+ * composition (a lazy list scrolling back, a configuration change), and `fireImpression` also
+ * sends the third-party trackers on every call, so the "already reported" state must outlive the
+ * composition. Each decision response has its own signed impression URL, so a new ad is new here.
+ * Keep one per ad holder if you want its lifetime to match; this one lives as long as the process.
+ */
+object Impressions {
+    private val reported = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    fun once(creative: Creative, send: () -> Unit) {
+        val id = creative.tracking.impressions?.firstOrNull()?.url ?: return
+        if (reported.add(id)) send()
+    }
+}
 ```
 
 When an optional key is absent, hide its view: do not show a blank label, an empty image view or a
 default text in its place. Standard formats need `apiVersion = "2025-11-01"` in the SDK config;
 without it, standard-format ads are skipped.
+
+## Native Display
+
+Native Display is one image with optional text and one destination. The format key is `card`.
+It needs `apiVersion = "2025-11-01"`.
+
+### Content keys
+
+| Key | Type | Required |
+|---|---|---|
+| `image` | image | Yes |
+| `destination_url` | url | Yes |
+| `brand_logo` | image | No |
+| `headline` | text | No |
+| `supporting_text` | text | No |
+| `cta_text` | text | No |
+
+The simplest valid ad is an image and a destination. Hide any optional element whose key is absent.
+
+`creative.template?.style` is `compact`, `default` or `tall`; each response carries exactly one.
+An operator can allow several styles on one ad and each decision picks one, so support all three.
+`style` is nullable: fall back to `default`.
+
+### Tracking
+
+| Event | When | Call |
+|---|---|---|
+| Impression | The ad is on screen. | `fireImpression(creative.tracking)` |
+| Click | The user taps and the destination opens. | `fireClick(creative.tracking)` |
+
+Native Display has one click, with the key `default`; `fireClick` uses it when you pass no key.
+
+The Compose example below loads images with Coil (`io.coil-kt:coil-compose`); use your own image
+loader if you prefer. `LaunchedEffect(creative)` runs when the ad enters the composition, which
+is the minimum visibility signal: in a lazy list an item can be composed before it is on screen, so
+use your own visibility rule there. `Impressions.once` keeps the ad from reporting twice when it
+leaves and re-enters the composition.
+
+```kotlin
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.admoai.sdk.Admoai
+import com.admoai.sdk.model.response.Creative
+
+@Composable
+fun NativeDisplay(creative: Creative) {
+    val sdk = Admoai.getInstance()
+    val context = LocalContext.current
+    val c = creative.contents
+    val image = c.text("image") ?: return
+    val destination = c.text("destination_url") ?: return
+    val height = when (creative.template?.style) { "compact" -> 120.dp; "tall" -> 360.dp; else -> 220.dp }
+
+    // When composed (add your own visibility rule in a list); once per served ad.
+    LaunchedEffect(creative) { Impressions.once(creative) { sdk.fireImpression(creative.tracking) } }
+
+    Column(
+        Modifier.fillMaxWidth().clickable {
+            if (context.open(destination)) sdk.fireClick(creative.tracking)   // only when it opened
+        }
+    ) {
+        AsyncImage(model = image, contentDescription = null, contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxWidth().height(height))
+        c.text("headline")?.let { Text(it) }                  // hide when null
+        c.text("supporting_text")?.let { Text(it) }
+        c.text("cta_text")?.let { Text(it) }
+    }
+}
+```
 
 ## Carousel
 
@@ -1771,6 +1975,125 @@ fun slideTapped(slide: Slide, creative: Creative) {
 }
 ```
 
+## Tap-to-expand
+
+Tap-to-expand is a small teaser that the user can open into a larger view. The format key is
+`expandable_banner`, the template style is `expandable`, and it needs `apiVersion = "2025-11-01"`.
+
+### Content keys
+
+| Key | Type | Required |
+|---|---|---|
+| `teaser_image` | image | Yes |
+| `expanded_image` | image | Yes |
+| `destination_url` | url | Yes |
+| `teaser_headline` | text | No |
+| `headline` | text | No |
+| `supporting_text` | text | No |
+| `cta_text` | text | No |
+| `disclaimer` | text | No |
+
+`teaser_image` and `teaser_headline` belong to the compact state. `expanded_image`, `headline`,
+`supporting_text`, `cta_text` and `disclaimer` belong to the expanded state. Both states arrive in
+the same creative.
+
+### How to render it
+
+1. Show the teaser in the compact state, with `teaser_image` and `teaser_headline` when present.
+2. When the user taps the teaser, expand to the larger view with the expanded keys.
+3. Give the user a way to close the expanded view.
+4. Open `destination_url` only when the user taps the call to action or the expanded content, never
+   when they expand.
+
+You choose how the expansion looks and animates.
+
+### Tracking
+
+| Event | When | Call |
+|---|---|---|
+| Impression | The teaser is on screen. | `fireImpression(creative.tracking)` |
+| Expand | The ad actually expanded. | `fireExpand(creative.tracking)` |
+| Close | The expanded view actually closed. | `fireClose(creative.tracking)` |
+| Click | The user taps through and the destination opens. | `fireClick(creative.tracking)` |
+
+**Expanding is not a click.** `fireExpand` and `fireClose` are custom events (`expand`, `close`).
+They send no click and are never billed as one. Only `fireClick` records a click, and only when the
+destination opens. Call `fireExpand` and `fireClose` when the state has really changed, not when a
+gesture starts that may be cancelled. Admoai counts at most one expand and one close for each
+served ad, so a second call does no harm.
+
+```kotlin
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.admoai.sdk.Admoai
+import com.admoai.sdk.model.response.Creative
+
+@Composable
+fun TapToExpand(
+    creative: Creative,
+    expandedExtra: @Composable () -> Unit = {},          // room for fields an operator adds
+) {
+    val sdk = Admoai.getInstance()
+    val context = LocalContext.current
+    val c = creative.contents
+    val teaser = c.text("teaser_image") ?: return
+    val expandedImage = c.text("expanded_image") ?: return
+    val destination = c.text("destination_url") ?: return
+    var expanded by remember(creative) { mutableStateOf(false) }
+
+    // When composed (add your own visibility rule in a list); once per served ad.
+    LaunchedEffect(creative) { Impressions.once(creative) { sdk.fireImpression(creative.tracking) } }
+
+    if (!expanded) {
+        Column(Modifier.fillMaxWidth().clickable {
+            expanded = true
+            sdk.fireExpand(creative.tracking)                // the view is now expanded
+        }) {
+            AsyncImage(model = teaser, contentDescription = null, contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxWidth().height(100.dp))
+            c.text("teaser_headline")?.let { Text(it) }
+        }
+    } else {
+        Column(Modifier.fillMaxWidth()) {
+            // The expanded content opens the destination, so it works without cta_text.
+            Column(Modifier.fillMaxWidth().clickable {
+                if (context.open(destination)) sdk.fireClick(creative.tracking)   // only when it opened
+            }) {
+                AsyncImage(model = expandedImage, contentDescription = null, contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxWidth())
+                c.text("headline")?.let { Text(it) }
+                c.text("supporting_text")?.let { Text(it) }
+                expandedExtra()
+                c.text("cta_text")?.let { Text(it) }
+            }
+            c.text("disclaimer")?.let { Text(it) }
+            Button(onClick = {
+                expanded = false
+                sdk.fireClose(creative.tracking)             // the view is now closed
+            }) { Text("Close") }
+        }
+    }
+}
+```
+
+Fire the impression when the teaser is first on screen, not while you build the view. The expanded
+content opens the destination too, so an ad without `cta_text` can still be opened.
+
 ## Branded Assets
 
 Branded Assets is a transparent branded image that your app places in its own interface. The first
@@ -1819,6 +2142,172 @@ fun onDestinationChosen(creative: Creative) {
     if (context.open(url)) sdk.fireClick(creative.tracking)
 }
 ```
+
+## Standard Video
+
+Standard Video is a video with a poster image and optional text. The format key is
+`standard_video`, it has one style (`default`), and it needs `apiVersion = "2025-11-01"`. It is
+delivered as JSON video, so everything in [Video Ad Support](#video-ad-support) and
+[Video Tracking Events](#video-tracking-events) applies; this section lists only what the standard
+adds. There is no VAST.
+
+- `creative.metadata?.format` is `video` and `creative.delivery` is `json`. The file URL is in `video_asset`.
+- The ad is never skippable: the response has no skippable setting and no skip offset. Add no skip control and fire no skip event.
+
+| Key | Type | Required |
+|---|---|---|
+| `video_asset` | video | Yes |
+| `poster_image` | image | Yes |
+| `brand_logo` | image | No |
+| `headline` | text | No |
+| `supporting_text` | text | No |
+| `cta_text` | text | No |
+| `destination_url` | url | No |
+| `disclaimer` | text | No |
+
+`creative.metadata?.duration` and `aspectRatio` can also be present. Show `poster_image` first. If the
+video cannot load or play, keep showing it instead of a black view, and fire only the events that
+really happened.
+
+| Event | When | Call |
+|---|---|---|
+| Impression | The ad is on screen, before playback starts. | `fireImpression(creative.tracking)` |
+| `start`, `first_quartile`, `midpoint`, `third_quartile` | Playback reaches 0%, 25%, 50%, 75%. | `fireVideoEvent(creative.tracking, "<key>")` |
+| `complete` | 98% played. | `fireVideoEvent(creative.tracking, "complete")` |
+| Click | The user taps and the destination opens. | `fireClick(creative.tracking)` |
+
+**No click without a destination.** When `destination_url` is absent the creative has no click
+tracker: show no tappable call to action, and `fireClick` sends nothing. Admoai stores the events as
+you send them and adds no `start` or quartile for you.
+
+The example plays the file with the platform `VideoView` and reads its progress. The view is
+attached from the start (it needs a surface before it can prepare), the poster covers it until
+playback starts, and an error brings the poster back.
+
+```kotlin
+import android.net.Uri
+import android.widget.VideoView
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import coil.compose.AsyncImage
+import com.admoai.sdk.Admoai
+import com.admoai.sdk.model.response.Creative
+import kotlinx.coroutines.delay
+
+@Composable
+fun StandardVideo(creative: Creative) {
+    val sdk = Admoai.getInstance()
+    val context = LocalContext.current
+    val c = creative.contents
+    val poster = c.text("poster_image") ?: return
+    val video = c.text("video_asset") ?: return
+    val destination = c.text("destination_url")             // null: no tap, no click
+    val view = remember(creative) { VideoView(context) }
+    var playing by remember(creative) { mutableStateOf(false) }
+    var failed by remember(creative) { mutableStateOf(false) }
+    val fired = remember(creative) { mutableSetOf<String>() }
+    val steps = listOf("start" to 0.0, "first_quartile" to 0.25, "midpoint" to 0.5,
+        "third_quartile" to 0.75, "complete" to 0.98)
+
+    fun report(progress: Double) {                           // every point playback has reached, once
+        for ((key, threshold) in steps) {
+            if (progress >= threshold && fired.add(key)) sdk.fireVideoEvent(creative.tracking, key)
+        }
+    }
+
+    LaunchedEffect(creative) {                               // when composed (use your own visibility rule in a list)
+        Impressions.once(creative) { sdk.fireImpression(creative.tracking) }   // before playback
+        view.setOnPreparedListener { view.start(); playing = true }
+        view.setOnErrorListener { _, _, _ -> failed = true; playing = false; true }   // the poster comes back
+        view.setOnCompletionListener { report(1.0) }         // the video ended between two polls
+        view.setVideoURI(Uri.parse(video))
+        while (!failed && "complete" !in fired) {
+            delay(250)
+            if (!view.isPlaying || view.duration <= 0) continue
+            report(view.currentPosition.toDouble() / view.duration)
+        }
+    }
+    DisposableEffect(creative) { onDispose { view.stopPlayback() } }   // leaving the screen stops it
+
+    Box(Modifier.fillMaxWidth().clickable(enabled = destination != null) {
+        if (destination != null && context.open(destination)) sdk.fireClick(creative.tracking)
+    }) {
+        if (!failed) AndroidView(factory = { view }, modifier = Modifier.matchParentSize())
+        AsyncImage(model = poster, contentDescription = null, contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxWidth().alpha(if (playing) 0f else 1f))   // covers the player until it plays
+    }
+}
+```
+
+---
+
+## Templates based on a standard
+
+An operator can create a template **based on** a standard and add fields of their own. The format
+stays the standard's; the creative simply carries more keys. The response then has:
+
+- every content key of the standard, in the standard's order, and
+- the operator's extra keys, after them.
+
+The format key and version are the standard's, and `templateSource` is `based_on_standard`: a
+derived Carousel reports `carousel`, a derived Tap-to-expand reports `expandable_banner`. The
+standard's own keys and tracking events behave exactly as in its section above, and an extra key
+never replaces a standard key. (`creative.template?.key` is the operator's template key, not the
+standard's, so never choose a renderer from it.)
+
+So your app should:
+
+1. **Pick the renderer from `effectiveStandardFormatKey`**, as in [Detecting the format](#detecting-the-format), and render the standard part with that format's renderer.
+2. **Read the extra keys by name** (`creative.contents.text("expanded_headline")`) and show the ones you know how to show. Extra keys use the same `key`, `type` and `value` shape as every other key; read `type` (or `rawType`) to decide how to show a value.
+3. **Treat extra keys as optional**, unless your own template contract says otherwise.
+4. **Ignore extra keys you do not know.** Do not fail, do not show an error and do not drop the ad.
+5. **Leave custom tracking events alone** unless your app has a reason to fire one. Operators can add their own; fire one with `sdk.fireCustomEvent(creative.tracking, "<key>")` when the user does the matching action.
+
+A template based on Sponsored Pin Locations works the same way: it reports `sponsored_pin_location`
+and `creative.matchedPoints` carries the pins (see [Sponsored Pin Locations](#sponsored-pin-locations)), with the operator's extra keys in `creative.contents`.
+
+### Worked example
+
+An operator built the template `promo_expandable` on Tap-to-expand and added a text field
+`expanded_headline` that should appear in the expanded view. The response contains the eight
+Tap-to-expand keys followed by `expanded_headline`, with `effectiveStandardFormatKey` =
+`expandable_banner` and `templateSource` = `based_on_standard`. `TapToExpand` is the composable from
+[Tap-to-expand](#tap-to-expand); the extra key goes in its `expandedExtra` slot.
+
+```kotlin
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import com.admoai.sdk.model.response.Creative
+
+@Composable
+fun AdView(creative: Creative) {
+    when (creative.metadata?.effectiveStandardFormatKey) {
+        "expandable_banner" ->
+            // Standard part: the standard renderer. Extra part: read by name, shown only when set.
+            TapToExpand(creative) {
+                creative.contents.text("expanded_headline")?.let { Text(it) }
+            }
+        else -> Unit                                         // nothing to render: no view, no event
+    }
+}
+```
+
+Because the format key is the standard's, the same branch renders the plain standard Tap-to-expand
+(no `expanded_headline`, so the extra content is simply absent) and every operator template based
+on it.
 
 ## Video Ad Support
 
