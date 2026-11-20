@@ -1,5 +1,6 @@
 package com.admoai.sdk
 
+import android.content.Context
 import androidx.annotation.VisibleForTesting
 import com.admoai.sdk.config.AppConfig
 import com.admoai.sdk.config.DeviceConfig
@@ -7,10 +8,15 @@ import com.admoai.sdk.config.DeviceSignals
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.config.UserConfig
 import com.admoai.sdk.exception.AdMoaiConfigurationException
+import com.admoai.sdk.interactive.BridgeTransport
 import com.admoai.sdk.interactive.ExperimentalInteractiveExperienceApi
+import com.admoai.sdk.interactive.FormPresentation
 import com.admoai.sdk.interactive.InteractiveExperienceOptIn
+import com.admoai.sdk.interactive.LeadFormController
+import com.admoai.sdk.interactive.LeadFormHost
 import com.admoai.sdk.interactive.LeadFormValueProvider
 import com.admoai.sdk.interactive.SecureFormSurface
+import com.admoai.sdk.interactive.SecureFormWebView
 import com.admoai.sdk.model.common.normalizeSessionId
 import com.admoai.sdk.model.common.sessionIdRejectionReason
 import com.admoai.sdk.model.request.App
@@ -22,6 +28,7 @@ import com.admoai.sdk.model.request.Targeting
 import com.admoai.sdk.model.request.User
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.DecisionResponse
+import com.admoai.sdk.model.response.InteractiveExperience
 import com.admoai.sdk.model.response.MatchedPoint
 import com.admoai.sdk.model.response.SLIDE_DEFAULT_CLICK_KEY
 import com.admoai.sdk.model.response.SLIDE_VIEW_KEY
@@ -124,6 +131,11 @@ class Admoai private constructor() {
     @Volatile
     internal var secureFormSurfaceAvailable: () -> Boolean = SecureFormSurface::isAvailable
 
+    /** Test seam: builds the form transport in place of the real WebView (null = the real one). */
+    @VisibleForTesting
+    @Volatile
+    internal var leadFormTransportFactory: ((Context, String) -> BridgeTransport)? = null
+
     /**
      * Opts in to Lead Generation: from now on each decision request declares support, and lists by
      * key name (never value) the standard attributes [valueProvider] says the app holds.
@@ -137,6 +149,47 @@ class Admoai private constructor() {
     @ExperimentalInteractiveExperienceApi
     fun disableInteractiveExperiences() {
         leadFormValueProvider = null
+    }
+
+    /**
+     * Creates the controller that prepares and opens the Lead Generation form of [creative], shown
+     * as [presentation] and reporting to [host]. Returns null when the app has not opted in (see
+     * [enableInteractiveExperiences]), the device has no secure form view, or the creative has no
+     * usable Lead Generation experience: render that creative as before, or not at all.
+     *
+     * Call it on the main thread, once per served creative, and dispose the controller when its
+     * form goes away.
+     */
+    @ExperimentalInteractiveExperienceApi
+    fun createLeadFormController(
+        context: Context,
+        creative: Creative,
+        presentation: FormPresentation,
+        host: LeadFormHost
+    ): LeadFormController? {
+        if (leadFormValueProvider == null || !secureFormSurfaceAvailable()) return null
+        val descriptor = creative.interactiveExperience as? InteractiveExperience.LeadGeneration ?: return null
+        val origin = originOf(descriptor.launchUrl) ?: return null
+        val factory = leadFormTransportFactory
+        return LeadFormController(
+            descriptor = descriptor,
+            presentation = presentation,
+            host = host,
+            transportFactory = { factory?.invoke(context, origin) ?: SecureFormWebView(context, origin) },
+            log = { log(it, LogLevel.DEBUG) }
+        )
+    }
+
+    private fun originOf(url: String): String? = try {
+        val uri = java.net.URI(url)
+        val host = uri.host
+        if (uri.scheme == null || host.isNullOrEmpty()) {
+            null
+        } else {
+            "${uri.scheme}://$host" + if (uri.port != -1) ":${uri.port}" else ""
+        }
+    } catch (_: Exception) {
+        null
     }
 
     private val coroutineExceptionHandler = CoroutineExceptionHandler { _, _ -> }
@@ -679,6 +732,7 @@ class Admoai private constructor() {
                 instance?.thirdPartyDispatcher?.close()
                 instance?.leadFormValueProvider = null
                 instance?.secureFormSurfaceAvailable = SecureFormSurface::isAvailable
+                instance?.leadFormTransportFactory = null
                 instance = null
                 isSdkInitialized = false
             }
