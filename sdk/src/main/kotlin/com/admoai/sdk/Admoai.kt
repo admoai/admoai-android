@@ -14,7 +14,10 @@ import com.admoai.sdk.interactive.FormPresentation
 import com.admoai.sdk.interactive.InteractiveExperienceOptIn
 import com.admoai.sdk.interactive.LeadFormController
 import com.admoai.sdk.interactive.LeadFormHost
+import com.admoai.sdk.interactive.LeadFormRegistry
+import com.admoai.sdk.interactive.LeadFormScheduler
 import com.admoai.sdk.interactive.LeadFormValueProvider
+import com.admoai.sdk.interactive.MainLooperScheduler
 import com.admoai.sdk.interactive.SecureFormSurface
 import com.admoai.sdk.interactive.SecureFormWebView
 import com.admoai.sdk.model.common.normalizeSessionId
@@ -136,19 +139,42 @@ class Admoai private constructor() {
     @Volatile
     internal var leadFormTransportFactory: ((Context, String) -> BridgeTransport)? = null
 
+    /** Test seam: runs the form's main-thread work in place of the main looper (null = the real one). */
+    @VisibleForTesting
+    @Volatile
+    internal var leadFormScheduler: LeadFormScheduler? = null
+
+    private val leadFormRegistry = LeadFormRegistry()
+
+    private fun formScheduler(): LeadFormScheduler = leadFormScheduler ?: MainLooperScheduler
+
     /**
      * Opts in to Lead Generation: from now on each decision request declares support, and lists by
      * key name (never value) the standard attributes [valueProvider] says the app holds.
      */
     @ExperimentalInteractiveExperienceApi
     fun enableInteractiveExperiences(valueProvider: LeadFormValueProvider) {
+        val previous = leadFormValueProvider
         leadFormValueProvider = valueProvider
+        // Forms opened with another provider must not outlive it.
+        if (previous != null && previous !== valueProvider) disposeAllLeadForms()
     }
 
     /** Turns the Lead Generation opt-in off: requests stop declaring support. */
     @ExperimentalInteractiveExperienceApi
     fun disableInteractiveExperiences() {
         leadFormValueProvider = null
+        disposeAllLeadForms()
+    }
+
+    /**
+     * Disposes every Lead Generation form this SDK handed out. Apps that do not use [UserConfig] call
+     * it on sign-out and account switch, so one person's form never outlives them.
+     */
+    @ExperimentalInteractiveExperienceApi
+    fun disposeAllLeadForms() {
+        if (leadFormRegistry.isEmpty()) return
+        formScheduler().post { leadFormRegistry.disposeAll() }
     }
 
     /**
@@ -167,17 +193,24 @@ class Admoai private constructor() {
         presentation: FormPresentation,
         host: LeadFormHost
     ): LeadFormController? {
-        if (leadFormValueProvider == null || !secureFormSurfaceAvailable()) return null
+        val provider = leadFormValueProvider
+        if (provider == null || !secureFormSurfaceAvailable()) return null
         val descriptor = creative.interactiveExperience as? InteractiveExperience.LeadGeneration ?: return null
         val origin = originOf(descriptor.launchUrl) ?: return null
         val factory = leadFormTransportFactory
-        return LeadFormController(
+        val controller = LeadFormController(
             descriptor = descriptor,
             presentation = presentation,
             host = host,
             transportFactory = { factory?.invoke(context, origin) ?: SecureFormWebView(context, origin) },
-            log = { log(it, LogLevel.DEBUG) }
+            log = { log(it, LogLevel.DEBUG) },
+            valueProvider = provider,
+            fireTracking = ::fireTracking,
+            scheduler = formScheduler(),
+            registry = leadFormRegistry
         )
+        leadFormRegistry.register(controller)
+        return controller
     }
 
     private fun originOf(url: String): String? = try {
@@ -221,12 +254,25 @@ class Admoai private constructor() {
         }
     }
 
+    /**
+     * Sets the user config. When the user's [UserConfig.id] changes, every open Lead Generation form
+     * is closed, so one person's details never appear in another person's form. Apps that do not use
+     * [UserConfig] call [disposeAllLeadForms] on sign-out or account switch.
+     */
     fun setUserConfig(newUserConfig: UserConfig?) {
+        val previous = this.userConfig
         this.userConfig = newUserConfig
+        if (newUserConfig?.id != previous?.id) disposeAllLeadForms()
     }
 
+    /**
+     * Clears the user config. When a user was set, every open Lead Generation form is closed; apps
+     * that do not use [UserConfig] call [disposeAllLeadForms] on sign-out or account switch.
+     */
     fun clearUserConfig() {
+        val hadUser = this.userConfig != null
         this.userConfig = null
+        if (hadUser) disposeAllLeadForms()
     }
 
     fun getUserConfig(): UserConfig? = this.userConfig
@@ -733,6 +779,8 @@ class Admoai private constructor() {
                 instance?.leadFormValueProvider = null
                 instance?.secureFormSurfaceAvailable = SecureFormSurface::isAvailable
                 instance?.leadFormTransportFactory = null
+                instance?.leadFormScheduler = null
+                instance?.leadFormRegistry?.clear()
                 instance = null
                 isSdkInitialized = false
             }

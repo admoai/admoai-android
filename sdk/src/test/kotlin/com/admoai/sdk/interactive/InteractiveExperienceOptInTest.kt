@@ -67,10 +67,16 @@ class InteractiveExperienceOptInTest {
 
     private fun provider(vararg keys: StandardAttributeKey) = object : LeadFormValueProvider {
         override fun availableKeys(): Set<StandardAttributeKey> = keys.toSet()
+
+        override fun lookUpValues(keys: Set<StandardAttributeKey>, completion: LeadFormValues) =
+            completion.complete(emptyMap())
     }
 
     private fun failingProvider() = object : LeadFormValueProvider {
         override fun availableKeys(): Set<StandardAttributeKey> = throw IllegalStateException(SECRET)
+
+        override fun lookUpValues(keys: Set<StandardAttributeKey>, completion: LeadFormValues) =
+            completion.complete(emptyMap())
     }
 
     private fun declared(): JsonElement? = wireObject()["interactiveExperience"]
