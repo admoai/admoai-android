@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1](https://github.com/admoai/admoai-android/compare/v1.9.0...v1.9.1) (2026-11-20)
+
+
+### Documentation
+
+* guide every standard format and templates based on a standard ([#153](https://github.com/admoai/admoai-android/issues/153)) ([7c4b4fc](https://github.com/admoai/admoai-android/commit/7c4b4fc4c1e43f3dc2e7f3759b8ce0b2e297a3c0))
+
 ## [1.9.0](https://github.com/admoai/admoai-android/compare/v1.8.0...v1.9.0) (2026-11-19)
 
 
