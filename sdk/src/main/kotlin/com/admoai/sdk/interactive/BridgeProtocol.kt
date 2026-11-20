@@ -38,8 +38,8 @@ internal object BridgeProtocol {
         return Json.parseToJsonElement(text).jsonObject
     }
 
-    private val bridge: JsonObject by lazy { load("bridge-messages.json") }
-    private val standardFields: JsonObject by lazy { load("standard-fields.json") }
+    internal val bridge: JsonObject by lazy { load("bridge-messages.json") }
+    internal val standardFields: JsonObject by lazy { load("standard-fields.json") }
 
     val maxMessageBytes: Int by lazy { bridge.getValue("maxMessageBytes").jsonPrimitive.int() }
 
@@ -222,6 +222,47 @@ internal object BridgeProtocol {
             i += 3
         }
         return out.toString()
+    }
+}
+
+/**
+ * The numbers of the shared contract the SDK acts on, read from the vendored JSON and never written
+ * in code. An interface so a test can supply other numbers; the companion is the real contract.
+ */
+internal interface BridgeContract {
+    /** How many forms may be loaded and hidden at once. */
+    val maxHiddenPreparedForms: Int
+
+    /** How long the app has to answer a value lookup, in milliseconds. */
+    val prefillLookupTimeoutMs: Long
+
+    /** The longest prefill value, in Unicode code points. */
+    val prefillValueMaxLength: Int
+
+    /** The `value` of each gender option of the catalog. */
+    val genderOptions: Set<String>
+
+    companion object : BridgeContract {
+        override val maxHiddenPreparedForms: Int by lazy {
+            BridgeProtocol.bridge.getValue("maxHiddenPreparedForms").jsonPrimitive.int()
+        }
+
+        override val prefillLookupTimeoutMs: Long by lazy {
+            BridgeProtocol.bridge.getValue("prefillLookupTimeoutMs").jsonPrimitive.content.toLong()
+        }
+
+        override val prefillValueMaxLength: Int by lazy {
+            val spec = checkNotNull(BridgeProtocol.spec("prefill")) { "missing prefill message" }
+            spec.fields.getValue("values").getValue("maxLength").jsonPrimitive.int()
+        }
+
+        override val genderOptions: Set<String> by lazy {
+            BridgeProtocol.standardFields.getValue("genderOptions").jsonArray.map {
+                it.jsonObject.getValue("value").jsonPrimitive.content
+            }.toSet()
+        }
+
+        private fun JsonPrimitive.int(): Int = intOrNull ?: throw IllegalStateException("not an int")
     }
 }
 

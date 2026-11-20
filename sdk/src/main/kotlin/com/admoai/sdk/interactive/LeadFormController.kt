@@ -1,5 +1,7 @@
 package com.admoai.sdk.interactive
 
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import com.admoai.sdk.model.response.InteractiveExperience
 import java.net.URLEncoder
@@ -9,6 +11,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
@@ -39,6 +43,29 @@ internal interface BridgeTransport {
     fun destroy()
 }
 
+/** Runs work on the main thread: now-or-soon ([post]) and later ([postDelayed], cancellable). */
+internal interface LeadFormScheduler {
+    fun post(block: () -> Unit)
+
+    /** Runs [block] after [delayMs]; the returned function cancels it. */
+    fun postDelayed(delayMs: Long, block: () -> Unit): () -> Unit
+}
+
+/** The real scheduler: the main looper. [post] runs at once when already on the main thread. */
+internal object MainLooperScheduler : LeadFormScheduler {
+    private val handler by lazy { Handler(Looper.getMainLooper()) }
+
+    override fun post(block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) block() else handler.post(block)
+    }
+
+    override fun postDelayed(delayMs: Long, block: () -> Unit): () -> Unit {
+        val task = Runnable(block)
+        handler.postDelayed(task, delayMs)
+        return { handler.removeCallbacks(task) }
+    }
+}
+
 /**
  * Prepares and opens one Lead Generation form. Create one per served creative with
  * [com.admoai.sdk.Admoai.createLeadFormController].
@@ -62,7 +89,12 @@ class LeadFormController internal constructor(
     private val transportFactory: () -> BridgeTransport,
     private val clock: () -> Long = System::currentTimeMillis,
     private val channel: String = newChannel(),
-    private val log: (String) -> Unit = {}
+    private val log: (String) -> Unit = {},
+    private val valueProvider: LeadFormValueProvider,
+    private val fireTracking: (String) -> Unit = {},
+    private val scheduler: LeadFormScheduler,
+    private val registry: LeadFormRegistry? = null,
+    private val contract: BridgeContract = BridgeContract
 ) {
     private val session = BridgeSession(descriptor.formInstanceId, channel)
     private val mutableState = MutableStateFlow<LeadFormState>(LeadFormState.Idle)
@@ -79,6 +111,23 @@ class LeadFormController internal constructor(
     private var disposed = false
     private var rendererGone = false
     private var pageLoadFailed = false
+    private var deferred = false
+    private var loadStarted = false
+    private var everVisible = false
+
+    private var requested: Set<StandardAttributeKey> = emptySet()
+    private var events: Map<String, String> = emptyMap()
+    private val fired = HashSet<String>()
+    private var lookupId = 0
+    private var prefillDone = true
+    private var cancelLookupTimer: (() -> Unit)? = null
+
+    internal val isDisposed: Boolean
+        get() = disposed
+
+    /** True while this form is loaded but has never been shown: it counts toward the hidden bound. */
+    internal val countsAsHiddenPrepared: Boolean
+        get() = !disposed && loadStarted && !everVisible
 
     /** Where the form is now. */
     val state: StateFlow<LeadFormState> = mutableState.asStateFlow()
@@ -96,12 +145,21 @@ class LeadFormController internal constructor(
     }
 
     /** Loads the form hidden and prepares it, so a later [open] is quick. Safe to repeat. */
-    fun prepare() {
+    fun prepare() = prepare(force = false)
+
+    private fun prepare(force: Boolean) {
         if (disposed || mutableState.value != LeadFormState.Idle) return
         if (expired()) {
             mutableState.value = LeadFormState.Expired
             return
         }
+        if (!force && registry?.mayPrepare(this) == false) {
+            // Too many hidden forms are loaded: stay idle; the viewer's tap loads this one anyway.
+            deferred = true
+            return
+        }
+        deferred = false
+        loadStarted = true
         val t = ensureTransport()
         mutableState.value = LeadFormState.Preparing
         t.load(launchUrlWithIdentity())
@@ -121,7 +179,7 @@ class LeadFormController internal constructor(
         when (mutableState.value) {
             LeadFormState.Idle -> {
                 pendingOpen = true
-                prepare()
+                prepare(force = true)
             }
 
             LeadFormState.Preparing -> pendingOpen = true
@@ -174,6 +232,11 @@ class LeadFormController internal constructor(
     fun dispose() {
         if (disposed) return
         disposed = true
+        lookupId++
+        cancelLookupTimer?.invoke()
+        cancelLookupTimer = null
+        requested = emptySet()
+        events = emptyMap()
         val t = transport
         if (t != null) {
             if (pageMessageReceived && !rendererGone) {
@@ -310,7 +373,8 @@ class LeadFormController internal constructor(
 
             "request_external_url" -> onExternalUrl(payload)
 
-            // `event`: the page reports it; firing its tracking URL is added in a later release.
+            "event" -> onEvent(payload)
+
             else -> Unit
         }
     }
@@ -367,11 +431,52 @@ class LeadFormController internal constructor(
     private fun onActivated(payload: JsonObject) {
         if (mutableState.value != LeadFormState.Activating) return
         activatedReceived = true
-        // formVersionId, requestedAttributeKeys and events are kept by a later release, which fills
-        // the prefill and fires the events; this one answers with an empty prefill.
-        val prefilled = send("prefill", buildJsonObject { put("values", JsonObject(emptyMap())) })
+        requested = payload.getValue("requestedAttributeKeys").jsonArray
+            .mapNotNull { StandardAttributeKey.fromWireName((it as JsonPrimitive).content) }
+            .toSet()
+        events = payload.getValue("events").jsonArray.associate {
+            val item = it.jsonObject
+            item.string("name") to item.string("url")
+        }
+        startPrefill()
+    }
+
+    /** Asks the app for the requested values, at most once per activation, within the contract's time. */
+    private fun startPrefill() {
+        val id = ++lookupId
+        cancelLookupTimer?.invoke()
+        cancelLookupTimer = null
+        prefillDone = false
+        if (requested.isEmpty()) {
+            finishPrefill(id, null)
+            return
+        }
+        cancelLookupTimer = scheduler.postDelayed(contract.prefillLookupTimeoutMs) { finishPrefill(id, null) }
+        try {
+            valueProvider.lookUpValues(requested) { values -> scheduler.post { finishPrefill(id, values) } }
+        } catch (e: Throwable) {
+            log("Lead Generation value lookup failed: ${e.javaClass.simpleName}")
+            finishPrefill(id, null)
+        }
+    }
+
+    private fun finishPrefill(id: Int, values: Map<StandardAttributeKey, String>?) {
+        if (disposed || id != lookupId || prefillDone) return
+        prefillDone = true
+        cancelLookupTimer?.invoke()
+        cancelLookupTimer = null
+        if (mutableState.value != LeadFormState.Activating) return
+        val prefilled =
+            send("prefill", buildJsonObject { put("values", LeadFormPrefill.values(values, requested, contract)) })
         // Without the prefill the page has nothing to answer: a failed send ends the form, as a failed initialize does.
         if (!prefilled) mutableState.value = LeadFormState.Failed("bridge_error", false)
+    }
+
+    private fun onEvent(payload: JsonObject) {
+        val name = payload.string("name")
+        val url = events[name] ?: return
+        if (!fired.add(name)) return
+        fireTracking(url)
     }
 
     private fun onPrefillApplied() {
@@ -384,6 +489,7 @@ class LeadFormController internal constructor(
     private fun becomeVisible() {
         if (send("became_visible")) {
             visibleOnWire = true
+            everVisible = true
             mutableState.value = LeadFormState.Visible
         }
     }

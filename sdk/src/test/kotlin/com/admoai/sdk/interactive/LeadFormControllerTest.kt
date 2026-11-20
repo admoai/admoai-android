@@ -40,53 +40,6 @@ class LeadFormControllerTest {
     private val instanceId = context.getValue("instanceId").jsonPrimitive.content
     private val channel = context.getValue("channel").jsonPrimitive.content
 
-    private class FakeTransport : BridgeTransport {
-        val fakeView: View = mockk(relaxed = true)
-        override val view: View? = fakeView
-        val loads = mutableListOf<String>()
-        val sent = mutableListOf<String>()
-        var destroyed = 0
-        var firstListener: ((String) -> Unit)? = null
-        var listener: (String) -> Unit = {}
-        var gone: () -> Unit = {}
-        var blocked: () -> Unit = {}
-        var loadFailed: (Int?) -> Unit = {}
-
-        /** Makes `send` throw for a message of this type, as a transport that is down would. */
-        var failSendOf: String? = null
-
-        override fun load(url: String) {
-            loads += url
-        }
-
-        override fun send(text: String) {
-            val type = Json.parseToJsonElement(text).jsonObject.getValue("type").jsonPrimitive.content
-            if (type == failSendOf) throw IllegalStateException("transport down")
-            sent += text
-        }
-
-        override fun setOnMessage(listener: (String) -> Unit) {
-            if (firstListener == null) firstListener = listener
-            this.listener = listener
-        }
-
-        override fun setOnRendererGone(listener: () -> Unit) {
-            gone = listener
-        }
-
-        override fun setOnNavigationBlocked(listener: () -> Unit) {
-            blocked = listener
-        }
-
-        override fun setOnLoadFailed(listener: (httpStatus: Int?) -> Unit) {
-            loadFailed = listener
-        }
-
-        override fun destroy() {
-            destroyed++
-        }
-    }
-
     private class FakeHost : LeadFormHost {
         val closes = mutableListOf<LeadFormController>()
         val links = mutableListOf<Pair<ExternalLinkPurpose, String>>()
@@ -106,6 +59,8 @@ class LeadFormControllerTest {
     private var expiresAt = 1_000_000L
     private var factoryCalls = 0
     private val transport = FakeTransport()
+    private val scheduler = FakeScheduler()
+    private val fired = mutableListOf<String>()
     private val host = FakeHost()
 
     private fun descriptor(expires: Long = expiresAt, instance: String = instanceId) =
@@ -121,6 +76,13 @@ class LeadFormControllerTest {
 
     private val logs = mutableListOf<String>()
 
+    private fun emptyProvider() = object : LeadFormValueProvider {
+        override fun availableKeys(): Set<StandardAttributeKey> = emptySet()
+
+        override fun lookUpValues(keys: Set<StandardAttributeKey>, completion: LeadFormValues) =
+            completion.complete(emptyMap())
+    }
+
     private fun controller(
         presentation: FormPresentation = FormPresentation.FULL_SCREEN,
         on: FakeTransport = transport
@@ -134,20 +96,23 @@ class LeadFormControllerTest {
         },
         clock = { now },
         channel = channel,
-        log = { logs += it }
+        log = { logs += it },
+        valueProvider = emptyProvider(),
+        fireTracking = { fired += it },
+        scheduler = scheduler
     )
 
     private fun parse(text: String): JsonObject = Json.parseToJsonElement(text).jsonObject
 
-    private fun sentTypes() = transport.sent.map { parse(it).getValue("type").jsonPrimitive.content }
+    private fun sentTypes() = transport.sentTypes()
 
     private fun sentOf(type: String) = transport.sent.map { parse(it) }
         .filter { it.getValue("type").jsonPrimitive.content == type }
 
     /** The page speaks: the contract's own runtime fixture, as the page would send it. */
-    private fun page(name: String) = transport.listener(File("$root/runtime-to-app/$name.json").readText())
+    private fun page(name: String) = transport.page(name)
 
-    private fun pageRaw(text: String) = transport.listener(text)
+    private fun pageRaw(text: String) = transport.say(text)
 
     private fun prepared(c: LeadFormController) {
         c.prepare()
@@ -194,11 +159,7 @@ class LeadFormControllerTest {
             SDKConfig(baseUrl = "https://test.admoai.com", apiVersion = "2025-11-01", networkClientEngine = null)
         )
         Admoai.getInstance().secureFormSurfaceAvailable = { true }
-        Admoai.getInstance().enableInteractiveExperiences(
-            object : LeadFormValueProvider {
-                override fun availableKeys(): Set<StandardAttributeKey> = emptySet()
-            }
-        )
+        Admoai.getInstance().enableInteractiveExperiences(emptyProvider())
     }
 
     private fun creative(experience: InteractiveExperience?) = Creative(interactiveExperience = experience)
@@ -459,7 +420,16 @@ class LeadFormControllerTest {
 
         // Expired before anything loaded: nothing is loaded, nothing is sent.
         val fresh =
-            LeadFormController(descriptor(), FormPresentation.INLINE, host, { FakeTransport() }, { now }, channel)
+            LeadFormController(
+                descriptor(),
+                FormPresentation.INLINE,
+                host,
+                { FakeTransport() },
+                { now },
+                channel,
+                valueProvider = emptyProvider(),
+                scheduler = scheduler
+            )
         fresh.open()
         assertEquals(LeadFormState.Expired, fresh.state.value)
     }
@@ -845,6 +815,94 @@ class LeadFormControllerTest {
         assertEquals(
             "LeadFormController(formInstanceId=$instanceId, presentation=FULL_SCREEN, state=Activating)",
             c.toString()
+        )
+    }
+
+    @Test
+    fun `each form event activation authorized is reported once`() {
+        val c = controller()
+        visible(c)
+        pageRaw(LeadFormFixtures.eventMessage("form_open"))
+        pageRaw(LeadFormFixtures.eventMessage("form_open"))
+        pageRaw(LeadFormFixtures.eventMessage("form_start"))
+        assertEquals(listOf(LeadFormFixtures.eventUrl("form_open"), LeadFormFixtures.eventUrl("form_start")), fired)
+    }
+
+    @Test
+    fun `an event activation did not authorize is not reported`() {
+        val c = controller()
+        prepared(c)
+        c.open()
+        pageRaw(LeadFormFixtures.activated(events = listOf("form_open")))
+        page("prefill-applied")
+        c.setVisible(true)
+        pageRaw(LeadFormFixtures.eventMessage("form_start"))
+        assertTrue(fired.isEmpty())
+        pageRaw(LeadFormFixtures.eventMessage("form_open"))
+        assertEquals(listOf(LeadFormFixtures.eventUrl("form_open")), fired)
+    }
+
+    @Test
+    fun `the creative's click is never fired by the form`() {
+        val impression = "https://track.example.invalid/creative/impression"
+        val click = "https://track.example.invalid/creative/click"
+        val beacons = mutableListOf<String>()
+        optedInSdk()
+        val sdk = Admoai.getInstance()
+        sdk.apiService = mockk(relaxed = true)
+        sdk.beaconObserver = { beacons += it }
+        sdk.leadFormScheduler = scheduler
+        sdk.leadFormTransportFactory = { _, _ -> transport }
+        val c = sdk.createLeadFormController(
+            mockk<Context>(relaxed = true),
+            Creative(
+                tracking = com.admoai.sdk.model.response.TrackingInfo(
+                    impressions = listOf(com.admoai.sdk.model.response.TrackingDetail("default", impression)),
+                    clicks = listOf(com.admoai.sdk.model.response.TrackingDetail("default", click))
+                ),
+                interactiveExperience = descriptor(System.currentTimeMillis() + 60_000)
+            ),
+            FormPresentation.FULL_SCREEN,
+            host
+        )!!
+        visible(c)
+        pageRaw(LeadFormFixtures.eventMessage("form_open"))
+        pageRaw(LeadFormFixtures.eventMessage("form_start"))
+        page("submitting")
+        page("submitted")
+        pageRaw(websiteRequest())
+        pageRaw(LeadFormFixtures.eventMessage("website_cta_click"))
+        assertEquals(
+            listOf(
+                LeadFormFixtures.eventUrl("form_open"),
+                LeadFormFixtures.eventUrl("form_start"),
+                LeadFormFixtures.eventUrl("website_cta_click")
+            ),
+            beacons
+        )
+        assertTrue(beacons.none { it == impression || it == click })
+    }
+
+    @Test
+    fun `a form event's tracking query never appears in the SDK's log`() {
+        val url = LeadFormFixtures.eventUrl("form_open")
+        val line = "REQUEST: https://api.tenant.example.invalid/v1/tracking/events?t=abc&e=def"
+        assertEquals(
+            "REQUEST: https://api.tenant.example.invalid/v1/tracking/events?t=REDACTED&e=REDACTED",
+            CredentialRedaction.redact(line)
+        )
+        val body = """{"url":"$url","note":"x"}"""
+        val shown = CredentialRedaction.redact(body)
+        assertTrue(shown, !shown.contains("REDACTED_TRACKING_ONLY_FORM_OPEN"))
+        assertTrue(shown, shown.contains("https://api.tenant.example.invalid/v1/tracking/events?t=REDACTED"))
+        // Other URLs and the credential redaction are untouched.
+        assertEquals(
+            "GET https://api.example.invalid/ads?x=1",
+            CredentialRedaction.redact("GET https://api.example.invalid/ads?x=1")
+        )
+        assertEquals(
+            """{"preparationToken":"REDACTED"}""",
+            CredentialRedaction.redact("""{"preparationToken":"tok"}""")
         )
     }
 }

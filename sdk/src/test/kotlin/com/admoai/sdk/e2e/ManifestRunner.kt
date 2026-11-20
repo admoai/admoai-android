@@ -18,6 +18,7 @@ import com.admoai.sdk.exception.AdMoaiValidationException
 import com.admoai.sdk.expectationFailure
 import com.admoai.sdk.interactive.ExperimentalInteractiveExperienceApi
 import com.admoai.sdk.interactive.LeadFormValueProvider
+import com.admoai.sdk.interactive.LeadFormValues
 import com.admoai.sdk.interactive.SecureFormSurface
 import com.admoai.sdk.interactive.StandardAttributeKey
 import com.admoai.sdk.model.common.JourneyOpt
@@ -378,6 +379,10 @@ internal fun applyInteractiveExperience(id: String, element: JsonElement?) {
     sdk.secureFormSurfaceAvailable = { true }
     sdk.enableInteractiveExperiences(object : LeadFormValueProvider {
         override fun availableKeys(): Set<StandardAttributeKey> = keys
+
+        // The manifest asserts the decision only; no form is opened, so no value is ever asked for.
+        override fun lookUpValues(keys: Set<StandardAttributeKey>, completion: LeadFormValues) =
+            completion.complete(emptyMap())
     })
 }
 
