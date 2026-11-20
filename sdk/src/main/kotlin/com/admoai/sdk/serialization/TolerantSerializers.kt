@@ -1,5 +1,6 @@
 package com.admoai.sdk.serialization
 
+import com.admoai.sdk.interactive.StandardAttributeKey
 import com.admoai.sdk.model.common.Error
 import com.admoai.sdk.model.common.Warning
 import com.admoai.sdk.model.response.AdData
@@ -9,6 +10,7 @@ import com.admoai.sdk.model.response.ContentType
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.CreativeJourney
 import com.admoai.sdk.model.response.CreativeMetadata
+import com.admoai.sdk.model.response.InteractiveExperience
 import com.admoai.sdk.model.response.MatchedPoint
 import com.admoai.sdk.model.response.Slide
 import com.admoai.sdk.model.response.SlideTracking
@@ -33,8 +35,12 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Decodes a JSON array element-by-element, dropping any element that fails to decode; null/non-array
@@ -269,3 +275,140 @@ internal object SlideTrackingOrNullSerializer :
 internal object VastDataOrNullSerializer : NullOnErrorSerializer<VastData>(VastData.serializer())
 internal object CreativeJourneyOrNullSerializer :
     NullOnErrorSerializer<CreativeJourney>(CreativeJourney.serializer())
+
+private val RFC3339 =
+    Regex("^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$")
+
+/**
+ * Parses an RFC 3339 timestamp (`Z` or a numeric offset, optional fraction) to epoch milliseconds,
+ * or null when it is not one. Strict: an impossible date or time is rejected, never rolled over.
+ */
+internal fun parseRfc3339ToEpochMillis(s: String): Long? {
+    val m = RFC3339.matchEntire(s) ?: return null
+    val g = m.groupValues
+    val year = g[1].toInt()
+    val month = g[2].toInt()
+    val day = g[3].toInt()
+    val hour = g[4].toInt()
+    val minute = g[5].toInt()
+    val second = g[6].toInt()
+    if (month !in 1..12 || day !in 1..31 || hour !in 0..23 || minute !in 0..59 || second !in 0..59) return null
+    val millis = g[7].removePrefix(".").padEnd(3, '0').take(3).ifEmpty { "0" }.toInt()
+    val offsetMillis = when (val z = g[8]) {
+        "Z" -> 0L
+
+        else -> {
+            val oh = z.substring(1, 3).toInt()
+            val om = z.substring(4, 6).toInt()
+            if (oh > 23 || om > 59) return null
+            (if (z[0] == '-') -1L else 1L) * (oh * 60L + om) * 60_000L
+        }
+    }
+    return try {
+        val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+        cal.isLenient = false
+        cal.clear()
+        cal.set(year, month - 1, day, hour, minute, second)
+        cal.set(java.util.Calendar.MILLISECOND, millis)
+        cal.timeInMillis - offsetMillis
+    } catch (_: Exception) {
+        null
+    }
+}
+
+/**
+ * Decodes a creative's `interactiveExperience`: `null` when absent or JSON null, a Lead Generation
+ * experience when the descriptor is complete and safe, and `Unsupported` for everything else. It
+ * never throws, so one bad descriptor never costs the whole response.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+internal object InteractiveExperienceSerializer : KSerializer<InteractiveExperience?> {
+    private const val LEAD_GENERATION = "lead_generation"
+
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("InteractiveExperience", PrimitiveKind.STRING).nullable
+
+    override fun serialize(encoder: Encoder, value: InteractiveExperience?) {
+        val jsonEncoder = encoder as? JsonEncoder
+        if (value == null) {
+            encoder.encodeNull()
+            return
+        }
+        jsonEncoder ?: throw SerializationException("InteractiveExperience encodes to JSON only")
+        val obj = when (value) {
+            is InteractiveExperience.LeadGeneration -> buildJsonObject {
+                put("type", LEAD_GENERATION)
+                put("formId", value.formId)
+                put("preparedVersionId", value.preparedVersionId)
+                put("formInstanceId", value.formInstanceId)
+                put("launchUrl", value.launchUrl)
+                put("preparationToken", value.preparationToken)
+                put("expiresAt", formatUtc(value.expiresAtEpochMillis))
+                put("prefillAttributeKeys", JsonArray(value.prefillAttributeKeys.map { JsonPrimitive(it.wireName) }))
+            }
+
+            is InteractiveExperience.Unsupported -> buildJsonObject {
+                value.type?.let { put("type", it) }
+            }
+        }
+        jsonEncoder.encodeJsonElement(obj)
+    }
+
+    override fun deserialize(decoder: Decoder): InteractiveExperience? {
+        val jsonDecoder = decoder as? JsonDecoder ?: return null
+        return try {
+            decode(jsonDecoder.decodeJsonElement())
+        } catch (_: Exception) {
+            InteractiveExperience.Unsupported(null)
+        }
+    }
+
+    private fun decode(element: JsonElement): InteractiveExperience? {
+        if (element is JsonNull) return null
+        val obj = element as? JsonObject ?: return InteractiveExperience.Unsupported(null)
+        val type = obj.string("type")
+        if (type != LEAD_GENERATION) return InteractiveExperience.Unsupported(type)
+        val unsupported = InteractiveExperience.Unsupported(LEAD_GENERATION)
+        val formId = obj.nonBlank("formId") ?: return unsupported
+        val preparedVersionId = obj.nonBlank("preparedVersionId") ?: return unsupported
+        val formInstanceId = obj.nonBlank("formInstanceId") ?: return unsupported
+        val token = obj.nonBlank("preparationToken") ?: return unsupported
+        val launchUrl = obj.string("launchUrl")?.takeIf { isHttpsUrl(it) } ?: return unsupported
+        val expires = obj.string("expiresAt")?.let { parseRfc3339ToEpochMillis(it) } ?: return unsupported
+        val keys = when (val raw = obj["prefillAttributeKeys"]) {
+            null, is JsonNull -> emptyList()
+
+            is JsonArray -> raw.mapNotNull { el ->
+                (el as? JsonPrimitive)?.takeIf { it.isString }?.content?.let(StandardAttributeKey::fromWireName)
+            }.distinct()
+
+            else -> return unsupported
+        }
+        return InteractiveExperience.LeadGeneration(
+            formId = formId,
+            formInstanceId = formInstanceId,
+            preparedVersionId = preparedVersionId,
+            expiresAtEpochMillis = expires,
+            prefillAttributeKeys = keys,
+            launchUrl = launchUrl,
+            preparationToken = token
+        )
+    }
+
+    private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
+
+    private fun JsonObject.nonBlank(key: String): String? = string(key)?.takeIf { it.isNotBlank() }
+
+    private fun isHttpsUrl(s: String): Boolean = try {
+        val uri = java.net.URI(s)
+        uri.isAbsolute && uri.scheme == "https" && !uri.host.isNullOrEmpty()
+    } catch (_: Exception) {
+        false
+    }
+
+    private fun formatUtc(epochMillis: Long): String {
+        val f = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US)
+        f.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        return f.format(java.util.Date(epochMillis))
+    }
+}
