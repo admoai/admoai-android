@@ -186,7 +186,11 @@ class Admoai private constructor() {
         if (uri.scheme == null || host.isNullOrEmpty()) {
             null
         } else {
-            "${uri.scheme}://$host" + if (uri.port != -1) ":${uri.port}" else ""
+            // A frame reports its origin without the scheme's default port, so drop an explicit :443;
+            // keep any other port.
+            val scheme = uri.scheme.lowercase()
+            val port = if (uri.port == -1 || (scheme == "https" && uri.port == 443)) "" else ":${uri.port}"
+            "$scheme://${host.lowercase()}$port"
         }
     } catch (_: Exception) {
         null

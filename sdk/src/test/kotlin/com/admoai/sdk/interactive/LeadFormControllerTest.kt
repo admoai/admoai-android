@@ -245,6 +245,33 @@ class LeadFormControllerTest {
         assertTrue(Regex("channel=[A-Za-z0-9_-]{32}$").containsMatchIn(loaded))
         assertEquals(FormPresentation.INLINE, c.presentation)
         assertEquals(instanceId, c.formInstanceId)
+
+        // The origin matches what the form's frame reports: no default :443, any other port kept.
+        fun originFor(url: String): String? {
+            origin = null
+            sdk.createLeadFormController(
+                ctx,
+                creative(
+                    InteractiveExperience.LeadGeneration(
+                        formId = "form_01KG000000000000000000F001",
+                        formInstanceId = instanceId,
+                        preparedVersionId = "form_version_01KG000000000000000000V002",
+                        expiresAtEpochMillis = System.currentTimeMillis() + 60_000,
+                        prefillAttributeKeys = emptyList(),
+                        launchUrl = url,
+                        preparationToken = token
+                    )
+                ),
+                FormPresentation.INLINE,
+                host
+            )?.let {
+                it.prepare()
+                it.dispose()
+            }
+            return origin
+        }
+        assertEquals("https://forms.example.invalid", originFor("https://forms.example.invalid:443/x"))
+        assertEquals("https://forms.example.invalid:8443", originFor("https://forms.example.invalid:8443/x"))
     }
 
     @Test
