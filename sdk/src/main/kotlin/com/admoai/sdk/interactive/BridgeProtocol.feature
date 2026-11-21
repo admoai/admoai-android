@@ -25,6 +25,7 @@ Feature: The SDK and the hosted form trust only well-formed bridge messages of t
     Given a bridge that has not exchanged initialize
     When prepared arrives
     Then it is refused
+    And the SDK never sends back before the form became visible
 
   Scenario: a message over the size limit is refused before it is parsed
     Given a bridge for the contract's instance and channel

@@ -266,12 +266,13 @@ internal class BridgeSession(private val instanceId: String, private val channel
     /**
      * The envelope for an app-to-runtime message, as JSON text. Values are JSON-escaped data. Throws
      * [IllegalArgumentException] naming the reason (never a value) when the type or payload breaks
-     * the contract.
+     * the contract, or when the message would go out before a message its `after` list names.
      */
     fun encode(type: String, payload: JsonObject): String {
         val spec = BridgeProtocol.spec(type)
         require(spec != null && spec.direction == APP_TO_RUNTIME) { "unknown_type" }
         BridgeProtocol.firstPayloadFault(spec, payload)?.let { throw IllegalArgumentException("bad_payload:$it") }
+        require(spec.after.isEmpty() || spec.after.any { it in exchanged }) { "out_of_order" }
         val text = buildJsonObject {
             put("type", type)
             put("instanceId", instanceId)
