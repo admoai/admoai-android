@@ -3,6 +3,7 @@ package com.admoai.sdk.interactive
 import java.io.File
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -43,20 +44,34 @@ class BridgeProtocolTest {
         )
     }
 
-    /** Every app message of the contract, recorded as sent. */
-    private fun sessionAfterAppMessages(): BridgeSession = session().also { s ->
-        files("app-to-runtime").forEach { encodeFixture(s, it) }
-    }
-
-    /** The valid runtime fixtures in an order that respects each message's `after`. */
-    private val runtimeOrder = listOf(
-        "bridge-ready", "prepared", "activated", "prefill-applied", "prepare-failed", "fatal-error",
-        "request-close", "request-external-url", "event", "submitting", "submit-failed", "submitted"
+    /**
+     * One instance's whole conversation over every valid fixture, each message after the messages
+     * it depends on: `true` = the app sends it, `false` = it arrives from the page.
+     */
+    private val conversation = listOf(
+        false to "bridge-ready", true to "initialize", true to "initialize-inline", false to "prepared",
+        false to "prepare-failed", true to "retry-prepare", true to "activate", false to "activated",
+        true to "prefill", false to "prefill-applied", true to "became-visible", true to "became-hidden",
+        true to "back", false to "fatal-error", false to "request-close", false to "request-external-url",
+        false to "event", false to "submitting", false to "submit-failed", false to "submitted", true to "dispose"
     )
 
-    private fun sessionAfterEverything(): BridgeSession = sessionAfterAppMessages().also { s ->
-        runtimeOrder.forEach { s.receive(read("runtime-to-app/$it.json")) }
+    /** The valid runtime fixtures in an order that respects each message's `after`. */
+    private val runtimeOrder = conversation.filter { !it.first }.map { it.second }
+
+    /** A session that has exchanged the conversation up to and including [last]. */
+    private fun sessionThrough(last: String): BridgeSession = session().also { s ->
+        for ((appSends, name) in conversation) {
+            if (appSends) {
+                encodeFixture(s, File("$root/app-to-runtime/$name.json"))
+            } else {
+                accepted(s.receive(read("runtime-to-app/$name.json")))
+            }
+            if (name == last) break
+        }
     }
+
+    private fun sessionAfterEverything(): BridgeSession = sessionThrough(conversation.last().second)
 
     private fun accepted(r: Received): Received.Accepted {
         if (r !is Received.Accepted) fail("expected accepted, got ${(r as Received.Refused).reason}")
@@ -102,8 +117,18 @@ class BridgeProtocolTest {
             fixtureNames.map { parse(read("runtime-to-app/$it.json")).getValue("type").jsonPrimitive.content }.toSet()
         )
 
-        val s = sessionAfterAppMessages()
-        runtimeOrder.forEach { name ->
+        assertEquals(
+            "the conversation sends every app fixture",
+            files("app-to-runtime").map { it.nameWithoutExtension }.toSet(),
+            conversation.filter { it.first }.map { it.second }.toSet()
+        )
+
+        val s = session()
+        conversation.forEach { (appSends, name) ->
+            if (appSends) {
+                encodeFixture(s, File("$root/app-to-runtime/$name.json"))
+                return@forEach
+            }
             val text = read("runtime-to-app/$name.json")
             val got = accepted(s.receive(text))
             assertEquals(parse(text).getValue("type").jsonPrimitive.content, got.type)
@@ -124,9 +149,7 @@ class BridgeProtocolTest {
     @Test
     fun `a message for another instance or channel is refused`() {
         val prepared = parse(read("runtime-to-app/prepared.json"))
-        val s = session().also {
-            it.encode("initialize", parse(read("app-to-runtime/initialize.json")).getValue("payload").jsonObject)
-        }
+        val s = sessionThrough("initialize")
         assertEquals("wrong_instance", refused(s.receive(read("invalid/app-to-runtime/wrong-instance.json"))))
         val otherInstance = JsonObject(
             prepared +
@@ -140,10 +163,21 @@ class BridgeProtocolTest {
 
     @Test
     fun `a message that arrives before the message it depends on is refused`() {
-        val s = session()
+        val s = sessionThrough("bridge-ready")
         assertEquals("out_of_order", refused(s.receive(read("runtime-to-app/prepared.json"))))
         s.encode("initialize", parse(read("app-to-runtime/initialize.json")).getValue("payload").jsonObject)
         accepted(s.receive(read("runtime-to-app/prepared.json")))
+        // The SDK holds itself to the same rule: back is never sent before the form became visible.
+        val early = sessionThrough("prefill-applied")
+        val back = parse(read("invalid/app-to-runtime/back-before-visible.json"))
+        try {
+            early.encode("back", back.getValue("payload").jsonObject)
+            fail("back before became_visible must not be encodable")
+        } catch (e: IllegalArgumentException) {
+            assertEquals("out_of_order", e.message)
+        }
+        early.encode("became_visible", buildJsonObject {})
+        early.encode("back", back.getValue("payload").jsonObject)
     }
 
     @Test
@@ -171,7 +205,7 @@ class BridgeProtocolTest {
     fun `messages the SDK sends match the contract byte for byte in meaning`() {
         files("app-to-runtime").forEach { file ->
             val envelope = parse(file.readText())
-            val text = session().encode(
+            val text = sessionAfterEverything().encode(
                 envelope.getValue("type").jsonPrimitive.content,
                 envelope.getValue("payload").jsonObject
             )
@@ -182,11 +216,12 @@ class BridgeProtocolTest {
                 parse(text).keys.toList()
             )
         }
-        // And the contract's invalid app messages are never produced.
+        // And the contract's invalid app messages are never produced, in the state the contract
+        // describes for its order-dependent fixture: everything up to prefill_applied exchanged.
         files("invalid/app-to-runtime").filter { it.name != "wrong-instance.json" }.forEach { file ->
             val envelope = parse(file.readText())
             try {
-                session().encode(
+                sessionThrough("prefill-applied").encode(
                     envelope.getValue("type").jsonPrimitive.content,
                     envelope.getValue("payload").jsonObject
                 )
@@ -200,7 +235,7 @@ class BridgeProtocolTest {
     @Test
     fun `text with quotes, newlines and Unicode crosses the bridge as data`() {
         val value = "He said \"hi\"\nline two 😀 </script><script>alert(1)</script> \\  "
-        val text = session().encode(
+        val text = sessionThrough("activated").encode(
             "prefill",
             JsonObject(
                 mapOf("values" to JsonObject(mapOf("fullName" to kotlinx.serialization.json.JsonPrimitive(value))))
@@ -256,9 +291,9 @@ class BridgeProtocolTest {
                 "values" to JsonObject(mapOf("gender" to kotlinx.serialization.json.JsonPrimitive(gender)))
             )
         )
-        session().encode("prefill", prefill("female"))
+        sessionThrough("activated").encode("prefill", prefill("female"))
         try {
-            session().encode("prefill", prefill("unicorn"))
+            sessionThrough("activated").encode("prefill", prefill("unicorn"))
             fail("an unknown gender must not be encoded")
         } catch (e: IllegalArgumentException) {
             assertFalse(e.message!!.contains("unicorn"))
