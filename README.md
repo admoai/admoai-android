@@ -12,6 +12,8 @@ AdMoai Android SDK provides a comprehensive native advertising solution for Andr
 
 - **Native Ad Formats** - Seamlessly integrated native advertising
 - **Journey Ads** - Multi-stage, single-advertiser takeovers across one user activity
+- **Lead Generation forms** - An experimental native creative whose tap opens a form inside your app.
+  Read [Lead Generation forms](./sdk/README.md#lead-generation-forms) before integrating
 - **Sponsored Pin Locations** - Promote an advertiser's real places as pins on your map.
   Read [Sponsored Pin Locations](./sdk/README.md#sponsored-pin-locations) before integrating:
   the SDK renders nothing and never infers that a pin was seen, so the measurement contract
