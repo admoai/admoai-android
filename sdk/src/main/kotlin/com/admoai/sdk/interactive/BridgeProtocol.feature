@@ -33,6 +33,12 @@ Feature: The SDK and the hosted form trust only well-formed bridge messages of t
     Then the second outcome is refused
     And after the form announces the retry, its outcome is accepted
 
+  Scenario: a message that repeats a key is refused
+    Given a bridge that has exchanged the whole conversation
+    When a message repeats a key in its envelope, its payload or an object nested in a list, even written with escapes
+    Then it is refused without naming the key
+    And the same key in sibling objects of a list is not a repeat
+
   Scenario: a message over the size limit is refused before it is parsed
     Given a bridge for the contract's instance and channel
     When a message larger than the contract's limit arrives

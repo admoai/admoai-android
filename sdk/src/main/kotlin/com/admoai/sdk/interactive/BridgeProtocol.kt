@@ -249,6 +249,9 @@ internal class BridgeSession(private val instanceId: String, private val channel
             return Received.Refused("not_json")
         }
         val envelope = root as? JsonObject ?: return Received.Refused("not_json")
+        // Parsers disagree on a repeated key (first wins, last wins, or refuse), so the same bytes
+        // could mean two messages on two platforms; the contract refuses it at any depth.
+        if (hasRepeatedKey(text)) return Received.Refused("repeated_key")
         if (envelope.keys != ENVELOPE_KEYS) return Received.Refused("bad_envelope")
         val type = envelope["type"].asString() ?: return Received.Refused("bad_envelope")
         val id = envelope["instanceId"].asString()
@@ -295,6 +298,68 @@ internal class BridgeSession(private val instanceId: String, private val channel
         }.toString()
         exchanged += type
         return text
+    }
+
+    /**
+     * True when any object in [text] (already parsed as JSON) repeats a key, compared after decoding
+     * escapes, so `"type"` and `"\u0074ype"` are the same key.
+     */
+    private fun hasRepeatedKey(text: String): Boolean {
+        class Frame(val isObject: Boolean) {
+            val keys = HashSet<String>()
+            var expectKey = isObject
+        }
+        val stack = ArrayDeque<Frame>()
+        var i = 0
+        while (i < text.length) {
+            when (text[i]) {
+                '{' -> stack.addLast(Frame(isObject = true))
+
+                '[' -> stack.addLast(Frame(isObject = false))
+
+                '}', ']' -> stack.removeLastOrNull()
+
+                ',' -> stack.lastOrNull()?.let { if (it.isObject) it.expectKey = true }
+
+                '"' -> {
+                    val sb = StringBuilder()
+                    i++
+                    while (text[i] != '"') {
+                        if (text[i] == '\\') {
+                            i++
+                            when (val e = text[i]) {
+                                'u' -> {
+                                    sb.append(text.substring(i + 1, i + 5).toInt(16).toChar())
+                                    i += 4
+                                }
+
+                                'b' -> sb.append('\b')
+
+                                'f' -> sb.append('\u000C')
+
+                                'n' -> sb.append('\n')
+
+                                'r' -> sb.append('\r')
+
+                                't' -> sb.append('\t')
+
+                                else -> sb.append(e)
+                            }
+                        } else {
+                            sb.append(text[i])
+                        }
+                        i++
+                    }
+                    val top = stack.lastOrNull()
+                    if (top != null && top.isObject && top.expectKey) {
+                        if (!top.keys.add(sb.toString())) return true
+                        top.expectKey = false
+                    }
+                }
+            }
+            i++
+        }
+        return false
     }
 
     private fun JsonElement?.asString(): String? = (this as? JsonPrimitive)?.takeIf { it.isString }?.content

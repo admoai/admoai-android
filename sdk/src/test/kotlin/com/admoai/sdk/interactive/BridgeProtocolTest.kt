@@ -195,6 +195,31 @@ class BridgeProtocolTest {
     }
 
     @Test
+    fun `a message that repeats a key is refused`() {
+        val event = read("runtime-to-app/event.json").trim()
+        val activated = read("runtime-to-app/activated.json").trim()
+        val repeats = listOf(
+            // envelope: a second "type"
+            event.replaceFirst("{", "{\"type\":\"event\","),
+            // the same, with the key written as escapes
+            event.replaceFirst("{", "{\"\\u0074ype\":\"event\","),
+            // payload: a second key inside the payload object
+            event.replaceFirst("\"payload\": {", "\"payload\": {\"name\":\"form_open\","),
+            // an object nested in a list
+            activated.replaceFirst("\"name\": ", "\"name\": \"form_open\", \"name\": ")
+        )
+        repeats.forEach { text ->
+            assertNotEquals("the case really repeats a key", text, event)
+            assertNotEquals("the case really repeats a key", text, activated)
+            val reason = refused(sessionAfterEverything().receive(text))
+            assertEquals("repeated_key", reason)
+            assertFalse(reason.contains("name") || reason.contains("type\""))
+        }
+        // Sibling objects in a list may share keys: the contract's activated fixture has several events.
+        accepted(sessionThrough("activate").receive(activated))
+    }
+
+    @Test
     fun `a message over the size limit is refused before it is parsed`() {
         val s = sessionAfterEverything()
         assertEquals("too_large", refused(s.receive(read("invalid/runtime-to-app/oversized-message.json"))))
