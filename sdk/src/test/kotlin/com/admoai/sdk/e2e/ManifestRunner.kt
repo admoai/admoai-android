@@ -232,8 +232,6 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
             }
         }
 
-        expectInteractiveExperienceOnWire(entry.str("id")!!, request["interactiveExperience"], builder)
-
         val outcome = expect.str("outcome")!!
 
         // --- error outcomes ---------------------------------------------------------------
@@ -242,6 +240,7 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
             val kind = expectedError.str("kind")!!
             try {
                 val built = builder.build()
+                expectInteractiveExperienceOnWire(entry.str("id")!!, request["interactiveExperience"], builder)
                 runBlocking { Admoai.getInstance().requestAds(built).first() }
                 expect(false, "the request is rejected (it succeeded instead)")
             } catch (e: AdMoaiConfigurationException) {
@@ -262,6 +261,7 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
 
         // --- served / no-ad ---------------------------------------------------------------
         val built = builder.build()
+        expectInteractiveExperienceOnWire(entry.str("id")!!, request["interactiveExperience"], builder)
         val response = runBlocking { Admoai.getInstance().requestAds(built).first() }
         val decisions = response.data ?: emptyList()
 

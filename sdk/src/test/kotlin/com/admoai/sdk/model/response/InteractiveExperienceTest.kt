@@ -254,6 +254,16 @@ class InteractiveExperienceTest {
         val again = json.decodeFromString(Creative.serializer(), encoded).interactiveExperience
         assertEquals(original, again)
         assertNotNull(again)
+
+        // An expiry with milliseconds keeps them through the round trip.
+        val fractional = with("expiresAt", JsonPrimitive("2026-11-12T15:15:00.123Z"))
+        val withMillis = response("home" to fractional).data!!.single().creatives!!.single()
+        val decoded = json.decodeFromString(
+            Creative.serializer(),
+            json.encodeToString(Creative.serializer(), withMillis)
+        ).interactiveExperience as InteractiveExperience.LeadGeneration
+        assertEquals(parseRfc3339ToEpochMillis("2026-11-12T15:15:00.123Z"), decoded.expiresAtEpochMillis)
+        assertEquals(withMillis.interactiveExperience, decoded)
     }
 
     @Test
@@ -262,6 +272,12 @@ class InteractiveExperienceTest {
         assertEquals(
             """{"submissionToken" : "REDACTED","recoveryToken":"REDACTED","other":"keep"}""",
             CredentialRedaction.redact(text)
+        )
+        // JSON may escape any character of a member name; it is the same member and is redacted too.
+        val escaped = """{"preparation\u0054oken":"secret","\u0073ubmissionToken":"s2"}"""
+        assertEquals(
+            """{"preparation\u0054oken":"REDACTED","\u0073ubmissionToken":"REDACTED"}""",
+            CredentialRedaction.redact(escaped)
         )
     }
 

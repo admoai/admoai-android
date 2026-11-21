@@ -407,7 +407,9 @@ internal object InteractiveExperienceSerializer : KSerializer<InteractiveExperie
     }
 
     private fun formatUtc(epochMillis: Long): String {
-        val f = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US)
+        // Milliseconds only when there are any, so a decoded expiry encodes back to the same instant.
+        val pattern = if (epochMillis % 1000 == 0L) "yyyy-MM-dd'T'HH:mm:ss'Z'" else "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        val f = java.text.SimpleDateFormat(pattern, java.util.Locale.US)
         f.timeZone = java.util.TimeZone.getTimeZone("UTC")
         return f.format(java.util.Date(epochMillis))
     }
