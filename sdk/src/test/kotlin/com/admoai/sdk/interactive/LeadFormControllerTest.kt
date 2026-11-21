@@ -20,6 +20,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -406,6 +407,66 @@ class LeadFormControllerTest {
             }
         )
         assertEquals(LeadFormState.Visible, c.state.value)
+    }
+
+    private fun assertBackSent(expectedCount: Int) {
+        val backs = sentOf("back")
+        assertEquals(expectedCount, backs.size)
+        val fixture = parse(File("$root/app-to-runtime/back.json").readText())
+        backs.forEach { assertEquals(fixture, it) }
+    }
+
+    @Test
+    fun `the system back button goes back inside a visible form`() {
+        val c = controller()
+        visible(c)
+        assertTrue(c.handleBack())
+        assertBackSent(1)
+        assertTrue(host.closes.isEmpty())
+        page("request-close")
+        assertEquals(listOf(c), host.closes)
+    }
+
+    @Test
+    fun `the system back button belongs to the app while the form is not on screen`() {
+        val idle = controller()
+        assertFalse(idle.handleBack())
+        val ready = controller()
+        readyToShow(ready)
+        assertFalse(ready.handleBack())
+        val hidden = controller()
+        visible(hidden)
+        hidden.setVisible(false)
+        assertFalse(hidden.handleBack())
+        val gone = controller()
+        visible(gone)
+        gone.dispose()
+        assertFalse(gone.handleBack())
+        assertBackSent(0)
+        assertTrue(host.closes.isEmpty())
+    }
+
+    @Test
+    fun `the system back button does nothing during a submission`() {
+        val c = controller()
+        visible(c)
+        page("submitting")
+        assertEquals(LeadFormState.Submitting, c.state.value)
+        assertTrue(c.handleBack())
+        assertBackSent(0)
+        assertTrue(host.closes.isEmpty())
+    }
+
+    @Test
+    fun `the system back button on the confirmation lets the form close itself`() {
+        val c = controller()
+        visible(c)
+        page("submitting")
+        page("submitted")
+        assertTrue(c.state.value is LeadFormState.Submitted)
+        assertTrue(c.handleBack())
+        assertBackSent(1)
+        assertTrue(host.closes.isEmpty())
     }
 
     @Test
