@@ -1,7 +1,6 @@
 package com.admoai.sdk.interactive
 
 /** The answer to [LeadFormValueProvider.lookUpValues]. Answer once; a second answer is ignored. */
-@ExperimentalInteractiveExperienceApi
 fun interface LeadFormValues {
     /** Hands over the values the app holds for the keys asked. A key the app does not hold is absent. */
     fun complete(values: Map<StandardAttributeKey, String>)
@@ -16,7 +15,6 @@ fun interface LeadFormValues {
  * a background thread for `requestAds`, the caller's thread for `getHttpRequestData`. Only key names
  * leave the device with the request.
  */
-@ExperimentalInteractiveExperienceApi
 interface LeadFormValueProvider {
     /** The keys the app holds for the signed-in user right now. */
     fun availableKeys(): Set<StandardAttributeKey>

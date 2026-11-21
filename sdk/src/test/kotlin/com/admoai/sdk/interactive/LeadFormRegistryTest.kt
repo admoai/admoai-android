@@ -17,7 +17,6 @@ import org.junit.Test
  * The scenarios of `src/main/kotlin/com/admoai/sdk/interactive/LeadFormRegistry.feature`, one test per
  * scenario, named after it, driven through [Admoai.createLeadFormController] and its test seams.
  */
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 class LeadFormRegistryTest {
 
     private class Page {

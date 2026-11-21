@@ -24,7 +24,6 @@ import org.junit.Test
  * scenario, named after it. `every scenario has a test` holds the binding: a scenario added to the
  * feature without a test here, or a test whose scenario was renamed away, fails the build.
  */
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 class InteractiveExperienceOptInTest {
 
     private val json = Json {

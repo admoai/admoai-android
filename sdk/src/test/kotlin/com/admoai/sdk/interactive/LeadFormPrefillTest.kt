@@ -15,7 +15,6 @@ import org.junit.Test
  * The scenarios of `src/main/kotlin/com/admoai/sdk/interactive/LeadFormPrefill.feature`, one test per
  * scenario, named after it, plus the contract-number and pure-prefill checks they rest on.
  */
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 class LeadFormPrefillTest {
 
     private val transport = FakeTransport()

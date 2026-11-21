@@ -303,9 +303,6 @@ public final class com/admoai/sdk/exception/AdMoaiValidationException : com/admo
 	public final fun getErrors ()Ljava/util/List;
 }
 
-public abstract interface annotation class com/admoai/sdk/interactive/ExperimentalInteractiveExperienceApi : java/lang/annotation/Annotation {
-}
-
 public final class com/admoai/sdk/interactive/ExternalLinkPurpose : java/lang/Enum {
 	public static final field PRIVACY_POLICY Lcom/admoai/sdk/interactive/ExternalLinkPurpose;
 	public static final field WEBSITE_CTA Lcom/admoai/sdk/interactive/ExternalLinkPurpose;

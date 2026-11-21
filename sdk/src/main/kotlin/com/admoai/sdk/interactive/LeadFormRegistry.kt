@@ -13,7 +13,6 @@ import java.lang.ref.WeakReference
  * generation it was created under and stops looking up or sending values once it is stale, so
  * nothing of the old user is released while the cleanup waits for the main thread.
  */
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 internal class LeadFormRegistry(private val contract: BridgeContract = BridgeContract) {
     private val controllers = ArrayList<WeakReference<LeadFormController>>()
 

@@ -142,7 +142,6 @@ internal object LeadFormFixtures {
     const val LAUNCH_URL = "https://api.tenant.example.invalid/interactive-experiences/runtime/index.html"
     const val TOKEN = "tok_secret_value_123"
 
-    @OptIn(ExperimentalInteractiveExperienceApi::class)
     fun descriptor(expires: Long = 1_000_000L) = InteractiveExperience.LeadGeneration(
         formId = "form_01KG000000000000000000F001",
         formInstanceId = instanceId,

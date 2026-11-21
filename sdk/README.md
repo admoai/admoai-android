@@ -17,7 +17,7 @@ The Admoai Android SDK is a lightweight wrapper around the Decision Engine API, 
   renders nothing and never infers that a pin was seen, so the measurement contract is
   yours to honour
 - **Lead Generation forms** – A native creative whose tap opens an Admoai-hosted form inside your app,
-  inline or full screen. Experimental; read [Lead Generation forms](#lead-generation-forms): your app
+  inline or full screen. Read [Lead Generation forms](#lead-generation-forms): your app
   still fires the creative's impression and its one click
 - **Audience Signals** – Send eight Standard audience keys, plus your own segment codes, that advertisers
   can target the same way across publishers. Read [Audience Signals](#audience-signals): you compute
@@ -2336,9 +2336,7 @@ them live in your code:
 
 ### Status of this API
 
-This API is **experimental**. Every entry point is marked `@ExperimentalInteractiveExperienceApi`,
-and using it requires `@OptIn(ExperimentalInteractiveExperienceApi::class)`; without it your
-code does not compile. Its shape can still change.
+This is a public API. Your app's explicit opt-in (`enableInteractiveExperiences`) is the switch.
 
 - It is served only on `apiVersion = "2025-11-01"`. On `2025-01-01` the request is accepted, the
   declaration is ignored, and no creative ever carries a form.
@@ -2364,7 +2362,6 @@ Opting in is explicit: updating the SDK alone changes nothing about your request
 `apiVersion = "2025-11-01"` first, then give the SDK a `LeadFormValueProvider`.
 
 ```kotlin
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 class SessionValueProvider(private val session: Session) : LeadFormValueProvider {
 
     // Called each time a request is built, on the thread that builds it. Answer from memory.
@@ -2389,7 +2386,6 @@ class SessionValueProvider(private val session: Session) : LeadFormValueProvider
     }
 }
 
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 fun enableLeadForms(session: Session) {
     Admoai.initialize(SDKConfig(baseUrl = "https://api.admoai.com", apiVersion = "2025-11-01"))
     Admoai.getInstance().enableInteractiveExperiences(SessionValueProvider(session))
@@ -2400,7 +2396,6 @@ If your app holds no profile data, opt in with a provider that prefills nothing.
 works; the viewer types every field.
 
 ```kotlin
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 val noPrefill = object : LeadFormValueProvider {
     override fun availableKeys(): Set<StandardAttributeKey> = emptySet()
 
@@ -2452,7 +2447,6 @@ Every creative tells you what a tap opens through `creative.interactiveExperienc
 | `null` | A normal creative | Render it as you always did |
 
 ```kotlin
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 fun leadFormControllerFor(context: Context, creative: Creative, host: LeadFormHost): LeadFormController? =
     Admoai.getInstance().createLeadFormController(
         context = context,
@@ -2480,7 +2474,6 @@ Render the creative as you do today and fire its impression as you do today. The
 5. Dispose the controller whenever the form goes away.
 
 ```kotlin
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 class LeadCardController(
     private val context: Context,
     private val card: FrameLayout,
@@ -2561,7 +2554,6 @@ visible) and, only after the lead was submitted, the advertiser's website. Both 
 **Jetpack Compose** uses the same controller, held by `remember` and released by `DisposableEffect`:
 
 ```kotlin
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 @Composable
 fun LeadGenerationCard(creative: Creative, creativeContent: @Composable () -> Unit) {
     val context = LocalContext.current
@@ -2626,7 +2618,6 @@ a full-screen dialog. In full screen the form draws its **own close button**, wh
 `onRequestClose`. Inline, closing is your card's job.
 
 ```kotlin
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 class LeadFormActivity : ComponentActivity(), LeadFormHost {
 
     private var controller: LeadFormController? = null
@@ -2683,7 +2674,6 @@ and the press is yours. Never close the form on back by yourself: the viewer on 
 would lose every answer.
 
 ```kotlin
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 private val backCallback = object : OnBackPressedCallback(true) {
     override fun handleOnBackPressed() {
         if (controller?.handleBack() == true) return
@@ -2720,8 +2710,18 @@ when you restore the creative. In Jetpack Compose, use
 | `Expired` | The preparation passed its expiry; the controller never opens | Close it and show the creative's normal fallback. Send no automatic new request |
 | `Disposed` | The controller ended | Nothing |
 
-`Failed` carries an `errorCode` for your logs. The failure when the device is offline at tap is a
-retryable one.
+`Failed` carries an `errorCode` for your logs. Decide whether to retry from `retryable`, never
+from the code, and never show the code to the viewer. The codes you will see most:
+
+| `errorCode` | Meaning | `retryable` |
+|---|---|---|
+| `form_not_available` | Lead Generation is not available for this tenant or app right now (the form's page answered 404 or another 4xx, except 408 and 429). Stop offering the form on this ad | no |
+| `temporary_failure` | The form's page could not be loaded: a 5xx server error, 429 rate limited, 408 timeout, or no network. Call `retry()`, which loads it again in the same view | yes |
+| `navigation_blocked` | The page tried to leave the form, so the SDK closed it | no |
+| `renderer_gone` | The system ended the WebView's renderer (Android only) | no |
+
+The form may also report the contract's own codes (for example `expired`, `revoked` or
+`rate_limited`); handle them the same way, by `retryable`.
 
 ### When the signed-in user changes
 

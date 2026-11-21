@@ -16,7 +16,6 @@ import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.exception.AdMoaiConfigurationException
 import com.admoai.sdk.exception.AdMoaiValidationException
 import com.admoai.sdk.expectationFailure
-import com.admoai.sdk.interactive.ExperimentalInteractiveExperienceApi
 import com.admoai.sdk.interactive.LeadFormValueProvider
 import com.admoai.sdk.interactive.LeadFormValues
 import com.admoai.sdk.interactive.SecureFormSurface
@@ -351,7 +350,6 @@ private val wireJson = Json {
  * without it the SDK would omit the extension and the scenario would pass without testing anything.
  * No-op when absent. Undo with [resetInteractiveExperience].
  */
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 internal fun applyInteractiveExperience(id: String, element: JsonElement?) {
     if (element == null) return
     val ie = element as? JsonObject
@@ -387,7 +385,6 @@ internal fun applyInteractiveExperience(id: String, element: JsonElement?) {
 }
 
 /** Turns the opt-in off and puts the real secure-form-surface check back, so later scenarios are unaffected. */
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 internal fun resetInteractiveExperience() {
     val sdk = Admoai.getInstance()
     sdk.disableInteractiveExperiences()

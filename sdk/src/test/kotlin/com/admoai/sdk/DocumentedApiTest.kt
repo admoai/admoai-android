@@ -5,7 +5,6 @@ import com.admoai.sdk.config.AppConfig
 import com.admoai.sdk.config.DeviceConfig
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.config.UserConfig
-import com.admoai.sdk.interactive.ExperimentalInteractiveExperienceApi
 import com.admoai.sdk.interactive.ExternalLinkPurpose
 import com.admoai.sdk.interactive.FormPresentation
 import com.admoai.sdk.interactive.LeadFormController
@@ -320,7 +319,6 @@ class DocumentedApiTest {
     }
 
     /** Reference-only: README "Lead Generation forms" — every member the section shows. */
-    @OptIn(ExperimentalInteractiveExperienceApi::class)
     @Suppress("unused", "UNUSED_VARIABLE")
     private fun documentedLeadGenerationSurface(sdk: Admoai, context: Context, creative: Creative) {
         val provider = object : LeadFormValueProvider {
@@ -378,7 +376,6 @@ class DocumentedApiTest {
 
     // Outside any lambda: Android lint's Compose StateFlow detector crashes on `.value` read inside a
     // lambda in this file (it fails to read the stdlib's Kotlin metadata).
-    @OptIn(ExperimentalInteractiveExperienceApi::class)
     private fun documentedStateLabel(flow: kotlinx.coroutines.flow.StateFlow<LeadFormState>): String {
         val state = flow.value
         return when (state) {
