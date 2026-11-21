@@ -1,9 +1,19 @@
 package com.admoai.sdk
 
+import android.content.Context
 import com.admoai.sdk.config.AppConfig
 import com.admoai.sdk.config.DeviceConfig
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.config.UserConfig
+import com.admoai.sdk.interactive.ExperimentalInteractiveExperienceApi
+import com.admoai.sdk.interactive.ExternalLinkPurpose
+import com.admoai.sdk.interactive.FormPresentation
+import com.admoai.sdk.interactive.LeadFormController
+import com.admoai.sdk.interactive.LeadFormHost
+import com.admoai.sdk.interactive.LeadFormState
+import com.admoai.sdk.interactive.LeadFormValueProvider
+import com.admoai.sdk.interactive.LeadFormValues
+import com.admoai.sdk.interactive.StandardAttributeKey
 import com.admoai.sdk.model.common.JourneyOpt
 import com.admoai.sdk.model.request.Consent
 import com.admoai.sdk.model.request.CustomTargetingInfo
@@ -22,6 +32,7 @@ import com.admoai.sdk.model.request.audience.LastActivityRecency
 import com.admoai.sdk.model.request.audience.SubscriptionStatus
 import com.admoai.sdk.model.response.ContentType
 import com.admoai.sdk.model.response.Creative
+import com.admoai.sdk.model.response.InteractiveExperience
 import com.admoai.sdk.model.response.Slide
 import com.admoai.sdk.model.response.TrackingInfo
 import com.admoai.sdk.model.response.TrackingType
@@ -306,5 +317,78 @@ class DocumentedApiTest {
     private fun documentedNoAdSurface(data: com.admoai.sdk.model.response.AdData) {
         val hasOne = data.hasCreative()
         val none = data.isNoAd()
+    }
+
+    /** Reference-only: README "Lead Generation forms" — every member the section shows. */
+    @OptIn(ExperimentalInteractiveExperienceApi::class)
+    @Suppress("unused", "UNUSED_VARIABLE")
+    private fun documentedLeadGenerationSurface(sdk: Admoai, context: Context, creative: Creative) {
+        val provider = object : LeadFormValueProvider {
+            override fun availableKeys(): Set<StandardAttributeKey> = setOf(
+                StandardAttributeKey.FIRST_NAME,
+                StandardAttributeKey.LAST_NAME,
+                StandardAttributeKey.FULL_NAME,
+                StandardAttributeKey.EMAIL,
+                StandardAttributeKey.PHONE,
+                StandardAttributeKey.AGE,
+                StandardAttributeKey.GENDER
+            )
+
+            override fun lookUpValues(keys: Set<StandardAttributeKey>, completion: LeadFormValues) {
+                completion.complete(emptyMap())
+            }
+        }
+        sdk.enableInteractiveExperiences(provider)
+        sdk.disableInteractiveExperiences()
+        sdk.disposeAllLeadForms()
+        sdk.setUserConfig(UserConfig(id = "u"))
+        sdk.clearUserConfig()
+
+        val experience: InteractiveExperience? = creative.interactiveExperience
+        val show = when (experience) {
+            is InteractiveExperience.LeadGeneration -> true
+            is InteractiveExperience.Unsupported -> false
+            null -> true
+        }
+
+        val host = object : LeadFormHost {
+            override fun onRequestClose(controller: LeadFormController) = controller.dispose()
+
+            override fun onOpenExternalLink(controller: LeadFormController, purpose: ExternalLinkPurpose, url: String) {
+                val privacy = purpose == ExternalLinkPurpose.PRIVACY_POLICY
+                val website = purpose == ExternalLinkPurpose.WEBSITE_CTA
+            }
+        }
+        val controller: LeadFormController? =
+            sdk.createLeadFormController(context, creative, FormPresentation.FULL_SCREEN, host)
+        controller?.let {
+            it.prepare()
+            sdk.fireClick(creative.tracking)
+            it.open()
+            it.view()
+            it.setVisible(true)
+            it.setVisible(false)
+            val consumed: Boolean = it.handleBack()
+            it.retry()
+            it.dispose()
+            val flow: kotlinx.coroutines.flow.StateFlow<LeadFormState> = it.state
+            documentedStateLabel(flow)
+        }
+    }
+
+    // Outside any lambda: Android lint's Compose StateFlow detector crashes on `.value` read inside a
+    // lambda in this file (it fails to read the stdlib's Kotlin metadata).
+    @OptIn(ExperimentalInteractiveExperienceApi::class)
+    private fun documentedStateLabel(flow: kotlinx.coroutines.flow.StateFlow<LeadFormState>): String {
+        val state = flow.value
+        return when (state) {
+            LeadFormState.Idle, LeadFormState.Preparing, LeadFormState.Prepared,
+            LeadFormState.Activating, LeadFormState.ReadyToShow, LeadFormState.Visible,
+            LeadFormState.Submitting, LeadFormState.Expired, LeadFormState.Disposed -> ""
+
+            is LeadFormState.Submitted -> state.leadId + state.submittedAt
+
+            is LeadFormState.Failed -> state.errorCode + state.retryable
+        }
     }
 }
