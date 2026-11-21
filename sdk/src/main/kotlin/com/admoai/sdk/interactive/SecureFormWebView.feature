@@ -35,6 +35,13 @@ Feature: The form runs in a WebView that only the form's own origin can talk to
     When the page tries to navigate to another address
     Then the view stays on the form
 
+  Scenario: the form cannot submit a page form or load a second page
+    Given a loaded form view
+    When the page submits a form with POST or loads a second page
+    Then the request is refused
+    And the form fails and the app is told
+    But the images, scripts and other resources of the form still load
+
   Scenario: the form cannot open windows or popups
     Given a loaded form view
     When the page tries to open a new window

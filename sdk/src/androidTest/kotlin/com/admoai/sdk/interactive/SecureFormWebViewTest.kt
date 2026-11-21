@@ -45,6 +45,7 @@ class SecureFormWebViewTest {
 
     private val requests = CopyOnWriteArrayList<String>()
     private val received = CopyOnWriteArrayList<String>()
+    private val blocks = java.util.concurrent.atomic.AtomicInteger()
     private var latch = CountDownLatch(0)
     private lateinit var transport: SecureFormWebView
     private lateinit var parent: FrameLayout
@@ -76,6 +77,7 @@ class SecureFormWebViewTest {
                 received += it
                 latch.countDown()
             }
+            transport.setOnNavigationBlocked { blocks.incrementAndGet() }
             parent.addView(transport.view)
         }
     }
@@ -154,6 +156,20 @@ class SecureFormWebViewTest {
         onMain { url = (transport.view as android.webkit.WebView).url }
         assertEquals("$launchBase/form.html$fragment", url)
         assertTrue(requests.toString(), requests.none { it.contains("other.appassets.example") })
+    }
+
+    @Test
+    @JvmName("scenario_the_form_cannot_submit_a_page_form_or_load_a_second_page")
+    fun `the form cannot submit a page form or load a second page`() {
+        loadForm()
+        requests.clear()
+        onMain { transport.send("post") }
+        Thread.sleep(2000)
+        var url: String? = null
+        onMain { url = (transport.view as android.webkit.WebView).url }
+        assertEquals("$launchBase/form.html$fragment", url)
+        assertEquals(1, blocks.get())
+        assertTrue(requests.toString(), requests.none { it.contains("frame.html") })
     }
 
     @Test

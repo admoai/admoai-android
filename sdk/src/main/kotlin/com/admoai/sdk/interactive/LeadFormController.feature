@@ -111,6 +111,12 @@ Feature: An app prepares and opens a Lead Generation form through one controller
     When the form reports it is ready again
     Then the controller has failed without retry
 
+  Scenario: a form that tries to leave its page fails
+    Given a visible controller
+    When the form view refuses a navigation the form tried
+    Then the controller has failed without retry
+    And the view is released
+
   Scenario: disposing ends the form and ignores everything after
     Given a visible controller
     When the app disposes it

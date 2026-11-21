@@ -44,6 +44,7 @@ class LeadFormControllerTest {
         var firstListener: ((String) -> Unit)? = null
         var listener: (String) -> Unit = {}
         var gone: () -> Unit = {}
+        var blocked: () -> Unit = {}
 
         override fun load(url: String) {
             loads += url
@@ -60,6 +61,10 @@ class LeadFormControllerTest {
 
         override fun setOnRendererGone(listener: () -> Unit) {
             gone = listener
+        }
+
+        override fun setOnNavigationBlocked(listener: () -> Unit) {
+            blocked = listener
         }
 
         override fun destroy() {
@@ -588,6 +593,19 @@ class LeadFormControllerTest {
         c.dispose()
         assertTrue(transport.sent.isEmpty())
         assertEquals(1, transport.destroyed)
+    }
+
+    @Test
+    fun `a form that tries to leave its page fails`() {
+        val c = controller()
+        visible(c)
+        transport.blocked()
+        assertEquals(LeadFormState.Failed("navigation_blocked", false), c.state.value)
+        assertEquals(1, transport.destroyed)
+        c.retry()
+        assertEquals(LeadFormState.Failed("navigation_blocked", false), c.state.value)
+        c.dispose()
+        assertEquals(LeadFormState.Disposed, c.state.value)
     }
 
     @Test

@@ -27,6 +27,9 @@ internal interface BridgeTransport {
 
     fun setOnRendererGone(listener: () -> Unit)
 
+    /** Called once when the view refused a navigation the form tried (a POST or a second page). */
+    fun setOnNavigationBlocked(listener: () -> Unit)
+
     fun destroy()
 }
 
@@ -164,6 +167,7 @@ class LeadFormController internal constructor(
             try {
                 t.setOnMessage { }
                 t.setOnRendererGone { }
+                t.setOnNavigationBlocked { }
                 t.destroy()
             } catch (_: Throwable) {
                 // Nothing more to release.
@@ -183,6 +187,7 @@ class LeadFormController internal constructor(
         val t = transportFactory()
         t.setOnMessage { text -> onMessage(text) }
         t.setOnRendererGone { onRendererGone() }
+        t.setOnNavigationBlocked { onNavigationBlocked() }
         transport = t
         return t
     }
@@ -205,6 +210,16 @@ class LeadFormController internal constructor(
         if (disposed) return
         rendererGone = true
         mutableState.value = LeadFormState.Failed("renderer_gone", false)
+        try {
+            transport?.destroy()
+        } catch (_: Throwable) {
+            // Already gone.
+        }
+    }
+
+    private fun onNavigationBlocked() {
+        if (disposed) return
+        mutableState.value = LeadFormState.Failed("navigation_blocked", false)
         try {
             transport?.destroy()
         } catch (_: Throwable) {

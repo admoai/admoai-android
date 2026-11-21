@@ -6,6 +6,14 @@
   AdmoaiBridge.addEventListener("message", function (e) {
     var data = e.data;
     if (data === "navigate") { location.href = "https://other.appassets.example/assets/interactive/frame.html"; return; }
+    if (data === "post") {
+      var f = document.createElement("form");
+      f.method = "post";
+      f.action = location.origin + "/assets/interactive/frame.html";
+      document.body.appendChild(f);
+      f.submit();
+      return;
+    }
     if (data === "open") {
       var w = window.open("https://other.appassets.example/assets/interactive/frame.html");
       AdmoaiBridge.postMessage("open:" + (w === null ? "null" : "window"));
