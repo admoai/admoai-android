@@ -53,7 +53,8 @@ class BridgeProtocolTest {
         false to "prepare-failed", true to "retry-prepare", true to "activate", false to "activated",
         true to "prefill", false to "prefill-applied", true to "became-visible", true to "became-hidden",
         true to "back", false to "fatal-error", false to "request-close", false to "request-external-url",
-        false to "event", false to "submitting", false to "submit-failed", false to "submitted", true to "dispose"
+        false to "event", false to "submitting", false to "submit-failed", false to "submitting",
+        false to "submitted", true to "dispose"
     )
 
     /** The valid runtime fixtures in an order that respects each message's `after`. */
@@ -178,6 +179,19 @@ class BridgeProtocolTest {
         }
         early.encode("became_visible", buildJsonObject {})
         early.encode("back", back.getValue("payload").jsonObject)
+    }
+
+    @Test
+    fun `each submission outcome answers one submission the form announced`() {
+        val s = sessionThrough("event")
+        assertEquals("out_of_order", refused(s.receive(read("runtime-to-app/submitted.json"))))
+        accepted(s.receive(read("runtime-to-app/submitting.json")))
+        accepted(s.receive(read("runtime-to-app/submit-failed.json")))
+        assertEquals("out_of_order", refused(s.receive(read("runtime-to-app/submit-failed.json"))))
+        assertEquals("out_of_order", refused(s.receive(read("runtime-to-app/submitted.json"))))
+        accepted(s.receive(read("runtime-to-app/submitting.json")))
+        accepted(s.receive(read("runtime-to-app/submitted.json")))
+        assertEquals("out_of_order", refused(s.receive(read("runtime-to-app/submitted.json"))))
     }
 
     @Test

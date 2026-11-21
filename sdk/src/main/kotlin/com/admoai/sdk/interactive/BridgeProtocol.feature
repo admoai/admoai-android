@@ -27,6 +27,12 @@ Feature: The SDK and the hosted form trust only well-formed bridge messages of t
     Then it is refused
     And the SDK never sends back before the form became visible
 
+  Scenario: each submission outcome answers one submission the form announced
+    Given a visible form that announced a submission
+    When the submission fails and the outcome arrives again without a new announcement
+    Then the second outcome is refused
+    And after the form announces the retry, its outcome is accepted
+
   Scenario: a message over the size limit is refused before it is parsed
     Given a bridge for the contract's instance and channel
     When a message larger than the contract's limit arrives

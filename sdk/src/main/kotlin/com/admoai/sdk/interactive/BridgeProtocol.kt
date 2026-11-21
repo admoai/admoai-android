@@ -229,6 +229,12 @@ internal sealed class Received {
 internal class BridgeSession(private val instanceId: String, private val channel: String) {
     private val exchanged = HashSet<String>()
 
+    /**
+     * The contract's rule no `after` list can express: each `submitted` or `submit_failed` answers
+     * one unanswered `submitting`, so a retry starts with a new `submitting`.
+     */
+    private var submissionUnanswered = false
+
     fun hasExchanged(type: String): Boolean = type in exchanged
 
     fun receive(text: String): Received {
@@ -259,6 +265,14 @@ internal class BridgeSession(private val instanceId: String, private val channel
         if (spec == null || spec.direction != RUNTIME_TO_APP) return Received.Refused("unknown_type")
         BridgeProtocol.firstPayloadFault(spec, payload)?.let { return Received.Refused("bad_payload:$it") }
         if (spec.after.isNotEmpty() && spec.after.none { it in exchanged }) return Received.Refused("out_of_order")
+        when (type) {
+            SUBMITTING -> submissionUnanswered = true
+
+            SUBMITTED, SUBMIT_FAILED -> {
+                if (!submissionUnanswered) return Received.Refused("out_of_order")
+                submissionUnanswered = false
+            }
+        }
         exchanged += type
         return Received.Accepted(type, payload)
     }
@@ -288,6 +302,9 @@ internal class BridgeSession(private val instanceId: String, private val channel
     private companion object {
         const val RUNTIME_TO_APP = "runtime_to_app"
         const val APP_TO_RUNTIME = "app_to_runtime"
+        const val SUBMITTING = "submitting"
+        const val SUBMITTED = "submitted"
+        const val SUBMIT_FAILED = "submit_failed"
         val ENVELOPE_KEYS = setOf("type", "instanceId", "channel", "payload")
     }
 }
