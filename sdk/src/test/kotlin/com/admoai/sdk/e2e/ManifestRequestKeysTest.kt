@@ -235,4 +235,122 @@ class ManifestRequestKeysTest {
             .toSet()
         assertTrue("manifest uses $used", EXECUTED_REQUEST_KEYS.containsAll(used))
     }
+
+    /** IE1 and IE3's version: below it the SDK logs a warning, and android.util.Log is not mocked on the JVM. */
+    private fun initOn20251101() {
+        Admoai.resetForTesting()
+        Admoai.initialize(
+            SDKConfig(baseUrl = "https://test.admoai.com", apiVersion = "2025-11-01", networkClientEngine = null)
+        )
+    }
+
+    private fun ieWire(b: DecisionRequestBuilder): JsonObject? =
+        json.parseToJsonElement(wire(b)).jsonObject["interactiveExperience"] as? JsonObject
+
+    @Test
+    fun `an interactiveExperience request applies the opt-in and the wire carries the declaration`() {
+        val ie = parse("""{"supported":true,"availableAttributeKeys":["fullName","email","phone"]}""")
+        try {
+            initOn20251101()
+            val b = builder()
+            applyInteractiveExperience("X11", ie)
+            expectInteractiveExperienceOnWire("X11", ie, b)
+            val sent = ieWire(b)!!
+            assertEquals(JsonPrimitive(true), sent["supported"])
+            assertEquals(
+                parse("""["fullName","email","phone"]"""),
+                sent["availableAttributeKeys"]
+            )
+        } finally {
+            resetInteractiveExperience()
+        }
+    }
+
+    @Test
+    fun `an empty key list sends an empty availableAttributeKeys`() {
+        val ie = parse("""{"supported":true,"availableAttributeKeys":[]}""")
+        try {
+            initOn20251101()
+            val b = builder()
+            applyInteractiveExperience("X12", ie)
+            expectInteractiveExperienceOnWire("X12", ie, b)
+            assertEquals(JsonArray(emptyList()), ieWire(b)!!["availableAttributeKeys"])
+        } finally {
+            resetInteractiveExperience()
+        }
+    }
+
+    @Test
+    fun `keys are sent in catalog order whatever order the manifest lists them`() {
+        val ie = parse("""{"supported":true,"availableAttributeKeys":["phone","email"]}""")
+        try {
+            initOn20251101()
+            val b = builder()
+            applyInteractiveExperience("X13", ie)
+            expectInteractiveExperienceOnWire("X13", ie, b)
+            assertEquals(parse("""["email","phone"]"""), ieWire(b)!!["availableAttributeKeys"])
+        } finally {
+            resetInteractiveExperience()
+        }
+    }
+
+    @Test
+    fun `resetting the opt-in stops the declaration`() {
+        applyInteractiveExperience("X14", parse("""{"supported":true,"availableAttributeKeys":[]}"""))
+        resetInteractiveExperience()
+        assertNull(ieWire(builder()))
+    }
+
+    @Test
+    fun `an absent interactiveExperience changes nothing`() {
+        applyInteractiveExperience("X15", null)
+        assertNull(ieWire(builder()))
+    }
+
+    @Test
+    fun `supported false is refused because the SDK never sends it`() {
+        assertRunnerRefuses("never sends") {
+            applyInteractiveExperience("X16", parse("""{"supported":false,"availableAttributeKeys":[]}"""))
+        }
+    }
+
+    @Test
+    fun `an unknown attribute key name is refused naming the index, not the value`() {
+        try {
+            applyInteractiveExperience(
+                "X17",
+                parse("""{"supported":true,"availableAttributeKeys":["email","shoeSize"]}""")
+            )
+            throw AssertionError("expected a failure")
+        } catch (e: AssertionError) {
+            assertTrue(e.message, e.message.orEmpty().contains("[1]"))
+            assertTrue(e.message, !e.message.orEmpty().contains("shoeSize"))
+        } finally {
+            resetInteractiveExperience()
+        }
+    }
+
+    @Test
+    fun `an unknown key inside interactiveExperience is refused`() {
+        assertRunnerRefuses("[values]") {
+            applyInteractiveExperience(
+                "X18",
+                parse("""{"supported":true,"availableAttributeKeys":[],"values":{}}""")
+            )
+        }
+    }
+
+    @Test
+    fun `schemaVersion 6 and 7 are accepted, 8 and an absent one are refused`() {
+        checkSchemaVersion(6)
+        checkSchemaVersion(7)
+        for (bad in listOf(5, 8, null)) {
+            try {
+                checkSchemaVersion(bad)
+                throw AssertionError("schemaVersion $bad must be refused")
+            } catch (e: IllegalStateException) {
+                assertTrue(e.message, e.message.orEmpty().contains("schemaVersion $bad"))
+            }
+        }
+    }
 }
