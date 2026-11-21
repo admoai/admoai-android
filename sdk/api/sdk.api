@@ -328,6 +328,7 @@ public final class com/admoai/sdk/interactive/LeadFormController {
 	public final fun getFormInstanceId ()Ljava/lang/String;
 	public final fun getPresentation ()Lcom/admoai/sdk/interactive/FormPresentation;
 	public final fun getState ()Lkotlinx/coroutines/flow/StateFlow;
+	public final fun handleBack ()Z
 	public final fun open ()V
 	public final fun prepare ()V
 	public final fun retry ()V

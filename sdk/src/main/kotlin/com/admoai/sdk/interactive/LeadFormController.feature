@@ -143,3 +143,29 @@ Feature: An app prepares and opens a Lead Generation form through one controller
     Given an app with SDK logging on
     When a form event's tracking URL is fired
     Then the logged request shows the tracking address without its query values
+
+  Scenario: the system back button goes back inside a visible form
+    Given a visible controller
+    When the app passes the system back button to the controller
+    Then the press is consumed
+    And the form was told to go back
+    When the form asks to close
+    Then the app's host is asked to close the form
+
+  Scenario: the system back button belongs to the app while the form is not on screen
+    Given a controller that is not on screen yet, one that was hidden again and one that was disposed
+    When the app passes the system back button to each of them
+    Then none consumes the press
+    And the form was told nothing
+
+  Scenario: the system back button does nothing during a submission
+    Given a visible controller whose form is submitting
+    When the app passes the system back button to the controller
+    Then the press is consumed
+    And the form was told nothing
+
+  Scenario: the system back button on the confirmation lets the form close itself
+    Given a submitted controller
+    When the app passes the system back button to the controller
+    Then the press is consumed
+    And the form was told to go back

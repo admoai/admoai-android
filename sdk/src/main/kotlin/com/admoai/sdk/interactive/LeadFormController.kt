@@ -191,6 +191,22 @@ class LeadFormController internal constructor(
         }
     }
 
+    /**
+     * Call it from the app's back handling. Returns `true` when the SDK consumed the press: the form
+     * is on screen, so the form goes back one step itself (or asks the app to close through
+     * [LeadFormHost.onRequestClose] on its first step and on its confirmation). Returns `false` when
+     * the form is not on screen: the press belongs to the app. While a submission is in progress the
+     * press is consumed and nothing happens. The SDK never closes the form on back by itself.
+     */
+    fun handleBack(): Boolean {
+        if (disposed || !visibleOnWire) return false
+        return when (mutableState.value) {
+            LeadFormState.Visible, is LeadFormState.Submitted -> send("back")
+            LeadFormState.Submitting -> true
+            else -> false
+        }
+    }
+
     /** Retries after a failure that reported `retryable`. Does nothing in any other state. */
     fun retry() {
         if (disposed) return
