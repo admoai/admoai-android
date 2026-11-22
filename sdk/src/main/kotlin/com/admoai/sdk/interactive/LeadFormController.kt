@@ -387,7 +387,9 @@ class LeadFormController internal constructor(
             mutableState.value = LeadFormState.Expired
             return
         }
-        mutableState.value = LeadFormState.Failed(code, payload["retryable"]?.jsonPrimitive?.content == "true")
+        // The contract's error catalog has the last word: a code it marks final is never retryable.
+        val pageSaysRetryable = payload["retryable"]?.jsonPrimitive?.content == "true"
+        mutableState.value = LeadFormState.Failed(code, BridgeProtocol.retryable(code, pageSaysRetryable))
     }
 
     private fun fail(code: String) {

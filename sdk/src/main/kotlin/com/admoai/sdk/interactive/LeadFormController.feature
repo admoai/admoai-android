@@ -75,6 +75,8 @@ Feature: An app prepares and opens a Lead Generation form through one controller
   Scenario: a failure that cannot be retried ends the controller
     When the form reports a fatal error
     Then the controller has failed without retry
+    When the form reports a preparation failure the contract marks final, even if the page calls it retryable
+    Then the controller has failed without retry
 
   Scenario: the form reports a submission in progress and its outcome
     Given a visible controller

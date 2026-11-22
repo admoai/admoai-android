@@ -480,6 +480,16 @@ class LeadFormControllerTest {
         c.retry()
         assertEquals(before, transport.sent.size)
         assertEquals(LeadFormState.Failed("revoked", false), c.state.value)
+
+        // The page says retryable, the contract's catalog says unauthorized is final: final wins.
+        val narrowed = controller()
+        narrowed.prepare()
+        page("bridge-ready")
+        pageRaw(
+            File("$root/runtime-to-app/prepare-failed.json").readText()
+                .replace("\"temporary_failure\"", "\"unauthorized\"")
+        )
+        assertEquals(LeadFormState.Failed("unauthorized", false), narrowed.state.value)
     }
 
     @Test
