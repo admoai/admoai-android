@@ -254,8 +254,9 @@ class LeadFormController internal constructor(
      */
     private fun onLoadFailed(httpStatus: Int?) {
         if (disposed || ended || bridgeReadyCount > 0) return
-        if (httpStatus == null || httpStatus >= 500) {
-            // A server error or a network blip: retry() loads the page again in the same view.
+        if (httpStatus == null || httpStatus >= 500 || httpStatus == 429 || httpStatus == 408) {
+            // A server error, rate limiting (429), a timeout (408) or a network blip: retry() loads
+            // the page again in the same view.
             pageLoadFailed = true
             mutableState.value = LeadFormState.Failed("temporary_failure", true)
             return

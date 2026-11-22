@@ -655,6 +655,14 @@ class LeadFormControllerTest {
         transport.loadFailed(403)
         assertEquals(LeadFormState.Failed("form_not_available", false), forbidden.state.value)
 
+        // Rate limited (429) and timed out (408) are passing conditions: the viewer can retry.
+        for (status in listOf(429, 408)) {
+            val passing = controller()
+            passing.prepare()
+            transport.loadFailed(status)
+            assertEquals("$status", LeadFormState.Failed("temporary_failure", true), passing.state.value)
+        }
+
         val unreachable = controller()
         unreachable.prepare()
         transport.loadFailed(null)
