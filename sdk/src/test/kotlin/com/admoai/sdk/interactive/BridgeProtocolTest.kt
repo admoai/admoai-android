@@ -255,9 +255,24 @@ class BridgeProtocolTest {
                 parse(text).keys.toList()
             )
         }
+        // A repeated key cannot be produced at all: the SDK encodes a JsonObject, which holds each key
+        // once, so the contract's repeated-key prefill comes out with every key once.
+        val repeated = File("$root/invalid/app-to-runtime/prefill-repeated-key.json").readText()
+        val reencoded = sessionThrough(
+            "prefill-applied"
+        ).encode("prefill", parse(repeated).getValue("payload").jsonObject)
+        assertEquals(1, Regex("\"email\"").findAll(reencoded).count())
+        assertEquals(2, Regex("\"email\"").findAll(repeated).count())
+
         // And the contract's invalid app messages are never produced, in the state the contract
         // describes for its order-dependent fixture: everything up to prefill_applied exchanged.
-        files("invalid/app-to-runtime").filter { it.name != "wrong-instance.json" }.forEach { file ->
+        // The page tolerates some prefill entries (an unknown key, a value over its bound) by
+        // dropping them, but the SDK never sends them either.
+        val neverSent = files("invalid/app-to-runtime").filter {
+            it.name != "wrong-instance.json" && it.name != "prefill-repeated-key.json"
+        } + files("tolerated/app-to-runtime").filter { !it.name.endsWith(".outcome.json") }
+        assertTrue(neverSent.any { it.parentFile.name == "app-to-runtime" && it.path.contains("tolerated") })
+        neverSent.forEach { file ->
             val envelope = parse(file.readText())
             try {
                 sessionThrough("prefill-applied").encode(
