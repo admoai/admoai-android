@@ -43,6 +43,21 @@ internal object BridgeProtocol {
 
     val maxMessageBytes: Int by lazy { bridge.getValue("maxMessageBytes").jsonPrimitive.int() }
 
+    private val retryableByCode: Map<String, Boolean> by lazy {
+        load("error-codes.json").getValue("codes").jsonArray.associate {
+            val code = it.jsonObject
+            code.getValue("key").jsonPrimitive.content to (code.getValue("retryable").jsonPrimitive.content == "true")
+        }
+    }
+
+    /**
+     * Whether a failure the page reports may be retried: only when the page says so AND the contract's
+     * error-codes.json does not mark the code final. A code the catalog does not list keeps the page's
+     * answer.
+     */
+    fun retryable(errorCode: String, pageSaysRetryable: Boolean): Boolean =
+        pageSaysRetryable && retryableByCode[errorCode] != false
+
     private val envelopeSpec: JsonObject by lazy { bridge.getValue("envelope").jsonObject }
 
     private val instancePattern: Regex by lazy { Regex(envelopeSpec.pattern("instanceId")) }

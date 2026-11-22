@@ -220,6 +220,30 @@ class BridgeProtocolTest {
     }
 
     @Test
+    fun `a failure the contract marks final is never retryable`() {
+        // Every code prepare_failed can carry is in the contract's error catalog.
+        val contract =
+            parse(File("src/main/resources/com/admoai/sdk/interactive/contract/bridge-messages.json").readText())
+        val prepareFailed = contract.getValue("messages").jsonArray.map { it.jsonObject }
+            .single { it.getValue("type").jsonPrimitive.content == "prepare_failed" }
+        val codes = prepareFailed.getValue("payload").jsonObject.getValue("errorCode").jsonObject
+            .getValue("enum").jsonArray.map { it.jsonPrimitive.content }
+        val catalog =
+            parse(File("src/main/resources/com/admoai/sdk/interactive/contract/error-codes.json").readText())
+                .getValue("codes").jsonArray.associate {
+                    it.jsonObject.getValue("key").jsonPrimitive.content to
+                        (it.jsonObject.getValue("retryable").jsonPrimitive.content == "true")
+                }
+        assertTrue("every prepare_failed code is catalogued", catalog.keys.containsAll(codes))
+        codes.forEach { code ->
+            assertEquals(code, catalog.getValue(code), BridgeProtocol.retryable(code, true))
+            assertFalse(code, BridgeProtocol.retryable(code, false))
+        }
+        assertFalse(BridgeProtocol.retryable("expired", true))
+        assertTrue(BridgeProtocol.retryable("temporary_failure", true))
+    }
+
+    @Test
     fun `a message over the size limit is refused before it is parsed`() {
         val s = sessionAfterEverything()
         assertEquals("too_large", refused(s.receive(read("invalid/runtime-to-app/oversized-message.json"))))

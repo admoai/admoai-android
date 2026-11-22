@@ -39,6 +39,11 @@ Feature: The SDK and the hosted form trust only well-formed bridge messages of t
     Then it is refused without naming the key
     And the same key in sibling objects of a list is not a repeat
 
+  Scenario: a failure the contract marks final is never retryable
+    Given the contract's error catalog
+    When the form reports a failure and says it can be retried
+    Then it can be retried only if the catalog does not mark that code final
+
   Scenario: a message over the size limit is refused before it is parsed
     Given a bridge for the contract's instance and channel
     When a message larger than the contract's limit arrives
