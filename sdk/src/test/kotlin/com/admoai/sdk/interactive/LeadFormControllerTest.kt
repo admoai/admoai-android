@@ -45,6 +45,7 @@ class LeadFormControllerTest {
         var listener: (String) -> Unit = {}
         var gone: () -> Unit = {}
         var blocked: () -> Unit = {}
+        var loadFailed: (Int?) -> Unit = {}
 
         override fun load(url: String) {
             loads += url
@@ -65,6 +66,10 @@ class LeadFormControllerTest {
 
         override fun setOnNavigationBlocked(listener: () -> Unit) {
             blocked = listener
+        }
+
+        override fun setOnLoadFailed(listener: (httpStatus: Int?) -> Unit) {
+            loadFailed = listener
         }
 
         override fun destroy() {
@@ -606,6 +611,57 @@ class LeadFormControllerTest {
         assertEquals(LeadFormState.Failed("navigation_blocked", false), c.state.value)
         c.dispose()
         assertEquals(LeadFormState.Disposed, c.state.value)
+    }
+
+    @Test
+    fun `a form page that cannot be loaded fails instead of loading forever`() {
+        val notFound = controller()
+        notFound.prepare()
+        transport.loadFailed(404)
+        assertEquals(LeadFormState.Failed("form_not_available", false), notFound.state.value)
+        assertEquals(1, transport.destroyed)
+        notFound.retry()
+        assertEquals(LeadFormState.Failed("form_not_available", false), notFound.state.value)
+
+        val server = controller()
+        server.open()
+        assertEquals(LeadFormState.Preparing, server.state.value)
+        val destroyedBefore = transport.destroyed
+        transport.loadFailed(500)
+        assertEquals(LeadFormState.Failed("temporary_failure", true), server.state.value)
+        assertEquals("the view is kept for the retry", destroyedBefore, transport.destroyed)
+        val loadsBefore = transport.loads.size
+        server.retry()
+        assertEquals(LeadFormState.Preparing, server.state.value)
+        assertEquals(loadsBefore + 1, transport.loads.size)
+        assertEquals(transport.loads[loadsBefore - 1], transport.loads.last())
+        // The page arrives this time; the tap that opened it still activates it once prepared.
+        page("bridge-ready")
+        page("prepared")
+        assertEquals(LeadFormState.Activating, server.state.value)
+
+        val forbidden = controller()
+        forbidden.prepare()
+        transport.loadFailed(403)
+        assertEquals(LeadFormState.Failed("form_not_available", false), forbidden.state.value)
+
+        val unreachable = controller()
+        unreachable.prepare()
+        transport.loadFailed(null)
+        assertEquals(LeadFormState.Failed("temporary_failure", true), unreachable.state.value)
+
+        val up = controller()
+        up.prepare()
+        page("bridge-ready")
+        page("prepared")
+        transport.loadFailed(500)
+        assertEquals(LeadFormState.Prepared, up.state.value)
+
+        val disposed = controller()
+        disposed.prepare()
+        disposed.dispose()
+        transport.loadFailed(404)
+        assertEquals(LeadFormState.Disposed, disposed.state.value)
     }
 
     @Test

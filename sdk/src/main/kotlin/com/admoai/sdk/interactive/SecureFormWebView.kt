@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -52,12 +53,14 @@ internal class SecureFormWebView(context: Context, private val launchOrigin: Str
     private var onMessage: (String) -> Unit = {}
     private var onRendererGone: () -> Unit = {}
     private var onNavigationBlocked: () -> Unit = {}
+    private var onLoadFailed: (Int?) -> Unit = {}
     private var replyProxy: JavaScriptReplyProxy? = null
 
     @Volatile
     private var destroyed = false
     private val launchRequested = AtomicBoolean(false)
     private val blockReported = AtomicBoolean(false)
+    private val loadFailReported = AtomicBoolean(false)
 
     @Volatile
     private var launchUrl: String? = null
@@ -103,6 +106,19 @@ internal class SecureFormWebView(context: Context, private val launchOrigin: Str
                 reportBlocked()
             }
 
+            override fun onReceivedHttpError(
+                view: WebView,
+                request: WebResourceRequest,
+                errorResponse: WebResourceResponse
+            ) {
+                val status = errorResponse.statusCode
+                if (request.isForMainFrame && status >= 400) reportLoadFailed(status)
+            }
+
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                if (request.isForMainFrame) reportLoadFailed(null)
+            }
+
             override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
                 onRendererGone()
                 return true
@@ -138,6 +154,10 @@ internal class SecureFormWebView(context: Context, private val launchOrigin: Str
     override fun load(url: String) {
         if (destroyed) return
         launchUrl = url
+        // A load the SDK asks for (the first one, or a retry after the page failed to arrive)
+        // re-arms the one-page-load guard and the load-failure report; the page itself cannot.
+        launchRequested.set(false)
+        loadFailReported.set(false)
         webView.loadUrl(url)
     }
 
@@ -157,12 +177,17 @@ internal class SecureFormWebView(context: Context, private val launchOrigin: Str
         onNavigationBlocked = listener
     }
 
+    override fun setOnLoadFailed(listener: (httpStatus: Int?) -> Unit) {
+        onLoadFailed = listener
+    }
+
     override fun destroy() {
         if (destroyed) return
         destroyed = true
         onMessage = {}
         onRendererGone = {}
         onNavigationBlocked = {}
+        onLoadFailed = {}
         replyProxy = null
         try {
             WebViewCompat.removeWebMessageListener(webView, BRIDGE_NAME)
@@ -190,6 +215,12 @@ internal class SecureFormWebView(context: Context, private val launchOrigin: Str
     private fun reportBlocked() {
         if (destroyed || !blockReported.compareAndSet(false, true)) return
         onNavigationBlocked()
+    }
+
+    /** The entry page failed to load: at most once per view, never after [destroy]. Main thread. */
+    private fun reportLoadFailed(httpStatus: Int?) {
+        if (destroyed || !loadFailReported.compareAndSet(false, true)) return
+        onLoadFailed(httpStatus)
     }
 
     private fun normalize(origin: String): String = origin.trimEnd('/')

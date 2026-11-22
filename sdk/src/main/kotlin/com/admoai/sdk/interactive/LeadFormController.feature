@@ -117,6 +117,17 @@ Feature: An app prepares and opens a Lead Generation form through one controller
     Then the controller has failed without retry
     And the view is released
 
+  Scenario: a form page that cannot be loaded fails instead of loading forever
+    Given a controller that is preparing or was opened by a tap
+    When the form's page is not available (the server answers 404, or any other 4xx)
+    Then the controller has failed with form_not_available and cannot be retried
+    And the view is released
+    When the form's page answers a server error (5xx) or cannot be reached
+    Then the controller has failed with temporary_failure and can be retried
+    And a retry loads the form's page again in the same view
+    But a failure reported after the form's bridge is up does not end the form
+    And a failure reported after the app disposed the controller changes nothing
+
   Scenario: disposing ends the form and ignores everything after
     Given a visible controller
     When the app disposes it

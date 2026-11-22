@@ -42,6 +42,11 @@ Feature: The form runs in a WebView that only the form's own origin can talk to
     And the form fails and the app is told
     But the images, scripts and other resources of the form still load
 
+  Scenario: a form page that answers an error is reported to the app
+    Given a form view
+    When the form's page answers with an HTTP error such as 404
+    Then the app is told once, with the status
+
   Scenario: the form cannot open windows or popups
     Given a loaded form view
     When the page tries to open a new window

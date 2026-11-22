@@ -30,6 +30,12 @@ internal interface BridgeTransport {
     /** Called once when the view refused a navigation the form tried (a POST or a second page). */
     fun setOnNavigationBlocked(listener: () -> Unit)
 
+    /**
+     * Called once when the form's entry page could not be loaded: with the HTTP status the server
+     * answered (400 or more), or `null` when the page could not be reached at all.
+     */
+    fun setOnLoadFailed(listener: (httpStatus: Int?) -> Unit)
+
     fun destroy()
 }
 
@@ -72,6 +78,7 @@ class LeadFormController internal constructor(
     private var pageMessageReceived = false
     private var disposed = false
     private var rendererGone = false
+    private var pageLoadFailed = false
 
     /** Where the form is now. */
     val state: StateFlow<LeadFormState> = mutableState.asStateFlow()
@@ -141,6 +148,18 @@ class LeadFormController internal constructor(
         if (disposed) return
         val failed = mutableState.value as? LeadFormState.Failed ?: return
         if (!failed.retryable) return
+        if (pageLoadFailed) {
+            // The page never arrived, so there is no bridge to retry over: load it again, same view.
+            pageLoadFailed = false
+            if (expired()) {
+                mutableState.value = LeadFormState.Expired
+                return
+            }
+            val t = transport ?: return
+            mutableState.value = LeadFormState.Preparing
+            t.load(launchUrlWithIdentity())
+            return
+        }
         if (activateSent) {
             activate()
         } else if (send("retry_prepare")) {
@@ -168,6 +187,7 @@ class LeadFormController internal constructor(
                 t.setOnMessage { }
                 t.setOnRendererGone { }
                 t.setOnNavigationBlocked { }
+                t.setOnLoadFailed { }
                 t.destroy()
             } catch (_: Throwable) {
                 // Nothing more to release.
@@ -188,6 +208,7 @@ class LeadFormController internal constructor(
         t.setOnMessage { text -> onMessage(text) }
         t.setOnRendererGone { onRendererGone() }
         t.setOnNavigationBlocked { onNavigationBlocked() }
+        t.setOnLoadFailed { status -> onLoadFailed(status) }
         transport = t
         return t
     }
@@ -220,6 +241,26 @@ class LeadFormController internal constructor(
     private fun onNavigationBlocked() {
         if (disposed) return
         mutableState.value = LeadFormState.Failed("navigation_blocked", false)
+        try {
+            transport?.destroy()
+        } catch (_: Throwable) {
+            // Already gone.
+        }
+    }
+
+    /**
+     * The form's entry page never arrived. Only the entry page counts: once the bridge is up, an
+     * error on anything the page loads afterwards is not the form failing to load.
+     */
+    private fun onLoadFailed(httpStatus: Int?) {
+        if (disposed || ended || bridgeReadyCount > 0) return
+        if (httpStatus == null || httpStatus >= 500) {
+            // A server error or a network blip: retry() loads the page again in the same view.
+            pageLoadFailed = true
+            mutableState.value = LeadFormState.Failed("temporary_failure", true)
+            return
+        }
+        mutableState.value = LeadFormState.Failed("form_not_available", false)
         try {
             transport?.destroy()
         } catch (_: Throwable) {

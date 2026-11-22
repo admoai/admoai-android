@@ -46,6 +46,7 @@ class SecureFormWebViewTest {
     private val requests = CopyOnWriteArrayList<String>()
     private val received = CopyOnWriteArrayList<String>()
     private val blocks = java.util.concurrent.atomic.AtomicInteger()
+    private val loadFailures = CopyOnWriteArrayList<Int?>()
     private var latch = CountDownLatch(0)
     private lateinit var transport: SecureFormWebView
     private lateinit var parent: FrameLayout
@@ -78,6 +79,7 @@ class SecureFormWebViewTest {
                 latch.countDown()
             }
             transport.setOnNavigationBlocked { blocks.incrementAndGet() }
+            transport.setOnLoadFailed { loadFailures += it }
             parent.addView(transport.view)
         }
     }
@@ -170,6 +172,30 @@ class SecureFormWebViewTest {
         assertEquals("$launchBase/form.html$fragment", url)
         assertEquals(1, blocks.get())
         assertTrue(requests.toString(), requests.none { it.contains("frame.html") })
+    }
+
+    @Test
+    @JvmName("scenario_a_form_page_that_answers_an_error_is_reported_to_the_app")
+    fun `a form page that answers an error is reported to the app`() {
+        createView()
+        onMain {
+            transport.testInterceptor = { request ->
+                requests += request.url.toString()
+                WebResourceResponse(
+                    "text/plain",
+                    "utf-8",
+                    404,
+                    "Not Found",
+                    emptyMap(),
+                    java.io.ByteArrayInputStream("form_not_available".toByteArray())
+                )
+            }
+            transport.load("$launchBase/form.html$fragment")
+        }
+        val deadline = System.currentTimeMillis() + 10_000
+        while (loadFailures.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(50)
+        Thread.sleep(1000)
+        assertEquals(listOf<Int?>(404), loadFailures.toList())
     }
 
     @Test
