@@ -7,6 +7,10 @@ import com.admoai.sdk.config.DeviceSignals
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.config.UserConfig
 import com.admoai.sdk.exception.AdMoaiConfigurationException
+import com.admoai.sdk.interactive.ExperimentalInteractiveExperienceApi
+import com.admoai.sdk.interactive.InteractiveExperienceOptIn
+import com.admoai.sdk.interactive.LeadFormValueProvider
+import com.admoai.sdk.interactive.SecureFormSurface
 import com.admoai.sdk.model.common.normalizeSessionId
 import com.admoai.sdk.model.common.sessionIdRejectionReason
 import com.admoai.sdk.model.request.App
@@ -44,6 +48,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonPrimitive
 
+@OptIn(ExperimentalInteractiveExperienceApi::class)
 class Admoai private constructor() {
 
     private var sdkConfig: SDKConfig? = null
@@ -110,6 +115,29 @@ class Admoai private constructor() {
     @VisibleForTesting
     @Volatile
     internal var beaconObserver: ((String) -> Unit)? = null
+
+    @Volatile
+    private var leadFormValueProvider: LeadFormValueProvider? = null
+
+    /** Test seam: whether this device's WebView can host the Lead Generation form. */
+    @VisibleForTesting
+    @Volatile
+    internal var secureFormSurfaceAvailable: () -> Boolean = SecureFormSurface::isAvailable
+
+    /**
+     * Opts in to Lead Generation: from now on each decision request declares support, and lists by
+     * key name (never value) the standard attributes [valueProvider] says the app holds.
+     */
+    @ExperimentalInteractiveExperienceApi
+    fun enableInteractiveExperiences(valueProvider: LeadFormValueProvider) {
+        leadFormValueProvider = valueProvider
+    }
+
+    /** Turns the Lead Generation opt-in off: requests stop declaring support. */
+    @ExperimentalInteractiveExperienceApi
+    fun disableInteractiveExperiences() {
+        leadFormValueProvider = null
+    }
 
     private val coroutineExceptionHandler = CoroutineExceptionHandler { _, _ -> }
 
@@ -271,6 +299,23 @@ class Admoai private constructor() {
             log("Journey context set but apiVersion is null; Journey will be ignored.", LogLevel.WARNING)
         }
 
+        // Always from the opt-in state: a declaration carried by the request object is never trusted.
+        val interactiveExperience = InteractiveExperienceOptIn.requestExtension(
+            leadFormValueProvider,
+            secureFormSurfaceAvailable
+        ) { e ->
+            // The exception class only: a message could carry a value the app holds.
+            log("Lead Generation value provider failed: ${e.javaClass.simpleName}", LogLevel.WARNING)
+        }
+        val declaredApiVersion = sdkConfig?.apiVersion
+        if (interactiveExperience != null && (declaredApiVersion == null || declaredApiVersion < "2025-11-01")) {
+            log(
+                "Lead Generation ads are served on apiVersion \"2025-11-01\" only; " +
+                    "this request declares support but will not be served one.",
+                LogLevel.WARNING
+            )
+        }
+
         return DecisionRequest(
             placements = initialDecisionRequest.placements,
             user = mergedUser,
@@ -282,7 +327,8 @@ class Admoai private constructor() {
             sessionId = normalizeSessionId(initialDecisionRequest.sessionId),
             journeyOpt = initialDecisionRequest.journeyOpt,
             collectAppData = initialDecisionRequest.collectAppData,
-            collectDeviceData = initialDecisionRequest.collectDeviceData
+            collectDeviceData = initialDecisionRequest.collectDeviceData,
+            interactiveExperience = interactiveExperience
         )
     }
 
@@ -631,6 +677,8 @@ class Admoai private constructor() {
             synchronized(singletonMutex) {
                 (instance?.apiService as? Closeable)?.close()
                 instance?.thirdPartyDispatcher?.close()
+                instance?.leadFormValueProvider = null
+                instance?.secureFormSurfaceAvailable = SecureFormSurface::isAvailable
                 instance = null
                 isSdkInitialized = false
             }

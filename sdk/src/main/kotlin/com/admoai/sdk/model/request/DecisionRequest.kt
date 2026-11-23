@@ -17,6 +17,8 @@ import kotlinx.serialization.Transient
  * @property journeyOpt Journey opt-in/opt-out for this session; emitted only as `"in"`/`"out"`.
  * @property collectAppData Controls automatic collection of app data (not serialized)
  * @property collectDeviceData Controls automatic collection of device data (not serialized)
+ * @property interactiveExperience Lead Generation support this request declares. Set by the SDK from
+ *   the app's opt-in, never by hand (a value set here is replaced when the request is sent)
  *
  * @see DecisionRequestBuilder
  */
@@ -32,5 +34,42 @@ data class DecisionRequest(
     @Transient
     val collectAppData: Boolean = true,
     @Transient
-    val collectDeviceData: Boolean = true
-)
+    val collectDeviceData: Boolean = true,
+    val interactiveExperience: InteractiveExperienceCapability? = null
+) {
+
+    // Binary compatibility: integrators construct and copy this class, so the 9-field constructor
+    // and copy that apps compiled before Lead Generation link against must keep existing. HIDDEN
+    // keeps them in the bytecode but out of source resolution, so new code always binds to the
+    // primary constructor and the generated copy.
+    @Deprecated("Binary compatibility with callers compiled before Lead Generation", level = DeprecationLevel.HIDDEN)
+    constructor(
+        placements: List<Placement>,
+        targeting: Targeting? = null,
+        user: User? = null,
+        app: App? = null,
+        device: Device? = null,
+        sessionId: String? = null,
+        journeyOpt: JourneyOpt? = null,
+        collectAppData: Boolean = true,
+        collectDeviceData: Boolean = true
+    ) : this(
+        placements, targeting, user, app, device, sessionId, journeyOpt, collectAppData, collectDeviceData, null
+    )
+
+    @Deprecated("Binary compatibility with callers compiled before Lead Generation", level = DeprecationLevel.HIDDEN)
+    fun copy(
+        placements: List<Placement> = this.placements,
+        targeting: Targeting? = this.targeting,
+        user: User? = this.user,
+        app: App? = this.app,
+        device: Device? = this.device,
+        sessionId: String? = this.sessionId,
+        journeyOpt: JourneyOpt? = this.journeyOpt,
+        collectAppData: Boolean = this.collectAppData,
+        collectDeviceData: Boolean = this.collectDeviceData
+    ): DecisionRequest = DecisionRequest(
+        placements, targeting, user, app, device, sessionId, journeyOpt, collectAppData, collectDeviceData,
+        interactiveExperience
+    )
+}

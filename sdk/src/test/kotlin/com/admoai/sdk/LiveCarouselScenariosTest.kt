@@ -1,6 +1,7 @@
 package com.admoai.sdk
 
 import com.admoai.sdk.e2e.EXECUTED_CREATIVE_KEYS
+import com.admoai.sdk.e2e.SUPPORTED_SCHEMA_VERSIONS
 import com.admoai.sdk.e2e.assertCreative
 import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.DecisionResponse
@@ -15,7 +16,7 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 /**
- * The live manifest runner's Carousel expectations (`@admoai/sdk-scenarios` schemaVersion 5 keys, vendored at 6).
+ * The live manifest runner's Carousel expectations (`@admoai/sdk-scenarios` schemaVersion 5 keys, vendored at a version the runner executes).
  *
  * Feature: A publisher's tech team trusts the live Carousel scenarios to check what they state
  *   As an SDK maintainer
@@ -238,7 +239,7 @@ class LiveCarouselScenariosTest {
         val manifest = obj(
             javaClass.classLoader!!.getResourceAsStream("e2e-scenarios.json")!!.bufferedReader().readText()
         )
-        assertEquals(6, manifest["schemaVersion"].toString().toInt())
+        assertTrue(manifest["schemaVersion"].toString().toInt() in SUPPORTED_SCHEMA_VERSIONS)
         for (scenario in manifest["scenarios"]!!.jsonArray.map { it.jsonObject }) {
             val creativeKeys = (scenario["expect"]!!.jsonObject["creative"] as? JsonObject)?.keys.orEmpty()
             assertEquals(

@@ -1,5 +1,6 @@
 package com.admoai.sdk
 
+import com.admoai.sdk.e2e.SUPPORTED_SCHEMA_VERSIONS
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -37,16 +38,17 @@ class ManifestIntegrityTest {
     }
 
     /**
-     * `schemaVersion` 2 added `fixtureScenarios` (3 added their `slideTracking`, 4 the live standard-format `expect.creative` keys, 5 the Carousel `slides`/`clickKeys` and live `slideTracking`, 6 `request.device` and array `request.custom[].value`); the live runner refuses any other version and
+     * `schemaVersion` 2 added `fixtureScenarios` (3 added their `slideTracking`, 4 the live standard-format `expect.creative` keys, 5 the Carousel `slides`/`clickKeys` and live `slideTracking`, 6 `request.device` and array `request.custom[].value`, 7 `request.interactiveExperience`); the live runner refuses any version outside [SUPPORTED_SCHEMA_VERSIONS] and
      * FixtureScenariosTest interprets them, so both are pinned here against the vendored copy.
      */
     @Test
     fun `the fixture scenarios are structurally valid`() {
         val root = Json.parseToJsonElement(String(manifestBytes())).jsonObject
-        assertEquals(
-            "this SDK vendors a schemaVersion 6 manifest",
-            6,
-            (root["schemaVersion"] as? JsonPrimitive)?.content?.toIntOrNull()
+        val schemaVersion = (root["schemaVersion"] as? JsonPrimitive)?.content?.toIntOrNull()
+        assertTrue(
+            "this SDK vendors a manifest whose schemaVersion the runner executes " +
+                "(${SUPPORTED_SCHEMA_VERSIONS.sorted()}), got $schemaVersion",
+            schemaVersion in SUPPORTED_SCHEMA_VERSIONS
         )
 
         val fixtureScenarios = root["fixtureScenarios"]!!.jsonArray.map { it.jsonObject }

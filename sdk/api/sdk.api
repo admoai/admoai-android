@@ -7,6 +7,8 @@ public final class com/admoai/sdk/Admoai {
 	public final fun clearUserConfig ()V
 	public final fun configure (Lcom/admoai/sdk/config/SDKConfig;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public final fun createRequestBuilder ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
+	public final fun disableInteractiveExperiences ()V
+	public final fun enableInteractiveExperiences (Lcom/admoai/sdk/interactive/LeadFormValueProvider;)V
 	public final fun fireAssetTap (Lcom/admoai/sdk/model/response/TrackingInfo;)V
 	public final fun fireClick (Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;)V
 	public static synthetic fun fireClick$default (Lcom/admoai/sdk/Admoai;Lcom/admoai/sdk/model/response/TrackingInfo;Ljava/lang/String;ILjava/lang/Object;)V
@@ -299,6 +301,27 @@ public final class com/admoai/sdk/exception/AdMoaiValidationException : com/admo
 	public final fun getErrors ()Ljava/util/List;
 }
 
+public abstract interface annotation class com/admoai/sdk/interactive/ExperimentalInteractiveExperienceApi : java/lang/annotation/Annotation {
+}
+
+public abstract interface class com/admoai/sdk/interactive/LeadFormValueProvider {
+	public abstract fun availableKeys ()Ljava/util/Set;
+}
+
+public final class com/admoai/sdk/interactive/StandardAttributeKey : java/lang/Enum {
+	public static final field AGE Lcom/admoai/sdk/interactive/StandardAttributeKey;
+	public static final field EMAIL Lcom/admoai/sdk/interactive/StandardAttributeKey;
+	public static final field FIRST_NAME Lcom/admoai/sdk/interactive/StandardAttributeKey;
+	public static final field FULL_NAME Lcom/admoai/sdk/interactive/StandardAttributeKey;
+	public static final field GENDER Lcom/admoai/sdk/interactive/StandardAttributeKey;
+	public static final field LAST_NAME Lcom/admoai/sdk/interactive/StandardAttributeKey;
+	public static final field PHONE Lcom/admoai/sdk/interactive/StandardAttributeKey;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getWireName ()Ljava/lang/String;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/interactive/StandardAttributeKey;
+	public static fun values ()[Lcom/admoai/sdk/interactive/StandardAttributeKey;
+}
+
 public final class com/admoai/sdk/model/common/Error {
 	public static final field $stable I
 	public static final field Companion Lcom/admoai/sdk/model/common/Error$Companion;
@@ -474,9 +497,12 @@ public final class com/admoai/sdk/model/request/CustomTargetingInfo$Companion {
 public final class com/admoai/sdk/model/request/DecisionRequest {
 	public static final field $stable I
 	public static final field Companion Lcom/admoai/sdk/model/request/DecisionRequest$Companion;
-	public fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZ)V
+	public synthetic fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZ)V
 	public synthetic fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZLcom/admoai/sdk/model/request/InteractiveExperienceCapability;)V
+	public synthetic fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZLcom/admoai/sdk/model/request/InteractiveExperienceCapability;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/util/List;
+	public final fun component10 ()Lcom/admoai/sdk/model/request/InteractiveExperienceCapability;
 	public final fun component2 ()Lcom/admoai/sdk/model/request/Targeting;
 	public final fun component3 ()Lcom/admoai/sdk/model/request/User;
 	public final fun component4 ()Lcom/admoai/sdk/model/request/App;
@@ -485,13 +511,16 @@ public final class com/admoai/sdk/model/request/DecisionRequest {
 	public final fun component7 ()Lcom/admoai/sdk/model/common/JourneyOpt;
 	public final fun component8 ()Z
 	public final fun component9 ()Z
-	public final fun copy (Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZ)Lcom/admoai/sdk/model/request/DecisionRequest;
+	public final synthetic fun copy (Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZ)Lcom/admoai/sdk/model/request/DecisionRequest;
+	public final fun copy (Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZLcom/admoai/sdk/model/request/InteractiveExperienceCapability;)Lcom/admoai/sdk/model/request/DecisionRequest;
 	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/DecisionRequest;Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZILjava/lang/Object;)Lcom/admoai/sdk/model/request/DecisionRequest;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/DecisionRequest;Ljava/util/List;Lcom/admoai/sdk/model/request/Targeting;Lcom/admoai/sdk/model/request/User;Lcom/admoai/sdk/model/request/App;Lcom/admoai/sdk/model/request/Device;Ljava/lang/String;Lcom/admoai/sdk/model/common/JourneyOpt;ZZLcom/admoai/sdk/model/request/InteractiveExperienceCapability;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/DecisionRequest;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getApp ()Lcom/admoai/sdk/model/request/App;
 	public final fun getCollectAppData ()Z
 	public final fun getCollectDeviceData ()Z
 	public final fun getDevice ()Lcom/admoai/sdk/model/request/Device;
+	public final fun getInteractiveExperience ()Lcom/admoai/sdk/model/request/InteractiveExperienceCapability;
 	public final fun getJourneyOpt ()Lcom/admoai/sdk/model/common/JourneyOpt;
 	public final fun getPlacements ()Ljava/util/List;
 	public final fun getSessionId ()Ljava/lang/String;
@@ -729,6 +758,36 @@ public synthetic class com/admoai/sdk/model/request/DistanceBounds$$serializer :
 }
 
 public final class com/admoai/sdk/model/request/DistanceBounds$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class com/admoai/sdk/model/request/InteractiveExperienceCapability {
+	public static final field $stable I
+	public static final field Companion Lcom/admoai/sdk/model/request/InteractiveExperienceCapability$Companion;
+	public fun <init> (ZLjava/util/List;)V
+	public final fun component1 ()Z
+	public final fun component2 ()Ljava/util/List;
+	public final fun copy (ZLjava/util/List;)Lcom/admoai/sdk/model/request/InteractiveExperienceCapability;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/request/InteractiveExperienceCapability;ZLjava/util/List;ILjava/lang/Object;)Lcom/admoai/sdk/model/request/InteractiveExperienceCapability;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAvailableAttributeKeys ()Ljava/util/List;
+	public final fun getSupported ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public synthetic class com/admoai/sdk/model/request/InteractiveExperienceCapability$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/model/request/InteractiveExperienceCapability$$serializer;
+	public final fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public final fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lcom/admoai/sdk/model/request/InteractiveExperienceCapability;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public final fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public final fun serialize (Lkotlinx/serialization/encoding/Encoder;Lcom/admoai/sdk/model/request/InteractiveExperienceCapability;)V
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+}
+
+public final class com/admoai/sdk/model/request/InteractiveExperienceCapability$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
@@ -1117,9 +1176,12 @@ public final class com/admoai/sdk/model/response/Creative {
 	public static final field $stable I
 	public static final field Companion Lcom/admoai/sdk/model/response/Creative$Companion;
 	public fun <init> ()V
-	public fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;)V
+	public synthetic fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;)V
 	public synthetic fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;Lcom/admoai/sdk/model/response/InteractiveExperience;)V
+	public synthetic fun <init> (Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;Lcom/admoai/sdk/model/response/InteractiveExperience;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/util/List;
+	public final fun component10 ()Lcom/admoai/sdk/model/response/InteractiveExperience;
 	public final fun component2 ()Lcom/admoai/sdk/model/response/Advertiser;
 	public final fun component3 ()Lcom/admoai/sdk/model/response/TemplateInfo;
 	public final fun component4 ()Lcom/admoai/sdk/model/response/TrackingInfo;
@@ -1128,12 +1190,15 @@ public final class com/admoai/sdk/model/response/Creative {
 	public final fun component7 ()Lcom/admoai/sdk/model/response/VastData;
 	public final fun component8 ()Ljava/util/List;
 	public final fun component9 ()Lcom/admoai/sdk/model/response/CreativeJourney;
-	public final fun copy (Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;)Lcom/admoai/sdk/model/response/Creative;
+	public final synthetic fun copy (Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;)Lcom/admoai/sdk/model/response/Creative;
+	public final fun copy (Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;Lcom/admoai/sdk/model/response/InteractiveExperience;)Lcom/admoai/sdk/model/response/Creative;
 	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/Creative;Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/Creative;
+	public static synthetic fun copy$default (Lcom/admoai/sdk/model/response/Creative;Ljava/util/List;Lcom/admoai/sdk/model/response/Advertiser;Lcom/admoai/sdk/model/response/TemplateInfo;Lcom/admoai/sdk/model/response/TrackingInfo;Lcom/admoai/sdk/model/response/CreativeMetadata;Ljava/lang/String;Lcom/admoai/sdk/model/response/VastData;Ljava/util/List;Lcom/admoai/sdk/model/response/CreativeJourney;Lcom/admoai/sdk/model/response/InteractiveExperience;ILjava/lang/Object;)Lcom/admoai/sdk/model/response/Creative;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getAdvertiser ()Lcom/admoai/sdk/model/response/Advertiser;
 	public final fun getContents ()Ljava/util/List;
 	public final fun getDelivery ()Ljava/lang/String;
+	public final fun getInteractiveExperience ()Lcom/admoai/sdk/model/response/InteractiveExperience;
 	public final fun getJourney ()Lcom/admoai/sdk/model/response/CreativeJourney;
 	public final fun getMetadata ()Lcom/admoai/sdk/model/response/CreativeMetadata;
 	public final fun getTemplate ()Lcom/admoai/sdk/model/response/TemplateInfo;
@@ -1313,6 +1378,30 @@ public synthetic class com/admoai/sdk/model/response/DecisionResponse$$serialize
 
 public final class com/admoai/sdk/model/response/DecisionResponse$Companion {
 	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public abstract class com/admoai/sdk/model/response/InteractiveExperience {
+	public static final field $stable I
+}
+
+public final class com/admoai/sdk/model/response/InteractiveExperience$LeadGeneration : com/admoai/sdk/model/response/InteractiveExperience {
+	public static final field $stable I
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getExpiresAtEpochMillis ()J
+	public final fun getFormId ()Ljava/lang/String;
+	public final fun getFormInstanceId ()Ljava/lang/String;
+	public final fun getPrefillAttributeKeys ()Ljava/util/List;
+	public final fun getPreparedVersionId ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/model/response/InteractiveExperience$Unsupported : com/admoai/sdk/model/response/InteractiveExperience {
+	public static final field $stable I
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getType ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class com/admoai/sdk/model/response/MatchedPoint {

@@ -16,6 +16,10 @@ import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.exception.AdMoaiConfigurationException
 import com.admoai.sdk.exception.AdMoaiValidationException
 import com.admoai.sdk.expectationFailure
+import com.admoai.sdk.interactive.ExperimentalInteractiveExperienceApi
+import com.admoai.sdk.interactive.LeadFormValueProvider
+import com.admoai.sdk.interactive.SecureFormSurface
+import com.admoai.sdk.interactive.StandardAttributeKey
 import com.admoai.sdk.model.common.JourneyOpt
 import com.admoai.sdk.model.request.DecisionRequestBuilder
 import com.admoai.sdk.model.request.DeviceCategory
@@ -55,6 +59,7 @@ import io.ktor.http.headersOf
 import java.util.Collections
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -99,8 +104,21 @@ private fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitiv
 
 private fun JsonObject.dbl(key: String): Double? = (this[key] as? JsonPrimitive)?.content?.toDoubleOrNull()
 
-/** The one manifest `schemaVersion` this runner executes. */
-private const val SUPPORTED_SCHEMA_VERSION = 6
+/**
+ * The manifest `schemaVersion`s this runner executes. Version 7 only adds `request.interactiveExperience`
+ * (executed below); every version-6 scenario is unchanged, so a runner that executes 7 executes 6.
+ */
+internal val SUPPORTED_SCHEMA_VERSIONS = setOf(6, 7)
+
+/** Refuses a manifest `schemaVersion` this runner does not execute. */
+internal fun checkSchemaVersion(schemaVersion: Int?) {
+    check(schemaVersion in SUPPORTED_SCHEMA_VERSIONS) {
+        "e2e-scenarios.json is schemaVersion $schemaVersion; this runner knows schemaVersions " +
+            "${SUPPORTED_SCHEMA_VERSIONS.sorted()} (7 only adds request.interactiveExperience, so a runner " +
+            "that executes 7 executes 6); fixtureScenarios and their slideTracking run as unit tests in " +
+            "FixtureScenariosTest, and a runner must refuse a schemaVersion it does not execute"
+    }
+}
 
 internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) {
     val manifest = loadManifest()
@@ -108,11 +126,7 @@ internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) 
     // decision-wire files): they run as unit tests, and a runner that read a newer manifest as if it
     // were version 1 would silently skip half of it.
     val schemaVersion = manifest.int("schemaVersion")
-    check(schemaVersion == SUPPORTED_SCHEMA_VERSION) {
-        "e2e-scenarios.json is schemaVersion $schemaVersion; this runner knows schemaVersion " +
-            "$SUPPORTED_SCHEMA_VERSION; fixtureScenarios and their slideTracking run as unit tests in " +
-            "FixtureScenariosTest, and a runner must refuse a schemaVersion it does not execute"
-    }
+    checkSchemaVersion(schemaVersion)
     val scenarios = manifest["scenarios"]!!.jsonArray
     for (element in scenarios) {
         val entry = element.jsonObject
@@ -183,6 +197,9 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
             )
         }
         applyCustom(builder, entry.str("id")!!, request["custom"])
+        // After reconfigure(): configure() keeps the opt-in (it swaps config, not session state), but
+        // the opt-in is applied last so nothing above can reset it before the request is built.
+        applyInteractiveExperience(entry.str("id")!!, request["interactiveExperience"])
         request.str("session")?.let { builder.setSessionId(freshSession(entry.str("id")!!.lowercase())) }
         request.str("journeyOpt")?.let {
             builder.setJourneyOpt(if (it == "in") JourneyOpt.OPT_IN else JourneyOpt.OPT_OUT)
@@ -223,6 +240,7 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
             val kind = expectedError.str("kind")!!
             try {
                 val built = builder.build()
+                expectInteractiveExperienceOnWire(entry.str("id")!!, request["interactiveExperience"], builder)
                 runBlocking { Admoai.getInstance().requestAds(built).first() }
                 expect(false, "the request is rejected (it succeeded instead)")
             } catch (e: AdMoaiConfigurationException) {
@@ -243,6 +261,7 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
 
         // --- served / no-ad ---------------------------------------------------------------
         val built = builder.build()
+        expectInteractiveExperienceOnWire(entry.str("id")!!, request["interactiveExperience"], builder)
         val response = runBlocking { Admoai.getInstance().requestAds(built).first() }
         val decisions = response.data ?: emptyList()
 
@@ -292,6 +311,7 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
         // Restore the suite-wide version so later hand-written groups are unaffected.
         reconfigure(baseUrl, defaultVersion)
         Admoai.getInstance().setDeviceConfig(previousDevice)
+        resetInteractiveExperience()
     }
 }
 
@@ -306,11 +326,87 @@ internal val EXECUTED_REQUEST_KEYS = setOf(
     "session",
     "journeyOpt",
     "distance",
-    "device"
+    "device",
+    "interactiveExperience"
 )
 
 internal val EXECUTED_CUSTOM_ENTRY_KEYS = setOf("key", "value")
 internal val EXECUTED_DEVICE_KEYS = setOf("carrier", "category")
+internal val EXECUTED_INTERACTIVE_EXPERIENCE_KEYS = setOf("supported", "availableAttributeKeys")
+
+/** What the SDK's own wire encoding does with a request (same settings as the SDK's API service). */
+private val wireJson = Json {
+    ignoreUnknownKeys = true
+    isLenient = true
+    encodeDefaults = true
+    explicitNulls = false
+    coerceInputValues = true
+}
+
+/**
+ * Applies `request.interactiveExperience` through the SDK's public opt-in API, never as raw JSON.
+ * `supported` must be `true`: the SDK never sends `supported: false`, an app that does not opt in
+ * omits the extension. The JVM has no WebView, so the secure-form-surface seam is forced available;
+ * without it the SDK would omit the extension and the scenario would pass without testing anything.
+ * No-op when absent. Undo with [resetInteractiveExperience].
+ */
+@OptIn(ExperimentalInteractiveExperienceApi::class)
+internal fun applyInteractiveExperience(id: String, element: JsonElement?) {
+    if (element == null) return
+    val ie = element as? JsonObject
+    expect(ie != null, "$id request.interactiveExperience must be a JSON object")
+    refuseUnknownKeys("$id request.interactiveExperience", ie!!.keys, EXECUTED_INTERACTIVE_EXPERIENCE_KEYS)
+    val supported = ie["supported"] as? JsonPrimitive
+    expect(
+        supported != null && !supported.isString && supported.booleanOrNull == true,
+        "$id request.interactiveExperience.supported must be JSON true: the SDK never sends " +
+            "supported:false, an app that does not opt in omits the extension"
+    )
+    val names = ie["availableAttributeKeys"] as? JsonArray
+    expect(names != null, "$id request.interactiveExperience.availableAttributeKeys must be a JSON array")
+    val keys = names!!.mapIndexed { index, name ->
+        val text = (name as? JsonPrimitive)?.takeIf { it.isString }?.content
+        expect(text != null, "$id request.interactiveExperience.availableAttributeKeys[$index] must be a string")
+        val key = StandardAttributeKey.fromWireName(text!!)
+        expect(
+            key != null,
+            "$id request.interactiveExperience.availableAttributeKeys[$index] is not a standard attribute key"
+        )
+        key!!
+    }.toSet()
+    val sdk = Admoai.getInstance()
+    sdk.secureFormSurfaceAvailable = { true }
+    sdk.enableInteractiveExperiences(object : LeadFormValueProvider {
+        override fun availableKeys(): Set<StandardAttributeKey> = keys
+    })
+}
+
+/** Turns the opt-in off and puts the real secure-form-surface check back, so later scenarios are unaffected. */
+@OptIn(ExperimentalInteractiveExperienceApi::class)
+internal fun resetInteractiveExperience() {
+    val sdk = Admoai.getInstance()
+    sdk.disableInteractiveExperiences()
+    sdk.secureFormSurfaceAvailable = SecureFormSurface::isAvailable
+}
+
+/**
+ * Proves the request body the SDK would send carries the manifest's declaration, in catalog order
+ * (the order the SDK emits). No-op when the scenario has no `interactiveExperience`.
+ */
+internal fun expectInteractiveExperienceOnWire(id: String, element: JsonElement?, builder: DecisionRequestBuilder) {
+    if (element == null) return
+    val wanted = (element as JsonObject)["availableAttributeKeys"]!!.jsonArray
+        .map { (it as JsonPrimitive).content }.toSet()
+    val expected = StandardAttributeKey.entries.map { it.wireName }.filter { it in wanted }
+    val body = wireJson.parseToJsonElement(
+        wireJson.encodeToString(Admoai.getInstance().prepareFinalDecisionRequest(builder.build()))
+    ).jsonObject
+    val actual = body["interactiveExperience"]
+    val want = JsonObject(
+        mapOf("supported" to JsonPrimitive(true), "availableAttributeKeys" to JsonArray(expected.map(::JsonPrimitive)))
+    )
+    expect(actual == want, "$id: the request body carries interactiveExperience $want (got $actual)")
+}
 
 /**
  * Applies `request.custom`. A `value` is a JSON string or a JSON array of strings, sent exactly as

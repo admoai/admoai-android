@@ -21,8 +21,10 @@ robolectric = "4.13"
 ktlintGradle = "14.2.0"
 ktlint = "1.8.0"
 binaryCompatibilityValidator = "0.18.2"
+androidxWebkit = "1.12.1"
 
 [libraries]
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "androidxWebkit" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
