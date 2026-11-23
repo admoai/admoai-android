@@ -431,6 +431,16 @@ class LeadFormControllerTest {
             "GET https://track.example.invalid/events?e=REDACTED&k=REDACTED",
             CredentialRedaction.redact("GET https://track.example.invalid/events?e=first'second&k=3")
         )
+        // An apostrophe in the path does not hide the query either.
+        assertEquals(
+            "REQUEST: https://track.example.invalid/events/o'pen?e=REDACTED",
+            CredentialRedaction.redact("REQUEST: https://track.example.invalid/events/o'pen?e=opaque-secret")
+        )
+        // A value after an empty name, and a part with no name at all, are redacted too.
+        assertEquals(
+            "https://track.example.invalid/events?=REDACTED&k=REDACTED&REDACTED",
+            CredentialRedaction.redact("https://track.example.invalid/events?=opaque-secret&k=2&bare-secret")
+        )
         // A final apostrophe still closes a URL quoted with them.
         assertEquals(
             "url='https://track.example.invalid/e?e=REDACTED' sent",

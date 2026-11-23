@@ -18,27 +18,38 @@ internal object CredentialRedaction {
     )
 
     /**
-     * A URL as log text shows it. The address before the query stops at a quote or bracket; the
-     * query runs through apostrophes (a form event URL may carry one), so no part of a value escapes
-     * redaction, but a final apostrophe still closes a URL quoted with them.
+     * A URL as log text shows it: everything up to whitespace, a double quote, a backslash or an
+     * angle bracket. Apostrophes are legal in a path and in a query, so they stay inside; only a
+     * final one is treated as the quote that closes a URL written between apostrophes.
      */
-    private val httpUrl = Regex("https?://[^\\s\"'\\\\<>?#]+(?:\\?(?:[^\\s\"\\\\<>]*[^\\s\"'\\\\<>])?)?")
-
-    private val queryValue = Regex("([^&=?#]+)=([^&#]*)")
+    private val httpUrl = Regex("https?://[^\\s\"\\\\<>]+")
 
     fun redact(text: String): String {
         val withoutCredentials =
             credential.replace(text) { m -> "\"${m.groupValues[1]}\"${m.groupValues[2]}\"REDACTED\"" }
-        return httpUrl.replace(withoutCredentials) { m -> redactQuery(m.value) }
+        return httpUrl.replace(withoutCredentials) { m ->
+            val url = m.value
+            if (url.endsWith("'")) redactQuery(url.dropLast(1)) + "'" else redactQuery(url)
+        }
     }
 
+    /**
+     * Keeps the address, each parameter's name and the fragment; every value goes, including one
+     * after an empty name, and a part with no `=` is replaced whole.
+     */
     private fun redactQuery(url: String): String {
         val queryStart = url.indexOf('?')
         if (queryStart < 0) return url
         val rest = url.substring(queryStart + 1)
         val fragmentStart = rest.indexOf('#').let { if (it < 0) rest.length else it }
-        val query = rest.substring(0, fragmentStart)
-        val redacted = queryValue.replace(query) { m -> "${m.groupValues[1]}=REDACTED" }
+        val redacted = rest.substring(0, fragmentStart).split('&').joinToString("&") { part ->
+            val eq = part.indexOf('=')
+            when {
+                part.isEmpty() -> part
+                eq < 0 -> "REDACTED"
+                else -> part.substring(0, eq) + "=REDACTED"
+            }
+        }
         return url.substring(0, queryStart + 1) + redacted + rest.substring(fragmentStart)
     }
 }
