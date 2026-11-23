@@ -138,7 +138,7 @@ internal object BridgeProtocol {
 
     private fun validString(spec: JsonObject, s: String): Boolean {
         spec["maxLength"]?.jsonPrimitive?.intOrNull?.let { if (codePoints(s) > it) return false }
-        spec["pattern"]?.jsonPrimitive?.contentOrNull?.let { if (!Regex(it).containsMatchIn(s)) return false }
+        spec["pattern"]?.jsonPrimitive?.contentOrNull?.let { if (!Regex(it).matches(s)) return false }
         spec["enum"]?.jsonArray?.let { allowed -> if (allowed.none { it.jsonPrimitive.content == s }) return false }
         return true
     }
@@ -242,6 +242,11 @@ internal sealed class Received {
  * Not thread-safe; the controller drives it from one thread.
  */
 internal class BridgeSession(private val instanceId: String, private val channel: String) {
+    init {
+        require(BridgeProtocol.validInstanceId(instanceId)) { "bad_instance_id" }
+        require(BridgeProtocol.validChannel(channel)) { "bad_channel" }
+    }
+
     private val exchanged = HashSet<String>()
 
     /**
@@ -258,6 +263,9 @@ internal class BridgeSession(private val instanceId: String, private val channel
         ) {
             return Received.Refused("too_large")
         }
+        // JSON (RFC 8259) requires a control character inside a string to be escaped; the parser is
+        // lenient about it, so the raw form is refused here, as unparsable input.
+        if (hasRawControlCharacter(text)) return Received.Refused("not_json")
         val root = try {
             Json.parseToJsonElement(text)
         } catch (_: Exception) {
@@ -311,8 +319,33 @@ internal class BridgeSession(private val instanceId: String, private val channel
             put("channel", channel)
             put("payload", payload)
         }.toString()
+        // The serialized envelope (escapes included) must fit the limit the receiver applies.
+        require(text.toByteArray(Charsets.UTF_8).size <= BridgeProtocol.maxMessageBytes) { "too_large" }
         exchanged += type
         return text
+    }
+
+    /**
+     * True when a quoted string in [text] holds an unescaped control character (U+0000 to U+001F).
+     * Tolerates malformed input: it never throws, the parser decides what is valid JSON.
+     */
+    private fun hasRawControlCharacter(text: String): Boolean {
+        var inString = false
+        var i = 0
+        while (i < text.length) {
+            val c = text[i]
+            if (inString) {
+                when {
+                    c == '\\' -> i++
+                    c == '"' -> inString = false
+                    c < ' ' -> return true
+                }
+            } else if (c == '"') {
+                inString = true
+            }
+            i++
+        }
+        return false
     }
 
     /**

@@ -10,6 +10,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -296,17 +297,38 @@ class BridgeProtocolTest {
             it.name != "wrong-instance.json" && it.name != "prefill-repeated-key.json"
         } + files("tolerated/app-to-runtime").filter { !it.name.endsWith(".outcome.json") }
         assertTrue(neverSent.any { it.parentFile.name == "app-to-runtime" && it.path.contains("tolerated") })
+        // Each is refused on its own fault: a payload one, except where the fixture's point is the
+        // type or the order.
+        val expectedReason = mapOf(
+            "back-before-visible.json" to "out_of_order",
+            "back-with-payload.json" to "bad_payload:unknown_field",
+            "initialize-missing-presentation.json" to "bad_payload:presentation",
+            "initialize-unknown-presentation.json" to "bad_payload:presentation",
+            "prefill-non-string-value.json" to "bad_payload:values",
+            "prefill-proto-non-string-value.json" to "bad_payload:values",
+            "runtime-message-from-app.json" to "unknown_type",
+            "unknown-type.json" to "unknown_type",
+            "integer-like-key.json" to "bad_payload:values",
+            "mixed-entries.json" to "bad_payload:values",
+            "oversized-value.json" to "bad_payload:values",
+            "proto-key.json" to "bad_payload:values",
+            "unknown-prefill-key.json" to "bad_payload:values"
+        )
         neverSent.forEach { file ->
             val envelope = parse(file.readText())
-            try {
-                sessionThrough("prefill-applied").encode(
+            val session = sessionThrough("prefill-applied")
+            val e = try {
+                session.encode(
                     envelope.getValue("type").jsonPrimitive.content,
                     envelope.getValue("payload").jsonObject
                 )
-                fail("${file.name} must not be encodable")
+                null
             } catch (e: IllegalArgumentException) {
-                assertFalse(e.message!!.contains("AAAA"))
+                e
             }
+            assertTrue("${file.name} must not be encodable", e != null)
+            assertEquals(file.name, expectedReason.getValue(file.name), e!!.message)
+            assertFalse(e.message!!.contains("AAAA"))
         }
     }
 
@@ -376,5 +398,53 @@ class BridgeProtocolTest {
         } catch (e: IllegalArgumentException) {
             assertFalse(e.message!!.contains("unicorn"))
         }
+    }
+
+    @Test
+    fun `an identifier with anything after it is refused`() {
+        val prepared = parse(read("runtime-to-app/prepared.json"))
+        val id = prepared.getValue("payload").jsonObject.getValue("preparedVersionId").jsonPrimitive.content
+        val s = sessionThrough("initialize")
+        val withNewline = prepared.toString().replace(id, "$id\\n")
+        assertTrue("the case really ends the identifier in an escaped newline", withNewline.contains("$id\\n"))
+        assertEquals("bad_payload:preparedVersionId", refused(s.receive(withNewline)))
+        accepted(s.receive(prepared.toString()))
+    }
+
+    @Test
+    fun `a message with a raw control character inside a string is refused`() {
+        val ready = read("runtime-to-app/bridge-ready.json")
+        val version = parse(ready).getValue("payload").jsonObject.getValue("runtimeVersion").jsonPrimitive.content
+        val raw = ready.replace(version, version + "\n")
+        val escaped = ready.replace(version, version + "\\n")
+        assertNotEquals(ready, raw)
+        assertNotEquals(ready, escaped)
+        val s = session()
+        assertEquals("not_json", refused(s.receive(raw)))
+        assertEquals("not_json", refused(s.receive(ready.replace(version, version + "\u0001"))))
+        accepted(s.receive(escaped))
+    }
+
+    @Test
+    fun `a bridge needs an instance and channel the contract allows`() {
+        val badChannel = assertThrows(IllegalArgumentException::class.java) { BridgeSession(instanceId, "short") }
+        assertEquals("bad_channel", badChannel.message)
+        val badInstance = assertThrows(IllegalArgumentException::class.java) { BridgeSession("short", channel) }
+        assertEquals("bad_instance_id", badInstance.message)
+        assertFalse(badChannel.message!!.contains("short"))
+        BridgeSession(instanceId, newChannel()).encode("dispose", buildJsonObject {})
+    }
+
+    @Test
+    fun `a message that would exceed the size limit once serialized is never sent`() {
+        val initialize = parse(read("app-to-runtime/initialize.json")).getValue("payload").jsonObject
+        val token = kotlinx.serialization.json.JsonPrimitive("\u0000".repeat(4096))
+        val oversized = JsonObject(initialize + ("preparationToken" to token))
+        val s = sessionThrough("bridge-ready")
+        val e = assertThrows(IllegalArgumentException::class.java) { s.encode("initialize", oversized) }
+        assertEquals("too_large", e.message)
+        assertFalse("a refused message is not recorded", s.hasExchanged("initialize"))
+        s.encode("initialize", initialize)
+        assertTrue(s.hasExchanged("initialize"))
     }
 }

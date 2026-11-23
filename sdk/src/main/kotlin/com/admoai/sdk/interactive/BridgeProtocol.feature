@@ -63,9 +63,32 @@ Feature: The SDK and the hosted form trust only well-formed bridge messages of t
     Given a bridge for the contract's instance and channel
     When the SDK encodes a value with quotes, a newline, an emoji and a script tag
     Then the receiver decodes exactly that value
-    And no part of it is executable
 
   Scenario: a refused message is never echoed
     Given a bridge for the contract's instance and channel
     When a malformed message carrying a personal value is refused
     Then the refusal names its reason without any part of the message
+
+  Scenario: an identifier with anything after it is refused
+    Given a bridge that has exchanged initialize
+    When prepared arrives with a version identifier followed by a newline
+    Then it is refused
+    And the exact identifier is accepted
+
+  Scenario: a message with a raw control character inside a string is refused
+    Given a bridge for the contract's instance and channel
+    When bridge_ready arrives with a newline written raw inside a string
+    Then it is refused as not JSON
+    And the same newline written as an escape is accepted
+
+  Scenario: a bridge needs an instance and channel the contract allows
+    Given an instance or channel that breaks the contract's rules
+    When a bridge is created for it
+    Then it is refused without naming the value
+    And a minted channel and the contract's instance work
+
+  Scenario: a message that would exceed the size limit once serialized is never sent
+    Given a bridge for the contract's instance and channel
+    When initialize carries a token that escapes to more bytes than the limit
+    Then it is refused and not counted as sent
+    And a valid initialize is accepted afterwards
