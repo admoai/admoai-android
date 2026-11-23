@@ -8,6 +8,7 @@ import com.admoai.sdk.config.DeviceSignals
 import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.config.UserConfig
 import com.admoai.sdk.exception.AdMoaiConfigurationException
+import com.admoai.sdk.interactive.BridgeProtocol
 import com.admoai.sdk.interactive.BridgeTransport
 import com.admoai.sdk.interactive.ExperimentalInteractiveExperienceApi
 import com.admoai.sdk.interactive.FormPresentation
@@ -169,6 +170,8 @@ class Admoai private constructor() {
     ): LeadFormController? {
         if (leadFormValueProvider == null || !secureFormSurfaceAvailable()) return null
         val descriptor = creative.interactiveExperience as? InteractiveExperience.LeadGeneration ?: return null
+        // The bridge can only carry an instance the contract allows; any other would never reach the form.
+        if (!BridgeProtocol.validInstanceId(descriptor.formInstanceId)) return null
         val origin = originOf(descriptor.launchUrl) ?: return null
         val factory = leadFormTransportFactory
         return LeadFormController(

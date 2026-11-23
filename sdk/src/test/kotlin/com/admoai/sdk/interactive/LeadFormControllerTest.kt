@@ -98,15 +98,16 @@ class LeadFormControllerTest {
     private val transport = FakeTransport()
     private val host = FakeHost()
 
-    private fun descriptor(expires: Long = expiresAt) = InteractiveExperience.LeadGeneration(
-        formId = "form_01KG000000000000000000F001",
-        formInstanceId = instanceId,
-        preparedVersionId = "form_version_01KG000000000000000000V002",
-        expiresAtEpochMillis = expires,
-        prefillAttributeKeys = listOf(StandardAttributeKey.FULL_NAME, StandardAttributeKey.EMAIL),
-        launchUrl = launchUrl,
-        preparationToken = token
-    )
+    private fun descriptor(expires: Long = expiresAt, instance: String = instanceId) =
+        InteractiveExperience.LeadGeneration(
+            formId = "form_01KG000000000000000000F001",
+            formInstanceId = instance,
+            preparedVersionId = "form_version_01KG000000000000000000V002",
+            expiresAtEpochMillis = expires,
+            prefillAttributeKeys = listOf(StandardAttributeKey.FULL_NAME, StandardAttributeKey.EMAIL),
+            launchUrl = launchUrl,
+            preparationToken = token
+        )
 
     private val logs = mutableListOf<String>()
 
@@ -235,6 +236,15 @@ class LeadFormControllerTest {
             )
         )
         assertNull(sdk.createLeadFormController(ctx, creative(null), FormPresentation.INLINE, host))
+        // An instance the bridge contract does not allow never reaches a controller (nor throws).
+        assertNull(
+            sdk.createLeadFormController(
+                ctx,
+                creative(descriptor(instance = "not a valid instance")),
+                FormPresentation.INLINE,
+                host
+            )
+        )
         // The same SDK does hand out a controller for a usable descriptor, wired to the form's origin.
         var origin: String? = null
         sdk.leadFormTransportFactory = { _, o ->

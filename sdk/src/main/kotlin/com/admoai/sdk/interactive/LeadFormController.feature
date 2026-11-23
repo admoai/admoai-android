@@ -18,6 +18,7 @@ Feature: An app prepares and opens a Lead Generation form through one controller
   Scenario: a creative without a usable descriptor gets no controller
     When the app asks for a controller for a creative whose experience is unsupported
     Then it gets none
+    And a creative whose form instance the bridge cannot carry gets none either
 
   Scenario: preparing loads the form hidden and stops before activation
     When the app prepares the controller
