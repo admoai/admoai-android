@@ -5,6 +5,7 @@ import com.admoai.sdk.config.SDKConfig
 import com.admoai.sdk.exception.AdMoaiException
 import com.admoai.sdk.exception.AdMoaiNetworkException
 import com.admoai.sdk.exception.AdMoaiValidationException
+import com.admoai.sdk.interactive.CredentialRedaction
 import com.admoai.sdk.model.request.DecisionRequest
 import com.admoai.sdk.model.response.DecisionResponse
 import io.ktor.client.*
@@ -77,7 +78,7 @@ internal class AdMoaiApiServiceImpl(
             install(Logging) {
                 logger = object : Logger {
                     override fun log(message: String) {
-                        println("[Ktor]: $message")
+                        println("[Ktor]: ${CredentialRedaction.redact(message)}")
                     }
                 }
                 level = LogLevel.ALL
