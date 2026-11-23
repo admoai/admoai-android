@@ -82,7 +82,12 @@ internal class SecureFormWebView(context: Context, private val launchOrigin: Str
             }
         })
         webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = true
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                // Cancelling a main-frame navigation the page started never reaches onPageStarted, so the
+                // app must be told here (at most once). The SDK's own loadUrl does not come through here.
+                if (request.isForMainFrame) reportBlocked()
+                return true
+            }
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 if (request.isForMainFrame && !mainFrameAllowed(request)) {

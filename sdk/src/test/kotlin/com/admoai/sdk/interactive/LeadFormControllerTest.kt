@@ -8,6 +8,11 @@ import com.admoai.sdk.model.response.Creative
 import com.admoai.sdk.model.response.InteractiveExperience
 import io.mockk.mockk
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -47,11 +52,16 @@ class LeadFormControllerTest {
         var blocked: () -> Unit = {}
         var loadFailed: (Int?) -> Unit = {}
 
+        /** Makes `send` throw for a message of this type, as a transport that is down would. */
+        var failSendOf: String? = null
+
         override fun load(url: String) {
             loads += url
         }
 
         override fun send(text: String) {
+            val type = Json.parseToJsonElement(text).jsonObject.getValue("type").jsonPrimitive.content
+            if (type == failSendOf) throw IllegalStateException("transport down")
             sent += text
         }
 
@@ -111,13 +121,16 @@ class LeadFormControllerTest {
 
     private val logs = mutableListOf<String>()
 
-    private fun controller(presentation: FormPresentation = FormPresentation.FULL_SCREEN) = LeadFormController(
+    private fun controller(
+        presentation: FormPresentation = FormPresentation.FULL_SCREEN,
+        on: FakeTransport = transport
+    ) = LeadFormController(
         descriptor = descriptor(),
         presentation = presentation,
         host = host,
         transportFactory = {
             factoryCalls++
-            transport
+            on
         },
         clock = { now },
         channel = channel,
@@ -633,63 +646,156 @@ class LeadFormControllerTest {
         assertEquals(LeadFormState.Disposed, c.state.value)
     }
 
-    @Test
-    fun `a form page that cannot be loaded fails instead of loading forever`() {
-        val notFound = controller()
-        notFound.prepare()
-        transport.loadFailed(404)
-        assertEquals(LeadFormState.Failed("form_not_available", false), notFound.state.value)
-        assertEquals(1, transport.destroyed)
-        notFound.retry()
-        assertEquals(LeadFormState.Failed("form_not_available", false), notFound.state.value)
+    /** One fresh controller on its own transport per case, so no case inherits another's end state. */
+    private fun preparingOn(t: FakeTransport, tap: Boolean = false): LeadFormController {
+        val c = controller(on = t)
+        if (tap) c.open() else c.prepare()
+        assertEquals(LeadFormState.Preparing, c.state.value)
+        return c
+    }
 
-        val server = controller()
-        server.open()
-        assertEquals(LeadFormState.Preparing, server.state.value)
-        val destroyedBefore = transport.destroyed
-        transport.loadFailed(500)
+    @Test
+    fun `a form page that is not available fails and cannot be retried`() {
+        for (status in listOf(404, 403, 400, 410)) {
+            val t = FakeTransport()
+            val c = preparingOn(t, tap = status == 410)
+            t.loadFailed(status)
+            assertEquals("$status", LeadFormState.Failed("form_not_available", false), c.state.value)
+            assertEquals("$status", 1, t.destroyed)
+            c.retry()
+            assertEquals("$status", LeadFormState.Failed("form_not_available", false), c.state.value)
+            assertEquals("$status", 1, t.loads.size)
+        }
+    }
+
+    @Test
+    fun `a form page that fails for now can be loaded again in the same view`() {
+        // A server error on a tapped form: the retry loads the same page again and the tap still opens it.
+        val t = FakeTransport()
+        val server = preparingOn(t, tap = true)
+        t.loadFailed(500)
         assertEquals(LeadFormState.Failed("temporary_failure", true), server.state.value)
-        assertEquals("the view is kept for the retry", destroyedBefore, transport.destroyed)
-        val loadsBefore = transport.loads.size
+        assertEquals("the view is kept for the retry", 0, t.destroyed)
         server.retry()
         assertEquals(LeadFormState.Preparing, server.state.value)
-        assertEquals(loadsBefore + 1, transport.loads.size)
-        assertEquals(transport.loads[loadsBefore - 1], transport.loads.last())
-        // The page arrives this time; the tap that opened it still activates it once prepared.
-        page("bridge-ready")
-        page("prepared")
+        assertEquals(2, t.loads.size)
+        assertEquals(t.loads.first(), t.loads.last())
+        t.listener(File("$root/runtime-to-app/bridge-ready.json").readText())
+        t.listener(File("$root/runtime-to-app/prepared.json").readText())
         assertEquals(LeadFormState.Activating, server.state.value)
 
-        val forbidden = controller()
-        forbidden.prepare()
-        transport.loadFailed(403)
-        assertEquals(LeadFormState.Failed("form_not_available", false), forbidden.state.value)
-
-        // Rate limited (429) and timed out (408) are passing conditions: the viewer can retry.
-        for (status in listOf(429, 408)) {
-            val passing = controller()
-            passing.prepare()
-            transport.loadFailed(status)
-            assertEquals("$status", LeadFormState.Failed("temporary_failure", true), passing.state.value)
+        // Rate limited (429), timed out (408), unreachable (null) and a 503 are passing conditions.
+        for (status in listOf(429, 408, 503, null)) {
+            val other = FakeTransport()
+            val c = preparingOn(other)
+            other.loadFailed(status)
+            assertEquals("$status", LeadFormState.Failed("temporary_failure", true), c.state.value)
+            assertEquals("$status", 0, other.destroyed)
+            c.retry()
+            assertEquals("$status", LeadFormState.Preparing, c.state.value)
+            assertEquals("$status", 2, other.loads.size)
         }
+    }
 
-        val unreachable = controller()
-        unreachable.prepare()
-        transport.loadFailed(null)
-        assertEquals(LeadFormState.Failed("temporary_failure", true), unreachable.state.value)
+    @Test
+    fun `a page failure reported after the form's bridge is up does not end the form`() {
+        val c = controller()
+        prepared(c)
+        transport.loadFailed(500)
+        assertEquals(LeadFormState.Prepared, c.state.value)
+        transport.loadFailed(404)
+        assertEquals(LeadFormState.Prepared, c.state.value)
+        assertEquals(0, transport.destroyed)
+    }
 
-        val up = controller()
-        up.prepare()
+    @Test
+    fun `a page failure reported after the app disposed the controller changes nothing`() {
+        val c = controller()
+        c.prepare()
+        c.dispose()
+        transport.loadFailed(404)
+        assertEquals(LeadFormState.Disposed, c.state.value)
+        transport.loadFailed(500)
+        assertEquals(LeadFormState.Disposed, c.state.value)
+    }
+
+    /** Runs [onState] inline, on the thread that publishes each state, as a main-thread collector does. */
+    private fun collectInline(c: LeadFormController, onState: (LeadFormState) -> Unit): Job =
+        CoroutineScope(Dispatchers.Unconfined).launch { c.state.collect { onState(it) } }
+
+    @Test
+    fun `a tap that was queued while preparing opens the form once, even if the app opens it at the same moment`() {
+        val c = controller()
+        c.prepare()
+        c.open()
+        val job = collectInline(c) { if (it == LeadFormState.Prepared) c.open() }
         page("bridge-ready")
         page("prepared")
-        transport.loadFailed(500)
-        assertEquals(LeadFormState.Prepared, up.state.value)
+        job.cancel()
+        assertEquals(1, sentOf("activate").size)
+        assertEquals(LeadFormState.Activating, c.state.value)
+    }
 
-        val disposed = controller()
-        disposed.prepare()
-        disposed.dispose()
-        transport.loadFailed(404)
-        assertEquals(LeadFormState.Disposed, disposed.state.value)
+    @Test
+    fun `a tap queued before the preparation expired does not activate it afterwards`() {
+        val c = controller()
+        c.prepare()
+        c.open()
+        page("bridge-ready")
+        now = expiresAt + 1
+        page("prepared")
+        assertEquals(LeadFormState.Expired, c.state.value)
+        assertTrue(sentOf("activate").isEmpty())
+
+        // Before the deadline the same tap activates normally.
+        now = 0
+        val t = FakeTransport()
+        val live = controller(on = t)
+        live.prepare()
+        live.open()
+        t.listener(File("$root/runtime-to-app/bridge-ready.json").readText())
+        t.listener(File("$root/runtime-to-app/prepared.json").readText())
+        assertEquals(LeadFormState.Activating, live.state.value)
+        assertEquals(1, t.sent.count { it.contains("\"activate\"") })
+    }
+
+    @Test
+    fun `retrying an activation after the preparation expired does not activate it`() {
+        val c = controller()
+        prepared(c)
+        c.open()
+        page("prepare-failed")
+        assertEquals(LeadFormState.Failed("temporary_failure", true), c.state.value)
+        now = expiresAt + 1
+        c.retry()
+        assertEquals(LeadFormState.Expired, c.state.value)
+        assertEquals(1, sentOf("activate").size)
+    }
+
+    @Test
+    fun `a prefill that cannot be sent fails the form instead of leaving it opening forever`() {
+        val c = controller()
+        prepared(c)
+        c.open()
+        transport.failSendOf = "prefill"
+        page("activated")
+        assertEquals(LeadFormState.Failed("bridge_error", false), c.state.value)
+        assertTrue(sentOf("prefill").isEmpty())
+        c.retry()
+        assertEquals(LeadFormState.Failed("bridge_error", false), c.state.value)
+    }
+
+    @Test
+    fun `a form shown at the moment it is ready is told it is visible once`() {
+        val c = controller()
+        prepared(c)
+        c.open()
+        page("activated")
+        val job = collectInline(c) { if (it == LeadFormState.ReadyToShow) c.setVisible(true) }
+        page("prefill-applied")
+        job.cancel()
+        assertEquals(LeadFormState.Visible, c.state.value)
+        assertEquals(1, sentOf("became_visible").size)
     }
 
     @Test

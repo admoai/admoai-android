@@ -95,6 +95,12 @@ class SecureFormWebViewTest {
         await(messages) { transport.load("$launchBase/$page$hash") }
     }
 
+    private fun awaitBlocked() {
+        val deadline = System.currentTimeMillis() + 10_000
+        while (blocks.get() == 0 && System.currentTimeMillis() < deadline) Thread.sleep(50)
+        assertEquals("the view reported the refused navigation once", 1, blocks.get())
+    }
+
     @After
     fun tearDown() {
         if (!destroyed && ::transport.isInitialized) onMain { transport.destroy() }
@@ -152,12 +158,13 @@ class SecureFormWebViewTest {
         loadForm()
         requests.clear()
         onMain { transport.send("navigate") }
-        // The page answers nothing: it was asked to navigate. Give a navigation time to start.
-        Thread.sleep(2000)
+        // The page answers nothing: it was asked to navigate. The view must report the refusal.
+        awaitBlocked()
         var url: String? = null
         onMain { url = (transport.view as android.webkit.WebView).url }
         assertEquals("$launchBase/form.html$fragment", url)
         assertTrue(requests.toString(), requests.none { it.contains("other.appassets.example") })
+        assertEquals("still reported once", 1, blocks.get())
     }
 
     @Test

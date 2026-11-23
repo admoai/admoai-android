@@ -342,14 +342,20 @@ class LeadFormController internal constructor(
 
     private fun onPrepared() {
         if (mutableState.value != LeadFormState.Preparing) return
+        // Take the queued tap before publishing: a collector may open() inline on `Prepared`, and that
+        // call already activates. Only activate here when the state is still `Prepared` afterwards.
+        val tapQueued = pendingOpen
+        pendingOpen = false
         mutableState.value = LeadFormState.Prepared
-        if (pendingOpen) {
-            pendingOpen = false
-            activate()
-        }
+        if (tapQueued && mutableState.value == LeadFormState.Prepared) activate()
     }
 
     private fun activate() {
+        if (expired()) {
+            // A tap queued before the deadline, or a retry after it: the preparation is no longer valid.
+            mutableState.value = LeadFormState.Expired
+            return
+        }
         if (send("activate")) {
             activateSent = true
             mutableState.value = LeadFormState.Activating
@@ -361,13 +367,16 @@ class LeadFormController internal constructor(
         activatedReceived = true
         // formVersionId, requestedAttributeKeys and events are kept by a later release, which fills
         // the prefill and fires the events; this one answers with an empty prefill.
-        send("prefill", buildJsonObject { put("values", JsonObject(emptyMap())) })
+        val prefilled = send("prefill", buildJsonObject { put("values", JsonObject(emptyMap())) })
+        // Without the prefill the page has nothing to answer: a failed send ends the form, as a failed initialize does.
+        if (!prefilled) mutableState.value = LeadFormState.Failed("bridge_error", false)
     }
 
     private fun onPrefillApplied() {
         if (mutableState.value != LeadFormState.Activating) return
         mutableState.value = LeadFormState.ReadyToShow
-        if (visibleRequested) becomeVisible()
+        // A collector may already have shown the form inline on `ReadyToShow`: one signal, one notification.
+        if (visibleRequested && mutableState.value == LeadFormState.ReadyToShow) becomeVisible()
     }
 
     private fun becomeVisible() {

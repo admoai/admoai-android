@@ -120,16 +120,54 @@ Feature: An app prepares and opens a Lead Generation form through one controller
     Then the controller has failed without retry
     And the view is released
 
-  Scenario: a form page that cannot be loaded fails instead of loading forever
+  Scenario: a form page that is not available fails and cannot be retried
     Given a controller that is preparing or was opened by a tap
     When the form's page is not available (the server answers 404, or any other 4xx except 408 and 429)
     Then the controller has failed with form_not_available and cannot be retried
     And the view is released
+
+  Scenario: a form page that fails for now can be loaded again in the same view
+    Given a controller that is preparing or was opened by a tap
     When the form's page answers a server error (5xx), rate limiting (429) or a timeout (408), or cannot be reached
     Then the controller has failed with temporary_failure and can be retried
     And a retry loads the form's page again in the same view
-    But a failure reported after the form's bridge is up does not end the form
-    And a failure reported after the app disposed the controller changes nothing
+
+  Scenario: a page failure reported after the form's bridge is up does not end the form
+    Given a prepared controller
+    When a page load failure is reported
+    Then the controller stays prepared
+
+  Scenario: a page failure reported after the app disposed the controller changes nothing
+    Given a disposed controller
+    When a page load failure is reported
+    Then the controller stays disposed
+
+  Scenario: a tap that was queued while preparing opens the form once, even if the app opens it at the same moment
+    Given a controller whose tap was queued while preparing
+    When the form reports it is prepared and the app opens it right then
+    Then the form is activated once
+
+  Scenario: a tap queued before the preparation expired does not activate it afterwards
+    Given a controller whose tap was queued while preparing
+    When the form reports it is prepared after the preparation expired
+    Then the controller is expired
+    And the form was never asked to activate
+
+  Scenario: retrying an activation after the preparation expired does not activate it
+    Given a controller whose activation failed with a retryable error
+    When the preparation expires and the app retries
+    Then the controller is expired
+    And the form is not asked to activate again
+
+  Scenario: a prefill that cannot be sent fails the form instead of leaving it opening forever
+    Given a controller that was opened and activated
+    When the prefill cannot be delivered to the form
+    Then the controller has failed with bridge_error and cannot be retried
+
+  Scenario: a form shown at the moment it is ready is told it is visible once
+    Given a controller whose app shows the form as soon as it is ready to show
+    When the form reports its prefill was applied
+    Then the form was told it became visible once
 
   Scenario: disposing ends the form and ignores everything after
     Given a visible controller

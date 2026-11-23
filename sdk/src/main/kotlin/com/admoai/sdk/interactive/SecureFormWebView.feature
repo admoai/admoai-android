@@ -34,6 +34,7 @@ Feature: The form runs in a WebView that only the form's own origin can talk to
     Given a loaded form view
     When the page tries to navigate to another address
     Then the view stays on the form
+    And the form fails and the app is told once
 
   Scenario: the form cannot submit a page form or load a second page
     Given a loaded form view
