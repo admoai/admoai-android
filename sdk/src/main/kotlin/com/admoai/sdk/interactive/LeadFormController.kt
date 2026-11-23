@@ -329,6 +329,8 @@ class LeadFormController internal constructor(
             if (mutableState.value == LeadFormState.Activating) pendingOpen = true
             activateSent = false
             mutableState.value = LeadFormState.Preparing
+            // A collector may dispose (or otherwise move) the controller inline on `Preparing`.
+            if (mutableState.value != LeadFormState.Preparing) return
         }
         val initialized = send(
             "initialize",

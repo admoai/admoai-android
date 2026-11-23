@@ -737,6 +737,19 @@ class LeadFormControllerTest {
     }
 
     @Test
+    fun `an app that disposes the form while its page reloads leaves it disposed`() {
+        val c = controller()
+        c.prepare()
+        page("bridge-ready")
+        page("prepared")
+        val job = collectInline(c) { if (it == LeadFormState.Preparing) c.dispose() }
+        page("bridge-ready")
+        job.cancel()
+        assertEquals(LeadFormState.Disposed, c.state.value)
+        assertEquals(1, sentOf("initialize").size)
+    }
+
+    @Test
     fun `a tap queued before the preparation expired does not activate it afterwards`() {
         val c = controller()
         c.prepare()

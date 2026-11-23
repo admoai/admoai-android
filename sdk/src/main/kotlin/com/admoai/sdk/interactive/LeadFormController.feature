@@ -109,6 +109,12 @@ Feature: An app prepares and opens a Lead Generation form through one controller
     When the form asks to open the website
     Then the app's link callback gets the website purpose and its URL
 
+  Scenario: an app that disposes the form while its page reloads leaves it disposed
+    Given a prepared controller whose page reloads before activation
+    When the app disposes the controller as it goes back to preparing
+    Then the controller stays disposed
+    And the reloaded page is not initialized
+
   Scenario: a page that reloads after activation fails the controller
     Given a visible controller
     When the form reports it is ready again
