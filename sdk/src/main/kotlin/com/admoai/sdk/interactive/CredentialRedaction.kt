@@ -17,7 +17,12 @@ internal object CredentialRedaction {
         "\"(${names.joinToString("|") { escapable(it) }})\"(\\s*:\\s*)\"((?:[^\"\\\\]|\\\\.)*)\""
     )
 
-    private val httpUrl = Regex("https?://[^\\s\"'\\\\<>]+")
+    /**
+     * A URL as log text shows it. The address before the query stops at a quote or bracket; the
+     * query runs through apostrophes (a form event URL may carry one), so no part of a value escapes
+     * redaction, but a final apostrophe still closes a URL quoted with them.
+     */
+    private val httpUrl = Regex("https?://[^\\s\"'\\\\<>?#]+(?:\\?(?:[^\\s\"\\\\<>]*[^\\s\"'\\\\<>])?)?")
 
     private val queryValue = Regex("([^&=?#]+)=([^&#]*)")
 

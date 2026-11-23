@@ -426,6 +426,16 @@ class LeadFormControllerTest {
             "https://track.example.invalid/pixel.gif",
             CredentialRedaction.redact("https://track.example.invalid/pixel.gif")
         )
+        // An apostrophe inside a value does not end the URL: nothing after it is left in the log.
+        assertEquals(
+            "GET https://track.example.invalid/events?e=REDACTED&k=REDACTED",
+            CredentialRedaction.redact("GET https://track.example.invalid/events?e=first'second&k=3")
+        )
+        // A final apostrophe still closes a URL quoted with them.
+        assertEquals(
+            "url='https://track.example.invalid/e?e=REDACTED' sent",
+            CredentialRedaction.redact("url='https://track.example.invalid/e?e=opaque' sent")
+        )
     }
 
     @Test
