@@ -208,6 +208,11 @@ Feature: An app prepares and opens a Lead Generation form through one controller
     When a form event's tracking URL is fired
     Then the logged request shows the tracking address without its query values
 
+  Scenario: a form event on any path has its query values redacted in the SDK's log
+    Given an app with SDK logging on
+    When a form event's URL on a path that is not the tracking path is logged
+    Then the logged line shows its address and query keys without the query values
+
   Scenario: the system back button goes back inside a visible form
     Given a visible controller
     When the app passes the system back button to the controller
@@ -221,6 +226,11 @@ Feature: An app prepares and opens a Lead Generation form through one controller
     When the app passes the system back button to each of them
     Then none consumes the press
     And the form was told nothing
+
+  Scenario: the system back button is consumed even when the form cannot be told
+    Given a visible controller whose bridge cannot send
+    When the app passes the system back button to the controller
+    Then the press is consumed
 
   Scenario: the system back button does nothing during a submission
     Given a visible controller whose form is submitting

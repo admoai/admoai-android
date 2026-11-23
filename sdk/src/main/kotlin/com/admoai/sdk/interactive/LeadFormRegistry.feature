@@ -16,6 +16,24 @@ Feature: Lead Generation forms are bounded and never outlive the user they were 
     Then the form is disposed
     And no prefill was sent
 
+  Scenario: a lookup answer that arrives after the user changed but before the forms are disposed sends nothing
+    Given a form waiting for user A's values and the closing of forms still waiting to run
+    When the app signs user A out and the lookup answers before the forms are closed
+    Then no prefill was sent
+    And the form is disposed
+
+  Scenario: a form created while the app opts out is not kept
+    Given a form being created
+    When the app turns the opt-in off before the form is registered
+    Then the app gets no form
+
+  Scenario: a form created after a user change is not closed by the earlier change
+    Given a form prepared for user A and the closing of forms still waiting to run
+    When the app sets user B and a new form is prepared for user B
+    And the waiting closing runs
+    Then the form of user A is disposed
+    And the form of user B is still prepared
+
   Scenario: setting the same user again keeps the forms
     Given a form prepared for user A
     When the app sets user A again

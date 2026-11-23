@@ -417,6 +417,32 @@ class LeadFormControllerTest {
     }
 
     @Test
+    fun `a form event on any path has its query values redacted in the SDK's log`() {
+        assertEquals(
+            "REQUEST: https://track.example.invalid/events/open?e=REDACTED&k=REDACTED#frag",
+            CredentialRedaction.redact("REQUEST: https://track.example.invalid/events/open?e=opaque-secret&k=2#frag")
+        )
+        assertEquals(
+            "https://track.example.invalid/pixel.gif",
+            CredentialRedaction.redact("https://track.example.invalid/pixel.gif")
+        )
+    }
+
+    @Test
+    fun `the system back button is consumed even when the form cannot be told`() {
+        val c = controller()
+        visible(c)
+        transport.failSendOf = "back"
+        assertTrue(c.handleBack())
+        assertBackSent(0)
+        page("submitting")
+        page("submitted")
+        assertTrue(c.state.value is LeadFormState.Submitted)
+        assertTrue(c.handleBack())
+        assertBackSent(0)
+    }
+
+    @Test
     fun `the system back button goes back inside a visible form`() {
         val c = controller()
         visible(c)
@@ -958,7 +984,7 @@ class LeadFormControllerTest {
         assertTrue(shown, shown.contains("https://api.tenant.example.invalid/v1/tracking/events?t=REDACTED"))
         // Other URLs and the credential redaction are untouched.
         assertEquals(
-            "GET https://api.example.invalid/ads?x=1",
+            "GET https://api.example.invalid/ads?x=REDACTED",
             CredentialRedaction.redact("GET https://api.example.invalid/ads?x=1")
         )
         assertEquals(

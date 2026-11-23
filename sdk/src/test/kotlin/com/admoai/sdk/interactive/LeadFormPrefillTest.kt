@@ -23,6 +23,7 @@ class LeadFormPrefillTest {
     private val logs = mutableListOf<String>()
     private val asked = mutableListOf<Set<StandardAttributeKey>>()
     private var pending: LeadFormValues? = null
+    private var now = 0L
 
     private val host = object : LeadFormHost {
         override fun onRequestClose(controller: LeadFormController) = Unit
@@ -50,7 +51,7 @@ class LeadFormPrefillTest {
         presentation = FormPresentation.FULL_SCREEN,
         host = host,
         transportFactory = { transport },
-        clock = { 0L },
+        clock = { now },
         channel = LeadFormFixtures.channel,
         log = { logs += it },
         valueProvider = valueProvider,
@@ -132,6 +133,17 @@ class LeadFormPrefillTest {
         scheduler.advance(1)
         assertEquals(JsonObject(emptyMap()), prefillValues())
         pending!!.complete(mapOf(StandardAttributeKey.EMAIL to "late@example.invalid"))
+        assertEquals(1, transport.sentOf("prefill").size)
+    }
+
+    @Test
+    fun `an answer that arrives past the lookup time is ignored even before the timeout ran`() {
+        val c = controller(provider(answer = { _, done -> pending = done }))
+        activate(c, listOf("fullName", "email"))
+        now += BridgeContract.prefillLookupTimeoutMs + 1
+        pending!!.complete(mapOf(StandardAttributeKey.EMAIL to "late@example.invalid"))
+        assertEquals(JsonObject(emptyMap()), prefillValues())
+        scheduler.advance(BridgeContract.prefillLookupTimeoutMs)
         assertEquals(1, transport.sentOf("prefill").size)
     }
 

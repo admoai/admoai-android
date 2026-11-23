@@ -147,6 +147,56 @@ class LeadFormRegistryTest {
     }
 
     @Test
+    fun `a lookup answer that arrives after the user changed but before the forms are disposed sends nothing`() {
+        val sdk = Admoai.getInstance()
+        sdk.enableInteractiveExperiences(provider(hold = true))
+        sdk.setUserConfig(UserConfig(id = "user-a"))
+        val c = newForm()
+        prepare(c)
+        c.open()
+        val t = transportOf(c)
+        t.page("activated")
+        scheduler.holdNextPost()
+        sdk.clearUserConfig()
+        pendingCompletion!!.complete(mapOf(StandardAttributeKey.EMAIL to "a@example.invalid"))
+        assertTrue(t.sentOf("prefill").isEmpty())
+        scheduler.runHeld()
+        assertEquals(LeadFormState.Disposed, c.state.value)
+        assertTrue(t.sentOf("prefill").isEmpty())
+    }
+
+    @Test
+    fun `a form created while the app opts out is not kept`() {
+        val sdk = Admoai.getInstance()
+        // The surface check runs after the provider was read and before the form is registered.
+        sdk.secureFormSurfaceAvailable = {
+            sdk.disableInteractiveExperiences()
+            true
+        }
+        val got = sdk.createLeadFormController(
+            mockk<Context>(relaxed = true),
+            Creative(interactiveExperience = LeadFormFixtures.descriptor(System.currentTimeMillis() + 600_000)),
+            FormPresentation.FULL_SCREEN,
+            host
+        )
+        assertEquals(null, got)
+        assertTrue(pages.isEmpty())
+    }
+
+    @Test
+    fun `a form created after a user change is not closed by the earlier change`() {
+        val sdk = Admoai.getInstance()
+        sdk.setUserConfig(UserConfig(id = "user-a"))
+        val a = newForm().also { prepare(it) }
+        scheduler.holdNextPost()
+        sdk.setUserConfig(UserConfig(id = "user-b"))
+        val b = newForm().also { prepare(it) }
+        scheduler.runHeld()
+        assertEquals(LeadFormState.Disposed, a.state.value)
+        assertEquals(LeadFormState.Prepared, b.state.value)
+    }
+
+    @Test
     fun `setting the same user again keeps the forms`() {
         val sdk = Admoai.getInstance()
         sdk.setUserConfig(UserConfig(id = "user-a"))

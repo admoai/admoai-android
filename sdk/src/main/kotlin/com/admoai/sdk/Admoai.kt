@@ -174,8 +174,11 @@ class Admoai private constructor() {
      */
     @ExperimentalInteractiveExperienceApi
     fun disposeAllLeadForms() {
-        if (leadFormRegistry.isEmpty()) return
-        formScheduler().post { leadFormRegistry.disposeAll() }
+        // The generation advances here, on the calling thread: a form created before this call can no
+        // longer look up or send values, even while its disposal waits for the main thread.
+        val detached = leadFormRegistry.invalidateAll()
+        if (detached.isEmpty()) return
+        formScheduler().post { detached.forEach { it.dispose() } }
     }
 
     /**
@@ -194,6 +197,9 @@ class Admoai private constructor() {
         presentation: FormPresentation,
         host: LeadFormHost
     ): LeadFormController? {
+        // Read the generation before the provider: an opt-out or user change from here on makes the
+        // controller stale, so registration below refuses it.
+        val generation = leadFormRegistry.currentGeneration()
         val provider = leadFormValueProvider
         if (provider == null || !secureFormSurfaceAvailable()) return null
         val descriptor = creative.interactiveExperience as? InteractiveExperience.LeadGeneration ?: return null
@@ -210,9 +216,14 @@ class Admoai private constructor() {
             valueProvider = provider,
             fireTracking = ::fireTracking,
             scheduler = formScheduler(),
-            registry = leadFormRegistry
+            registry = leadFormRegistry,
+            generation = generation
         )
-        leadFormRegistry.register(controller)
+        if (!leadFormRegistry.register(controller, generation)) {
+            // The user changed or the app opted out while this controller was being created.
+            formScheduler().post { controller.dispose() }
+            return null
+        }
         return controller
     }
 

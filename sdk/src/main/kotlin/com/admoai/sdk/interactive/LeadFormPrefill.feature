@@ -31,6 +31,11 @@ Feature: The form is prefilled from the app's own values, only after the viewer 
     Then the prefill is sent empty when that time runs out
     And an answer that arrives later is ignored
 
+  Scenario: an answer that arrives past the lookup time is ignored even before the timeout ran
+    Given an app that answers only after the contract's lookup time has passed
+    When the viewer opens the form and the app's late answer arrives before the timeout task runs
+    Then the prefill is empty
+
   Scenario: an app that fails leaves the fields empty
     Given an app whose value lookup fails
     When the viewer opens the form

@@ -94,6 +94,7 @@ class LeadFormController internal constructor(
     private val fireTracking: (String) -> Unit = {},
     private val scheduler: LeadFormScheduler,
     private val registry: LeadFormRegistry? = null,
+    private val generation: Long = 0L,
     private val contract: BridgeContract = BridgeContract
 ) {
     private val session = BridgeSession(descriptor.formInstanceId, channel)
@@ -121,6 +122,10 @@ class LeadFormController internal constructor(
     private var lookupId = 0
     private var prefillDone = true
     private var cancelLookupTimer: (() -> Unit)? = null
+    private var lookupDeadline = 0L
+
+    /** True once a user change or opt-out invalidated this controller: it must release no value. */
+    private fun stale(): Boolean = registry?.isCurrent(generation) == false
 
     internal val isDisposed: Boolean
         get() = disposed
@@ -211,8 +216,14 @@ class LeadFormController internal constructor(
     fun handleBack(): Boolean {
         if (disposed || !visibleOnWire) return false
         return when (mutableState.value) {
-            LeadFormState.Visible, is LeadFormState.Submitted -> send("back")
+            LeadFormState.Visible, is LeadFormState.Submitted -> {
+                // The press is consumed even when the transport is down: the form is still on screen.
+                send("back")
+                true
+            }
+
             LeadFormState.Submitting -> true
+
             else -> false
         }
     }
@@ -463,10 +474,15 @@ class LeadFormController internal constructor(
         cancelLookupTimer?.invoke()
         cancelLookupTimer = null
         prefillDone = false
+        if (stale()) {
+            dispose()
+            return
+        }
         if (requested.isEmpty()) {
             finishPrefill(id, null)
             return
         }
+        lookupDeadline = clock() + contract.prefillLookupTimeoutMs
         cancelLookupTimer = scheduler.postDelayed(contract.prefillLookupTimeoutMs) { finishPrefill(id, null) }
         try {
             valueProvider.lookUpValues(requested) { values -> scheduler.post { finishPrefill(id, values) } }
@@ -478,12 +494,19 @@ class LeadFormController internal constructor(
 
     private fun finishPrefill(id: Int, values: Map<StandardAttributeKey, String>?) {
         if (disposed || id != lookupId || prefillDone) return
+        if (stale()) {
+            // The user changed or the app opted out: release nothing, the form is going away.
+            dispose()
+            return
+        }
         prefillDone = true
         cancelLookupTimer?.invoke()
         cancelLookupTimer = null
         if (mutableState.value != LeadFormState.Activating) return
+        // An answer past the deadline counts as no answer, even when the timeout task has not run yet.
+        val answer = if (clock() > lookupDeadline) null else values
         val prefilled =
-            send("prefill", buildJsonObject { put("values", LeadFormPrefill.values(values, requested, contract)) })
+            send("prefill", buildJsonObject { put("values", LeadFormPrefill.values(answer, requested, contract)) })
         // Without the prefill the page has nothing to answer: a failed send ends the form, as a failed initialize does.
         if (!prefilled) mutableState.value = LeadFormState.Failed("bridge_error", false)
     }

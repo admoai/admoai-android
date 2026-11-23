@@ -98,7 +98,28 @@ internal class FakeScheduler : LeadFormScheduler {
     private var now = 0L
     private val timers = mutableListOf<Timer>()
 
-    override fun post(block: () -> Unit) = block()
+    private val held = mutableListOf<() -> Unit>()
+    private var holdNext = false
+
+    /** The next [post] waits, as work queued behind a busy main thread does, until [runHeld]. */
+    fun holdNextPost() {
+        holdNext = true
+    }
+
+    fun runHeld() {
+        val due = held.toList()
+        held.clear()
+        due.forEach { it() }
+    }
+
+    override fun post(block: () -> Unit) {
+        if (holdNext) {
+            holdNext = false
+            held += block
+        } else {
+            block()
+        }
+    }
 
     override fun postDelayed(delayMs: Long, block: () -> Unit): () -> Unit {
         val timer = Timer(now + delayMs, block)
