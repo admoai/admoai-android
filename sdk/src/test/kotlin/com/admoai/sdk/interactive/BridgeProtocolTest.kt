@@ -426,6 +426,22 @@ class BridgeProtocolTest {
     }
 
     @Test
+    fun `a message nested far deeper than any the contract defines is refused`() {
+        val s = session()
+        // Within the byte limit, deep enough to overflow a recursive parser's stack.
+        val levels = BridgeProtocol.maxMessageBytes / 2 - 64
+        val deep = "{\"type\":\"bridge_ready\",\"payload\":" + "[".repeat(levels) + "]".repeat(levels) + "}"
+        assertTrue(deep.length <= BridgeProtocol.maxMessageBytes)
+        assertEquals("too_deep", refused(s.receive(deep)))
+        // Brackets inside a string are data, not nesting.
+        val ready = read("runtime-to-app/bridge-ready.json")
+        val version = parse(ready).getValue("payload").jsonObject.getValue("runtimeVersion").jsonPrimitive.content
+        val bracketed = session().receive(ready.replace(version, "[".repeat(40)))
+        assertFalse(bracketed is Received.Refused && bracketed.reason == "too_deep")
+        accepted(session().receive(ready))
+    }
+
+    @Test
     fun `a bridge needs an instance and channel the contract allows`() {
         val badChannel = assertThrows(IllegalArgumentException::class.java) { BridgeSession(instanceId, "short") }
         assertEquals("bad_channel", badChannel.message)

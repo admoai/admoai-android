@@ -266,6 +266,9 @@ internal class BridgeSession(private val instanceId: String, private val channel
         // JSON (RFC 8259) requires a control character inside a string to be escaped; the parser is
         // lenient about it, so the raw form is refused here, as unparsable input.
         if (hasRawControlCharacter(text)) return Received.Refused("not_json")
+        // The tree parser recurses on nested arrays; a deep one could overflow the stack (an Error the
+        // catch below does not see) well within the byte limit, so depth is bounded before parsing.
+        if (nestsDeeperThan(text, MAX_NESTING)) return Received.Refused("too_deep")
         val root = try {
             Json.parseToJsonElement(text)
         } catch (_: Exception) {
@@ -323,6 +326,33 @@ internal class BridgeSession(private val instanceId: String, private val channel
         require(text.toByteArray(Charsets.UTF_8).size <= BridgeProtocol.maxMessageBytes) { "too_large" }
         exchanged += type
         return text
+    }
+
+    /**
+     * True when arrays and objects in [text] nest deeper than [limit], counting only brackets outside
+     * strings. Never throws; malformed input is left to the parser.
+     */
+    private fun nestsDeeperThan(text: String, limit: Int): Boolean {
+        var depth = 0
+        var inString = false
+        var i = 0
+        while (i < text.length) {
+            val c = text[i]
+            if (inString) {
+                when (c) {
+                    '\\' -> i++
+                    '"' -> inString = false
+                }
+            } else {
+                when (c) {
+                    '"' -> inString = true
+                    '[', '{' -> if (++depth > limit) return true
+                    ']', '}' -> depth--
+                }
+            }
+            i++
+        }
+        return false
     }
 
     /**
@@ -419,5 +449,8 @@ internal class BridgeSession(private val instanceId: String, private val channel
         const val SUBMITTED = "submitted"
         const val SUBMIT_FAILED = "submit_failed"
         val ENVELOPE_KEYS = setOf("type", "instanceId", "channel", "payload")
+
+        /** Far above the contract's deepest message (envelope, payload, a list, its items). */
+        const val MAX_NESTING = 32
     }
 }

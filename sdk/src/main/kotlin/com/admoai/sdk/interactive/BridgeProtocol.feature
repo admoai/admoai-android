@@ -81,6 +81,12 @@ Feature: The SDK and the hosted form trust only well-formed bridge messages of t
     Then it is refused as not JSON
     And the same newline written as an escape is accepted
 
+  Scenario: a message nested far deeper than any the contract defines is refused
+    Given a bridge for the contract's instance and channel
+    When a message arrives whose arrays nest thousands of levels deep
+    Then it is refused without being parsed
+    And the app keeps running
+
   Scenario: a bridge needs an instance and channel the contract allows
     Given an instance or channel that breaks the contract's rules
     When a bridge is created for it
