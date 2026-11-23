@@ -6,6 +6,7 @@ public final class com/admoai/sdk/Admoai {
 	public final fun clearSessionId ()V
 	public final fun clearUserConfig ()V
 	public final fun configure (Lcom/admoai/sdk/config/SDKConfig;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun createLeadFormController (Landroid/content/Context;Lcom/admoai/sdk/model/response/Creative;Lcom/admoai/sdk/interactive/FormPresentation;Lcom/admoai/sdk/interactive/LeadFormHost;)Lcom/admoai/sdk/interactive/LeadFormController;
 	public final fun createRequestBuilder ()Lcom/admoai/sdk/model/request/DecisionRequestBuilder;
 	public final fun disableInteractiveExperiences ()V
 	public final fun enableInteractiveExperiences (Lcom/admoai/sdk/interactive/LeadFormValueProvider;)V
@@ -302,6 +303,137 @@ public final class com/admoai/sdk/exception/AdMoaiValidationException : com/admo
 }
 
 public abstract interface annotation class com/admoai/sdk/interactive/ExperimentalInteractiveExperienceApi : java/lang/annotation/Annotation {
+}
+
+public final class com/admoai/sdk/interactive/ExternalLinkPurpose : java/lang/Enum {
+	public static final field PRIVACY_POLICY Lcom/admoai/sdk/interactive/ExternalLinkPurpose;
+	public static final field WEBSITE_CTA Lcom/admoai/sdk/interactive/ExternalLinkPurpose;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/interactive/ExternalLinkPurpose;
+	public static fun values ()[Lcom/admoai/sdk/interactive/ExternalLinkPurpose;
+}
+
+public final class com/admoai/sdk/interactive/FormPresentation : java/lang/Enum {
+	public static final field FULL_SCREEN Lcom/admoai/sdk/interactive/FormPresentation;
+	public static final field INLINE Lcom/admoai/sdk/interactive/FormPresentation;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/admoai/sdk/interactive/FormPresentation;
+	public static fun values ()[Lcom/admoai/sdk/interactive/FormPresentation;
+}
+
+public final class com/admoai/sdk/interactive/LeadFormController {
+	public static final field $stable I
+	public final fun dispose ()V
+	public final fun getFormInstanceId ()Ljava/lang/String;
+	public final fun getPresentation ()Lcom/admoai/sdk/interactive/FormPresentation;
+	public final fun getState ()Lkotlinx/coroutines/flow/StateFlow;
+	public final fun open ()V
+	public final fun prepare ()V
+	public final fun retry ()V
+	public final fun setVisible (Z)V
+	public fun toString ()Ljava/lang/String;
+	public final fun view ()Landroid/view/View;
+}
+
+public abstract interface class com/admoai/sdk/interactive/LeadFormHost {
+	public abstract fun onOpenExternalLink (Lcom/admoai/sdk/interactive/LeadFormController;Lcom/admoai/sdk/interactive/ExternalLinkPurpose;Ljava/lang/String;)V
+	public abstract fun onRequestClose (Lcom/admoai/sdk/interactive/LeadFormController;)V
+}
+
+public abstract class com/admoai/sdk/interactive/LeadFormState {
+	public static final field $stable I
+}
+
+public final class com/admoai/sdk/interactive/LeadFormState$Activating : com/admoai/sdk/interactive/LeadFormState {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/interactive/LeadFormState$Activating;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/interactive/LeadFormState$Disposed : com/admoai/sdk/interactive/LeadFormState {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/interactive/LeadFormState$Disposed;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/interactive/LeadFormState$Expired : com/admoai/sdk/interactive/LeadFormState {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/interactive/LeadFormState$Expired;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/interactive/LeadFormState$Failed : com/admoai/sdk/interactive/LeadFormState {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;Z)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getErrorCode ()Ljava/lang/String;
+	public final fun getRetryable ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/interactive/LeadFormState$Idle : com/admoai/sdk/interactive/LeadFormState {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/interactive/LeadFormState$Idle;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/interactive/LeadFormState$Prepared : com/admoai/sdk/interactive/LeadFormState {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/interactive/LeadFormState$Prepared;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/interactive/LeadFormState$Preparing : com/admoai/sdk/interactive/LeadFormState {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/interactive/LeadFormState$Preparing;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/interactive/LeadFormState$ReadyToShow : com/admoai/sdk/interactive/LeadFormState {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/interactive/LeadFormState$ReadyToShow;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/interactive/LeadFormState$Submitted : com/admoai/sdk/interactive/LeadFormState {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLeadId ()Ljava/lang/String;
+	public final fun getSubmittedAt ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/interactive/LeadFormState$Submitting : com/admoai/sdk/interactive/LeadFormState {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/interactive/LeadFormState$Submitting;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class com/admoai/sdk/interactive/LeadFormState$Visible : com/admoai/sdk/interactive/LeadFormState {
+	public static final field $stable I
+	public static final field INSTANCE Lcom/admoai/sdk/interactive/LeadFormState$Visible;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
 }
 
 public abstract interface class com/admoai/sdk/interactive/LeadFormValueProvider {
