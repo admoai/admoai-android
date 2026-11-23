@@ -1,0 +1,46 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>form</title></head>
+<body>
+<script>
+  var params = new URLSearchParams(location.hash.slice(1));
+  AdmoaiBridge.addEventListener("message", function (e) {
+    var data = e.data;
+    if (data === "navigate") { location.href = "https://other.appassets.example/assets/interactive/frame.html"; return; }
+    if (data === "post") {
+      var f = document.createElement("form");
+      f.method = "post";
+      f.action = location.origin + "/assets/interactive/frame.html";
+      document.body.appendChild(f);
+      f.submit();
+      return;
+    }
+    if (data === "open") {
+      var w = window.open("https://other.appassets.example/assets/interactive/frame.html");
+      AdmoaiBridge.postMessage("open:" + (w === null ? "null" : "window"));
+      return;
+    }
+    if (data === "files") {
+      var attempts = [
+        fetch("file:///android_asset/interactive/form.html"),
+        fetch("content://com.admoai.sdk.test/anything"),
+        new Promise(function (resolve, reject) {
+          var x = new XMLHttpRequest();
+          x.open("GET", "file:///android_asset/interactive/form.html");
+          x.onload = function () { resolve(); };
+          x.onerror = function () { reject(new Error("blocked")); };
+          x.send();
+        })
+      ];
+      Promise.all(attempts.map(function (p) {
+        return p.then(function () { return "loaded"; }, function () { return "refused"; });
+      })).then(function (r) { AdmoaiBridge.postMessage("files:" + r.join(",")); });
+      return;
+    }
+    if (data === "tick") { setInterval(function () { AdmoaiBridge.postMessage("tick"); }, 100); return; }
+    AdmoaiBridge.postMessage("echo:" + data);
+  });
+  AdmoaiBridge.postMessage("hello");
+  AdmoaiBridge.postMessage("address:" + (location.search === "" ? "no-query" : "query") +
+    ":" + (params.get("instanceId") || "") + ":" + (params.get("channel") || ""));
+</script>
+</body></html>
