@@ -2483,6 +2483,19 @@ class LeadCardController(
 ) : LeadFormHost {
 
     private var controller: LeadFormController? = null
+    private var tapped = false
+
+    // Shown only when a failure the viewer can retry happens after the tap.
+    private val retryActions = LinearLayout(context).apply {
+        addView(Button(context).apply {
+            text = "Try again"
+            setOnClickListener { controller?.retry() }   // no new click: it was already fired
+        })
+        addView(Button(context).apply {
+            text = "Close"
+            setOnClickListener { controller?.let { onRequestClose(it) } }
+        })
+    }
 
     fun bind() {
         val sdk = Admoai.getInstance()
@@ -2499,23 +2512,35 @@ class LeadCardController(
         controller.prepare()
 
         creativeView.setOnClickListener {
-            sdk.fireClick(creative.tracking)   // the one click, before the form opens
+            creativeView.setOnClickListener(null)   // one tap, one click: a second tap does nothing
+            tapped = true
+            sdk.fireClick(creative.tracking)        // the one click, before the form opens
+            // A form that failed retryably while hidden: retry keeps this tap and opens once prepared.
+            if ((controller.state.value as? LeadFormState.Failed)?.retryable == true) controller.retry()
             controller.open()
         }
 
         scope.launch {
-            controller.state.collect { state -> render(controller, state) }
+            controller.state.collect { state -> render(state) }
         }
     }
 
-    private fun render(controller: LeadFormController, state: LeadFormState) {
+    private fun render(state: LeadFormState) {
+        val controller = controller ?: return
         when (state) {
             LeadFormState.ReadyToShow -> {
                 card.removeAllViews()
                 card.addView(controller.view())
                 controller.setVisible(true)
             }
-            is LeadFormState.Failed, LeadFormState.Expired -> restoreCreative()
+            // The viewer is waiting: offer a retry or a close. Before the tap, keep the creative
+            // as it is: the tap handler above retries and opens.
+            is LeadFormState.Failed -> when {
+                !state.retryable -> endForm()
+                tapped -> showRetry()
+            }
+            LeadFormState.Expired -> endForm()
+            LeadFormState.Preparing, LeadFormState.Activating -> card.removeView(retryActions)
             else -> Unit
         }
     }
@@ -2525,17 +2550,28 @@ class LeadCardController(
         controller?.setVisible(visible)
     }
 
+    private fun showRetry() {
+        card.removeAllViews()
+        card.addView(creativeView)   // its click listener is already cleared
+        card.addView(retryActions)
+    }
+
     private fun restoreCreative() {
         card.removeAllViews()
         card.addView(creativeView)
+        // The restored creative fires no further click: it is no longer bound to a form.
+        creativeView.setOnClickListener(null)
+    }
+
+    // The creative's normal fallback: no click, no controller, no new ad request.
+    private fun endForm() {
+        restoreCreative()
+        controller?.dispose()
+        controller = null
     }
 
     // LeadFormHost: the form cannot close or open links by itself.
-    override fun onRequestClose(controller: LeadFormController) {
-        restoreCreative()
-        controller.dispose()
-        this.controller = null
-    }
+    override fun onRequestClose(controller: LeadFormController) = endForm()
 
     override fun onOpenExternalLink(controller: LeadFormController, purpose: ExternalLinkPurpose, url: String) {
         // A separate browser surface. The form stays exactly as it was.
@@ -2558,7 +2594,9 @@ visible) and, only after the lead was submitted, the advertiser's website. Both 
 fun LeadGenerationCard(creative: Creative, creativeContent: @Composable () -> Unit) {
     val context = LocalContext.current
     val sdk = remember { Admoai.getInstance() }
-    var closed by remember { mutableStateOf(false) }
+    // Keyed to the creative: a different creative starts with a fresh card.
+    var closed by remember(creative) { mutableStateOf(false) }
+    var opened by remember(creative) { mutableStateOf(false) }
 
     val controller = remember(creative) {
         sdk.createLeadFormController(
@@ -2568,7 +2606,7 @@ fun LeadGenerationCard(creative: Creative, creativeContent: @Composable () -> Un
             host = object : LeadFormHost {
                 override fun onRequestClose(controller: LeadFormController) {
                     controller.dispose()
-                    closed = true   // the card shows the creative again, without a form
+                    closed = true   // the creative again, with no click and no form
                 }
 
                 override fun onOpenExternalLink(
@@ -2591,25 +2629,48 @@ fun LeadGenerationCard(creative: Creative, creativeContent: @Composable () -> Un
     }
 
     val state by controller.state.collectAsState()
-    val showForm = !closed && (state is LeadFormState.ReadyToShow || state is LeadFormState.Visible ||
-        state is LeadFormState.Submitting || state is LeadFormState.Submitted)
+    val formOnScreen = state is LeadFormState.ReadyToShow || state is LeadFormState.Visible ||
+        state is LeadFormState.Submitting || state is LeadFormState.Submitted
+    val failed = state as? LeadFormState.Failed
+    val ended = closed || state is LeadFormState.Expired || failed?.retryable == false
 
-    if (showForm) {
+    BackHandler(enabled = !closed && (state is LeadFormState.Visible ||
+        state is LeadFormState.Submitting || state is LeadFormState.Submitted)) {
+        controller.handleBack()
+    }
+
+    if (!ended && formOnScreen) {
         AndroidView(factory = { controller.view() })
         DisposableEffect(controller) {
             controller.setVisible(true)
             onDispose { controller.setVisible(false) }
         }
     } else {
-        Box(
-            if (closed) Modifier else Modifier.clickable {
-                sdk.fireClick(creative.tracking)   // the one click, before the form opens
+        // Clickable only before the first tap, and never after the form ended.
+        val onTap: (() -> Unit)? = if (ended || opened) null else {
+            {
+                opened = true                               // a second tap does nothing
+                sdk.fireClick(creative.tracking)            // the one click, before the form opens
+                if (failed?.retryable == true) controller.retry()
                 controller.open()
             }
-        ) { creativeContent() }
+        }
+        Box(if (onTap != null) Modifier.clickable(onClick = onTap) else Modifier) { creativeContent() }
+
+        // A retryable failure after the tap: the viewer is waiting. No new click.
+        if (opened && !ended && failed?.retryable == true) {
+            Row {
+                Button(onClick = { controller.retry() }) { Text("Try again") }
+                Button(onClick = { controller.dispose(); closed = true }) { Text("Close") }
+            }
+        }
     }
 }
 ```
+
+After a failure, expiry or close, the restored creative fires **no further click**. Retry with
+`retry()`, and only when `retryable` is `true`. A tap on the creative never reaches `open()` again:
+`open()` does nothing in `Failed`, `Expired` or after `dispose()`.
 
 ### Step 3b: full screen
 
@@ -2659,6 +2720,73 @@ class LeadFormActivity : ComponentActivity(), LeadFormHost {
     override fun onDestroy() {
         controller?.dispose()
         super.onDestroy()
+    }
+}
+```
+
+**Jetpack Compose**, full screen: a `Dialog` hosts the same controller. The screen that opens it
+fires the creative's single click first.
+
+```kotlin
+@Composable
+fun LeadFormDialog(creative: Creative, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val controller = remember(creative) {
+        Admoai.getInstance().createLeadFormController(
+            context = context,
+            creative = creative,
+            presentation = FormPresentation.FULL_SCREEN,
+            host = object : LeadFormHost {
+                override fun onRequestClose(controller: LeadFormController) = onDismiss()
+
+                override fun onOpenExternalLink(
+                    controller: LeadFormController,
+                    purpose: ExternalLinkPurpose,
+                    url: String
+                ) {
+                    CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url))
+                }
+            }
+        )
+    }
+    if (controller == null) {
+        LaunchedEffect(Unit) { onDismiss() }
+        return
+    }
+
+    // The click was fired by the caller, once. Open once, and dispose with the dialog.
+    DisposableEffect(controller) {
+        controller.open()
+        onDispose { controller.dispose() }
+    }
+
+    val state by controller.state.collectAsState()
+    val failed = state as? LeadFormState.Failed
+    if (state is LeadFormState.Expired || failed?.retryable == false) {
+        LaunchedEffect(state) { onDismiss() }   // the creative's normal fallback
+    }
+
+    // Back goes to the controller first; close only when it does not consume the press.
+    val onBack = { if (!controller.handleBack()) onDismiss() }
+
+    Dialog(
+        onDismissRequest = onBack,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        BackHandler(onBack = onBack)
+        Box {
+            AndroidView(factory = { controller.view() })
+            if (failed?.retryable == true) {
+                Row {
+                    Button(onClick = { controller.retry() }) { Text("Try again") }
+                    Button(onClick = onDismiss) { Text("Close") }
+                }
+            }
+        }
+        DisposableEffect(controller) {
+            controller.setVisible(true)
+            onDispose { controller.setVisible(false) }
+        }
     }
 }
 ```
@@ -2761,6 +2889,8 @@ person's details.
 | Closing the form while it is `Submitting` | The viewer loses their submission | Wait for `Submitted` or a failure |
 | Sending a new ad request when a form fails | The creative changes under the viewer | Show the creative's normal fallback |
 | Closing the form on the system back button | The viewer on a later stage loses every answer | Give the press to `handleBack()` first |
+| Tapping the restored creative again after a failure, expiry or close | `open()` does nothing there and a second click is reported | Leave the restored creative without a click listener; retry with `retry()` only when `retryable` |
+| Leaving the creative's tap active while the form prepares | Each extra tap fires another click | Clear the listener (or set a flag) on the first tap |
 
 ### Before you ship
 
