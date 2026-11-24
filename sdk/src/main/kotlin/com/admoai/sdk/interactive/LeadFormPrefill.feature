@@ -42,6 +42,17 @@ Feature: The form is prefilled from the app's own values, only after the viewer 
     Then the prefill is empty
     And the log names the failure without any message from the app
 
+  Scenario: an answer the app changes after giving it reaches the form as it was given
+    Given an app that answers with its values and then clears them
+    When the viewer opens the form
+    Then the prefill carries the values as they were when the app answered
+
+  Scenario: an answer that cannot be read leaves the fields empty
+    Given an app whose answer throws when the SDK reads it
+    When the viewer opens the form
+    Then the prefill is empty
+    And the app does not crash
+
   Scenario: values the contract does not allow are left out
     Given an app that returns a blank email, a phone over the length bound, a gender outside the options and a key the form did not request
     When the viewer opens the form

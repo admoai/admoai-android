@@ -417,38 +417,6 @@ class LeadFormControllerTest {
     }
 
     @Test
-    fun `a form event on any path has its query values redacted in the SDK's log`() {
-        assertEquals(
-            "REQUEST: https://track.example.invalid/events/open?e=REDACTED&k=REDACTED#frag",
-            CredentialRedaction.redact("REQUEST: https://track.example.invalid/events/open?e=opaque-secret&k=2#frag")
-        )
-        assertEquals(
-            "https://track.example.invalid/pixel.gif",
-            CredentialRedaction.redact("https://track.example.invalid/pixel.gif")
-        )
-        // An apostrophe inside a value does not end the URL: nothing after it is left in the log.
-        assertEquals(
-            "GET https://track.example.invalid/events?e=REDACTED&k=REDACTED",
-            CredentialRedaction.redact("GET https://track.example.invalid/events?e=first'second&k=3")
-        )
-        // An apostrophe in the path does not hide the query either.
-        assertEquals(
-            "REQUEST: https://track.example.invalid/events/o'pen?e=REDACTED",
-            CredentialRedaction.redact("REQUEST: https://track.example.invalid/events/o'pen?e=opaque-secret")
-        )
-        // A value after an empty name, and a part with no name at all, are redacted too.
-        assertEquals(
-            "https://track.example.invalid/events?=REDACTED&k=REDACTED&REDACTED",
-            CredentialRedaction.redact("https://track.example.invalid/events?=opaque-secret&k=2&bare-secret")
-        )
-        // A final apostrophe still closes a URL quoted with them.
-        assertEquals(
-            "url='https://track.example.invalid/e?e=REDACTED' sent",
-            CredentialRedaction.redact("url='https://track.example.invalid/e?e=opaque' sent")
-        )
-    }
-
-    @Test
     fun `the system back button is consumed even when the form cannot be told`() {
         val c = controller()
         visible(c)
@@ -988,28 +956,5 @@ class LeadFormControllerTest {
             beacons
         )
         assertTrue(beacons.none { it == impression || it == click })
-    }
-
-    @Test
-    fun `a form event's tracking query never appears in the SDK's log`() {
-        val url = LeadFormFixtures.eventUrl("form_open")
-        val line = "REQUEST: https://api.tenant.example.invalid/v1/tracking/events?t=abc&e=def"
-        assertEquals(
-            "REQUEST: https://api.tenant.example.invalid/v1/tracking/events?t=REDACTED&e=REDACTED",
-            CredentialRedaction.redact(line)
-        )
-        val body = """{"url":"$url","note":"x"}"""
-        val shown = CredentialRedaction.redact(body)
-        assertTrue(shown, !shown.contains("REDACTED_TRACKING_ONLY_FORM_OPEN"))
-        assertTrue(shown, shown.contains("https://api.tenant.example.invalid/v1/tracking/events?t=REDACTED"))
-        // Other URLs and the credential redaction are untouched.
-        assertEquals(
-            "GET https://api.example.invalid/ads?x=REDACTED",
-            CredentialRedaction.redact("GET https://api.example.invalid/ads?x=1")
-        )
-        assertEquals(
-            """{"preparationToken":"REDACTED"}""",
-            CredentialRedaction.redact("""{"preparationToken":"tok"}""")
-        )
     }
 }

@@ -64,3 +64,13 @@ Feature: Lead Generation forms are bounded and never outlive the user they were 
     Given as many hidden prepared forms as the contract allows
     When one of them is disposed
     Then another form can prepare
+
+  Scenario: a failed form frees its place
+    Given as many hidden prepared forms as the contract allows
+    When one of them fails and cannot be retried
+    Then another form can prepare
+
+  Scenario: an expired form frees its place
+    Given as many hidden prepared forms as the contract allows
+    When one of them expires
+    Then another form can prepare

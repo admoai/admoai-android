@@ -267,4 +267,30 @@ class LeadFormRegistryTest {
         tracked(extra) { extra.prepare() }
         assertEquals(LeadFormState.Preparing, extra.state.value)
     }
+
+    @Test
+    fun `a failed form frees its place`() {
+        val forms = hiddenForms()
+        val extra = newForm()
+        tracked(extra) { extra.prepare() }
+        assertEquals(LeadFormState.Idle, extra.state.value)
+        transportOf(forms.first()).blocked()
+        assertEquals(LeadFormState.Failed("navigation_blocked", false), forms.first().state.value)
+        tracked(extra) { extra.prepare() }
+        assertEquals(LeadFormState.Preparing, extra.state.value)
+    }
+
+    @Test
+    fun `an expired form frees its place`() {
+        val forms = hiddenForms()
+        val extra = newForm()
+        tracked(extra) { extra.prepare() }
+        assertEquals(LeadFormState.Idle, extra.state.value)
+        val pageSaysExpired = File("$CONTRACT_BRIDGE_DIR/runtime-to-app/prepare-failed.json").readText()
+            .replace("temporary_failure", "expired")
+        transportOf(forms.first()).say(pageSaysExpired)
+        assertEquals(LeadFormState.Expired, forms.first().state.value)
+        tracked(extra) { extra.prepare() }
+        assertEquals(LeadFormState.Preparing, extra.state.value)
+    }
 }

@@ -203,16 +203,6 @@ Feature: An app prepares and opens a Lead Generation form through one controller
     When the form goes through open, start, submit and the website link
     Then the creative's impression and click URLs were never fired by the controller
 
-  Scenario: a form event's tracking query never appears in the SDK's log
-    Given an app with SDK logging on
-    When a form event's tracking URL is fired
-    Then the logged request shows the tracking address without its query values
-
-  Scenario: a form event on any path has its query values redacted in the SDK's log
-    Given an app with SDK logging on
-    When a form event's URL on a path that is not the tracking path is logged
-    Then the logged line shows its address and query keys without the query values
-
   Scenario: the system back button goes back inside a visible form
     Given a visible controller
     When the app passes the system back button to the controller

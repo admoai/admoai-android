@@ -130,9 +130,12 @@ class LeadFormController internal constructor(
     internal val isDisposed: Boolean
         get() = disposed
 
-    /** True while this form is loaded but has never been shown: it counts toward the hidden bound. */
+    /**
+     * True while this form holds a loaded hidden view that has never been shown: it counts toward
+     * the hidden bound. A form that ended (failed for good or expired) has lost its view and frees its place.
+     */
     internal val countsAsHiddenPrepared: Boolean
-        get() = !disposed && loadStarted && !everVisible
+        get() = !disposed && loadStarted && !everVisible && !ended
 
     /** Where the form is now. */
     val state: StateFlow<LeadFormState> = mutableState.asStateFlow()
@@ -485,7 +488,16 @@ class LeadFormController internal constructor(
         lookupDeadline = clock() + contract.prefillLookupTimeoutMs
         cancelLookupTimer = scheduler.postDelayed(contract.prefillLookupTimeoutMs) { finishPrefill(id, null) }
         try {
-            valueProvider.lookUpValues(requested) { values -> scheduler.post { finishPrefill(id, values) } }
+            valueProvider.lookUpValues(requested) { values ->
+                // Copy on the caller's thread, inside a guard: the app's map may change later or throw
+                // when read (a Java caller may even pass null); nothing it hands over is read on the main thread.
+                val copy: Map<StandardAttributeKey, String>? = try {
+                    values.toMap()
+                } catch (_: Throwable) {
+                    null
+                }
+                scheduler.post { finishPrefill(id, copy) }
+            }
         } catch (e: Throwable) {
             log("Lead Generation value lookup failed: ${e.javaClass.simpleName}")
             finishPrefill(id, null)

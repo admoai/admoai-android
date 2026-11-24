@@ -156,6 +156,34 @@ class LeadFormPrefillTest {
     }
 
     @Test
+    fun `an answer the app changes after giving it reaches the form as it was given`() {
+        val c = controller(provider(answer = { _, done -> pending = done }))
+        activate(c, listOf("fullName", "email"))
+        val values = mutableMapOf(StandardAttributeKey.EMAIL to "alex@example.invalid")
+        // The answer is read on the main thread later: hold that post, and let the app change its map first.
+        scheduler.holdNextPost()
+        pending!!.complete(values)
+        values.clear()
+        scheduler.runHeld()
+        assertEquals(JsonObject(mapOf("email" to JsonPrimitive("alex@example.invalid"))), prefillValues())
+    }
+
+    @Test
+    fun `an answer that cannot be read leaves the fields empty`() {
+        val unreadable = object : AbstractMap<StandardAttributeKey, String>() {
+            override val entries: Set<Map.Entry<StandardAttributeKey, String>>
+                get() = throw IllegalStateException("secret@example.invalid")
+        }
+        val c = controller(provider(answer = { _, done -> pending = done }))
+        activate(c, listOf("fullName", "email"))
+        scheduler.holdNextPost()
+        pending!!.complete(unreadable)
+        scheduler.runHeld()
+        assertEquals(JsonObject(emptyMap()), prefillValues())
+        assertEquals(LeadFormState.Activating, c.state.value)
+    }
+
+    @Test
     fun `values the contract does not allow are left out`() {
         val tooLong = "1".repeat(BridgeContract.prefillValueMaxLength + 1)
         val c = controller(
