@@ -187,3 +187,49 @@ Feature: An app prepares and opens a Lead Generation form through one controller
     Given a prepared controller
     When the app prints the controller or its state
     Then the preparation token does not appear
+
+  Scenario: each form event activation authorized is reported once
+    Given a controller activated with tracking URLs for form open, form start and website click
+    When the form reports form open twice and form start once
+    Then the form open URL and the form start URL were each fired once through the SDK's tracking transport
+
+  Scenario: an event activation did not authorize is not reported
+    Given a controller activated with a tracking URL for form open only
+    When the form reports form start
+    Then no tracking URL is fired
+
+  Scenario: the creative's click is never fired by the form
+    Given a visible controller
+    When the form goes through open, start, submit and the website link
+    Then the creative's impression and click URLs were never fired by the controller
+
+  Scenario: the system back button goes back inside a visible form
+    Given a visible controller
+    When the app passes the system back button to the controller
+    Then the press is consumed
+    And the form was told to go back
+    When the form asks to close
+    Then the app's host is asked to close the form
+
+  Scenario: the system back button belongs to the app while the form is not on screen
+    Given a controller that is not on screen yet, one that was hidden again and one that was disposed
+    When the app passes the system back button to each of them
+    Then none consumes the press
+    And the form was told nothing
+
+  Scenario: the system back button is consumed even when the form cannot be told
+    Given a visible controller whose bridge cannot send
+    When the app passes the system back button to the controller
+    Then the press is consumed
+
+  Scenario: the system back button does nothing during a submission
+    Given a visible controller whose form is submitting
+    When the app passes the system back button to the controller
+    Then the press is consumed
+    And the form was told nothing
+
+  Scenario: the system back button on the confirmation lets the form close itself
+    Given a submitted controller
+    When the app passes the system back button to the controller
+    Then the press is consumed
+    And the form was told to go back
