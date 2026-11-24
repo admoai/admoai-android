@@ -16,6 +16,9 @@ The Admoai Android SDK is a lightweight wrapper around the Decision Engine API, 
   Read [Sponsored Pin Locations](#sponsored-pin-locations) before integrating: the SDK
   renders nothing and never infers that a pin was seen, so the measurement contract is
   yours to honour
+- **Lead Generation forms** – A native creative whose tap opens an Admoai-hosted form inside your app,
+  inline or full screen. Read [Lead Generation forms](#lead-generation-forms): your app
+  still fires the creative's impression and its one click
 - **Audience Signals** – Send eight Standard audience keys, plus your own segment codes, that advertisers
   can target the same way across publishers. Read [Audience Signals](#audience-signals): you compute
   the values, the SDK only sends them
@@ -2308,6 +2311,618 @@ fun AdView(creative: Creative) {
 Because the format key is the standard's, the same branch renders the plain standard Tap-to-expand
 (no `expanded_headline`, so the extra content is simply absent) and every operator template based
 on it.
+
+## Lead Generation forms
+
+A Lead Generation creative is an ordinary native creative whose tap opens a form instead of a
+website. The form is hosted by Admoai and runs inside your app: **inline** in the card the creative
+sits in, or **full screen**. The viewer fills it in without leaving your app, and the lead goes to
+the advertiser (as a CSV they download from the Ad Manager and, optionally, to a webhook).
+
+### Why your integration matters
+
+The advertiser buys a lead, not a visit. Three things decide whether that promise holds, and all of
+them live in your code:
+
+- **Your app keeps rendering the creative**, fires its impression and fires its **one** click. The
+  form never sends the viewer to a website on tap, and nothing in the form fires the creative click
+  for you. If your app fires it twice, or "once for the form", the advertiser is billed twice.
+- **The form is shown only when the viewer asked for it.** The SDK prepares it hidden while the
+  creative is on screen, so the tap opens it quickly, but nothing is shown and no personal value is
+  read until the tap.
+- **One person's details never appear in another person's form.** When the signed-in user changes,
+  every open form must close. The SDK does that for you when you use `UserConfig`, and gives you a
+  call for when you do not.
+
+### Status of this API
+
+This is a public API. Your app's explicit opt-in (`enableInteractiveExperiences`) is the switch.
+
+- It is served only on `apiVersion = "2025-11-01"`. On `2025-01-01` the request is accepted, the
+  declaration is ignored, and no creative ever carries a form.
+- Admoai enables it per tenant. Until it is enabled for you, opting in changes nothing visible: your
+  requests are accepted and you get ordinary creatives.
+
+### What the SDK does, and never does
+
+| The SDK does | The SDK never does |
+|---|---|
+| Declare that your app supports forms, and the **names** of the standard values you hold | Send a value with the ad request |
+| Decode the per-creative form descriptor (`creative.interactiveExperience`) | Ask your app for a value before the viewer taps |
+| Prepare the form in a hidden WebView that only the form's own origin can talk to | Fire the creative's click |
+| Ask your app for the values the form requests, after the tap, and prefill them | Open a link inside the form |
+| Report form open, form start and website click, once each per form | Fetch a replacement ad when a form fails or expires |
+| Close the form when the signed-in user changes | Persist or log a value |
+
+**Showing the creative, and firing its impression and click, is yours.** The SDK only drives the form.
+
+### Step 1: opt in with a value provider
+
+Opting in is explicit: updating the SDK alone changes nothing about your requests. Set
+`apiVersion = "2025-11-01"` first, then give the SDK a `LeadFormValueProvider`.
+
+```kotlin
+class SessionValueProvider(private val session: Session) : LeadFormValueProvider {
+
+    // Called each time a request is built, on the thread that builds it. Answer from memory.
+    override fun availableKeys(): Set<StandardAttributeKey> {
+        val user = session.currentUser ?: return emptySet()   // e.g. Ana Pérez
+        return buildSet {
+            if (user.fullName.isNotBlank()) add(StandardAttributeKey.FULL_NAME)
+            if (user.email.isNotBlank()) add(StandardAttributeKey.EMAIL)
+        }
+    }
+
+    // Called on the main thread, after the tap, only for the keys the form requests.
+    override fun lookUpValues(keys: Set<StandardAttributeKey>, completion: LeadFormValues) {
+        val user = session.currentUser
+        val values = buildMap {
+            if (user != null) {
+                if (StandardAttributeKey.FULL_NAME in keys) put(StandardAttributeKey.FULL_NAME, user.fullName) // "Ana Pérez"
+                if (StandardAttributeKey.EMAIL in keys) put(StandardAttributeKey.EMAIL, user.email)           // "ana@example.com"
+            }
+        }
+        completion.complete(values)   // once, from what the app already holds
+    }
+}
+
+fun enableLeadForms(session: Session) {
+    Admoai.initialize(SDKConfig(baseUrl = "https://api.admoai.com", apiVersion = "2025-11-01"))
+    Admoai.getInstance().enableInteractiveExperiences(SessionValueProvider(session))
+}
+```
+
+If your app holds no profile data, opt in with a provider that prefills nothing. The form still
+works; the viewer types every field.
+
+```kotlin
+val noPrefill = object : LeadFormValueProvider {
+    override fun availableKeys(): Set<StandardAttributeKey> = emptySet()
+
+    override fun lookUpValues(keys: Set<StandardAttributeKey>, completion: LeadFormValues) {
+        completion.complete(emptyMap())
+    }
+}
+```
+
+`disableInteractiveExperiences()` turns the opt-in off again: requests stop declaring support and
+every open form is closed. Opting in again with a different provider closes open forms too.
+
+**The rules for values**
+
+- **`availableKeys()` answers from memory.** It must not read storage or call a server: it runs
+  every time a request is built, on the thread that builds it (a background thread for
+  `requestAds`, your thread for `getHttpRequestData`), and only key names leave the device.
+- **`lookUpValues` answers once, from what you already hold, and never fetches.** It is called only
+  after the viewer tapped, only for the keys that form version requests, and only for the
+  signed-in user. An answer that arrives after a short, fixed time, or after the user changed, is
+  ignored and the fields stay empty.
+- **The seven keys** (`StandardAttributeKey`):
+
+| Key | Wire name | Meaning |
+|---|---|---|
+| `FIRST_NAME` | `firstName` | Given name |
+| `LAST_NAME` | `lastName` | Family name |
+| `FULL_NAME` | `fullName` | Full name as one string |
+| `EMAIL` | `email` | Email address |
+| `PHONE` | `phone` | Phone number |
+| `AGE` | `age` | Age, as a number in a string |
+| `GENDER` | `gender` | One of the four catalog values below |
+
+- **Gender** accepts exactly `female`, `male`, `other` and `prefer_not_to_say`. Any other value is
+  dropped.
+- **A blank value, or one longer than the contract's limit, is dropped.** The SDK trims, and the
+  form validates everything else (an email that is not an email is the form's to reject). The limit
+  comes from the shared contract, `bridge-messages.json` (`maxLength` of the prefill values, 256
+  characters today).
+
+### Step 2: get a controller for a Lead Generation creative
+
+Every creative tells you what a tap opens through `creative.interactiveExperience`:
+
+| Value | What it means | What to do |
+|---|---|---|
+| `InteractiveExperience.LeadGeneration` | The tap opens a form | Create a controller |
+| `InteractiveExperience.Unsupported` | The creative needs an experience this SDK cannot open (unknown type, or a malformed descriptor) | **Do not show that creative.** A tap would lead nowhere |
+| `null` | A normal creative | Render it as you always did |
+
+```kotlin
+fun leadFormControllerFor(context: Context, creative: Creative, host: LeadFormHost): LeadFormController? =
+    Admoai.getInstance().createLeadFormController(
+        context = context,
+        creative = creative,
+        presentation = FormPresentation.INLINE,
+        host = host
+    )
+```
+
+`createLeadFormController` returns **null** when the app has not opted in, when the device has no
+secure WebView (the form view needs a WebView feature that some devices lack), or when the
+descriptor is unsupported. In every case, **do not show the creative**: its tap would lead nowhere.
+Call it on the main thread, once per served creative.
+
+### Step 3: inline
+
+Render the creative as you do today and fire its impression as you do today. Then:
+
+1. Create the controller and call `controller.prepare()` as soon as the creative is on screen. The
+   form loads hidden.
+2. On tap, call `fireClick` **exactly once**, then `controller.open()`. Fire the click first.
+3. When `state` reaches `ReadyToShow`, replace the card's content with `controller.view()`.
+4. Tell the controller about real visibility: `setVisible(true)` once the form is actually on
+   screen, `setVisible(false)` when it is hidden again.
+5. Dispose the controller whenever the form goes away.
+
+```kotlin
+class LeadCardController(
+    private val context: Context,
+    private val card: FrameLayout,
+    private val creativeView: View,
+    private val creative: Creative,
+    private val scope: CoroutineScope
+) : LeadFormHost {
+
+    private var controller: LeadFormController? = null
+    private var tapped = false
+
+    // Shown only when a failure the viewer can retry happens after the tap.
+    private val retryActions = LinearLayout(context).apply {
+        addView(Button(context).apply {
+            text = "Try again"
+            setOnClickListener { controller?.retry() }   // no new click: it was already fired
+        })
+        addView(Button(context).apply {
+            text = "Close"
+            setOnClickListener { controller?.let { onRequestClose(it) } }
+        })
+    }
+
+    fun bind() {
+        val sdk = Admoai.getInstance()
+        // 1. Unsupported or no controller: this creative is not shown.
+        val controller = sdk.createLeadFormController(context, creative, FormPresentation.INLINE, this)
+        if (controller == null) {
+            card.visibility = View.GONE
+            return
+        }
+        this.controller = controller
+
+        // The impression is fired as for any creative, once, when the card is on screen.
+        sdk.fireImpression(creative.tracking)
+        controller.prepare()
+
+        creativeView.setOnClickListener {
+            creativeView.setOnClickListener(null)   // one tap, one click: a second tap does nothing
+            tapped = true
+            sdk.fireClick(creative.tracking)        // the one click, before the form opens
+            // A form that failed retryably while hidden: retry keeps this tap and opens once prepared.
+            if ((controller.state.value as? LeadFormState.Failed)?.retryable == true) controller.retry()
+            controller.open()
+        }
+
+        scope.launch {
+            controller.state.collect { state -> render(state) }
+        }
+    }
+
+    private fun render(state: LeadFormState) {
+        val controller = controller ?: return
+        when (state) {
+            LeadFormState.ReadyToShow -> {
+                card.removeAllViews()
+                card.addView(controller.view())
+                controller.setVisible(true)
+            }
+            // The viewer is waiting: offer a retry or a close. Before the tap, keep the creative
+            // as it is: the tap handler above retries and opens.
+            is LeadFormState.Failed -> when {
+                !state.retryable -> endForm()
+                tapped -> showRetry()
+            }
+            LeadFormState.Expired -> endForm()
+            LeadFormState.Preparing, LeadFormState.Activating -> card.removeView(retryActions)
+            else -> Unit
+        }
+    }
+
+    // Call from your real visibility signal (scrolled off screen, tab hidden).
+    fun onVisibilityChanged(visible: Boolean) {
+        controller?.setVisible(visible)
+    }
+
+    private fun showRetry() {
+        card.removeAllViews()
+        card.addView(creativeView)   // its click listener is already cleared
+        card.addView(retryActions)
+    }
+
+    private fun restoreCreative() {
+        card.removeAllViews()
+        card.addView(creativeView)
+        // The restored creative fires no further click: it is no longer bound to a form.
+        creativeView.setOnClickListener(null)
+    }
+
+    // The creative's normal fallback: no click, no controller, no new ad request.
+    private fun endForm() {
+        restoreCreative()
+        controller?.dispose()
+        controller = null
+    }
+
+    // LeadFormHost: the form cannot close or open links by itself.
+    override fun onRequestClose(controller: LeadFormController) = endForm()
+
+    override fun onOpenExternalLink(controller: LeadFormController, purpose: ExternalLinkPurpose, url: String) {
+        // A separate browser surface. The form stays exactly as it was.
+        CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url))
+    }
+}
+```
+
+`CustomTabsIntent` comes from `androidx.browser:browser`, which your app adds if it does not have it.
+Open the URL exactly as given: add no token, no form value and no identifier.
+
+The form asks you to open two kinds of link: the advertiser's privacy policy (any time the form is
+visible) and, only after the lead was submitted, the advertiser's website. Both arrive through
+`onOpenExternalLink`; never load them in the form's own view.
+
+**Jetpack Compose** uses the same controller, held by `remember` and released by `DisposableEffect`:
+
+```kotlin
+@Composable
+fun LeadGenerationCard(creative: Creative, creativeContent: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val sdk = remember { Admoai.getInstance() }
+    // Keyed to the creative: a different creative starts with a fresh card.
+    var closed by remember(creative) { mutableStateOf(false) }
+    var opened by remember(creative) { mutableStateOf(false) }
+
+    val controller = remember(creative) {
+        sdk.createLeadFormController(
+            context = context,
+            creative = creative,
+            presentation = FormPresentation.INLINE,
+            host = object : LeadFormHost {
+                override fun onRequestClose(controller: LeadFormController) {
+                    controller.dispose()
+                    closed = true   // the creative again, with no click and no form
+                }
+
+                override fun onOpenExternalLink(
+                    controller: LeadFormController,
+                    purpose: ExternalLinkPurpose,
+                    url: String
+                ) {
+                    CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url))
+                }
+            }
+        )
+    }
+
+    if (controller == null) return   // not shown: a tap would lead nowhere
+
+    DisposableEffect(controller) {
+        sdk.fireImpression(creative.tracking)
+        controller.prepare()
+        onDispose { controller.dispose() }
+    }
+
+    val state by controller.state.collectAsState()
+    val formOnScreen = state is LeadFormState.ReadyToShow || state is LeadFormState.Visible ||
+        state is LeadFormState.Submitting || state is LeadFormState.Submitted
+    val failed = state as? LeadFormState.Failed
+    val ended = closed || state is LeadFormState.Expired || failed?.retryable == false
+
+    BackHandler(enabled = !closed && (state is LeadFormState.Visible ||
+        state is LeadFormState.Submitting || state is LeadFormState.Submitted)) {
+        controller.handleBack()
+    }
+
+    if (!ended && formOnScreen) {
+        AndroidView(factory = { controller.view() })
+        DisposableEffect(controller) {
+            controller.setVisible(true)
+            onDispose { controller.setVisible(false) }
+        }
+    } else {
+        // Clickable only before the first tap, and never after the form ended.
+        val onTap: (() -> Unit)? = if (ended || opened) null else {
+            {
+                opened = true                               // a second tap does nothing
+                sdk.fireClick(creative.tracking)            // the one click, before the form opens
+                if (failed?.retryable == true) controller.retry()
+                controller.open()
+            }
+        }
+        Box(if (onTap != null) Modifier.clickable(onClick = onTap) else Modifier) { creativeContent() }
+
+        // A retryable failure after the tap: the viewer is waiting. No new click.
+        if (opened && !ended && failed?.retryable == true) {
+            Row {
+                Button(onClick = { controller.retry() }) { Text("Try again") }
+                Button(onClick = { controller.dispose(); closed = true }) { Text("Close") }
+            }
+        }
+    }
+}
+```
+
+After a failure, expiry or close, the restored creative fires **no further click**. Retry with
+`retry()`, and only when `retryable` is `true`. A tap on the creative never reaches `open()` again:
+`open()` does nothing in `Failed`, `Expired` or after `dispose()`.
+
+### Step 3b: full screen
+
+The same controller, created with `FormPresentation.FULL_SCREEN`, shown in a dedicated Activity or
+a full-screen dialog. In full screen the form draws its **own close button**, which reaches your
+`onRequestClose`. Inline, closing is your card's job.
+
+```kotlin
+class LeadFormActivity : ComponentActivity(), LeadFormHost {
+
+    private var controller: LeadFormController? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val creative = LeadFormHandoff.creative ?: return finish()   // however your app passes it
+        val controller = Admoai.getInstance()
+            .createLeadFormController(this, creative, FormPresentation.FULL_SCREEN, this)
+            ?: return finish()
+        this.controller = controller
+
+        // The creative's click was fired by the screen that started this Activity, once.
+        setContentView(controller.view())
+        controller.open()
+        lifecycleScope.launch {
+            controller.state.collect { state ->
+                if (state is LeadFormState.Failed || state == LeadFormState.Expired) finish()
+            }
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        controller?.setVisible(false)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        controller?.setVisible(true)
+    }
+
+    override fun onRequestClose(controller: LeadFormController) = finish()
+
+    override fun onOpenExternalLink(controller: LeadFormController, purpose: ExternalLinkPurpose, url: String) {
+        CustomTabsIntent.Builder().build().launchUrl(this, Uri.parse(url))
+    }
+
+    override fun onDestroy() {
+        controller?.dispose()
+        super.onDestroy()
+    }
+}
+```
+
+**Jetpack Compose**, full screen: a `Dialog` hosts the same controller. The screen that opens it
+fires the creative's single click first.
+
+```kotlin
+@Composable
+fun LeadFormDialog(creative: Creative, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val controller = remember(creative) {
+        Admoai.getInstance().createLeadFormController(
+            context = context,
+            creative = creative,
+            presentation = FormPresentation.FULL_SCREEN,
+            host = object : LeadFormHost {
+                override fun onRequestClose(controller: LeadFormController) = onDismiss()
+
+                override fun onOpenExternalLink(
+                    controller: LeadFormController,
+                    purpose: ExternalLinkPurpose,
+                    url: String
+                ) {
+                    CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url))
+                }
+            }
+        )
+    }
+    if (controller == null) {
+        LaunchedEffect(Unit) { onDismiss() }
+        return
+    }
+
+    // The click was fired by the caller, once. Open once, and dispose with the dialog.
+    DisposableEffect(controller) {
+        controller.open()
+        onDispose { controller.dispose() }
+    }
+
+    val state by controller.state.collectAsState()
+    val failed = state as? LeadFormState.Failed
+    if (state is LeadFormState.Expired || failed?.retryable == false) {
+        LaunchedEffect(state) { onDismiss() }   // the creative's normal fallback
+    }
+
+    // The dialog hands the system back press to onDismissRequest. Give it to the controller
+    // first; close only when the controller does not consume it.
+    Dialog(
+        onDismissRequest = { if (!controller.handleBack()) onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box {
+            AndroidView(factory = { controller.view() })
+            if (failed?.retryable == true) {
+                Row {
+                    Button(onClick = { controller.retry() }) { Text("Try again") }
+                    Button(onClick = onDismiss) { Text("Close") }
+                }
+            }
+        }
+        DisposableEffect(controller) {
+            controller.setVisible(true)
+            onDispose { controller.setVisible(false) }
+        }
+    }
+}
+```
+
+### The system back button
+
+Give every back press to the controller first. While the form is visible, `handleBack()` returns
+`true` and the form does exactly what its own Back arrow does: it returns to the previous stage
+with every answer kept (Review returns to Contact information). On the first stage and on the
+confirmation, it asks you to close through `onRequestClose`. While a lead is being submitted, the
+press is consumed and nothing happens. When the form is not visible, `handleBack()` returns `false`
+and the press is yours. Never close the form on back by yourself: the viewer on the third stage
+would lose every answer.
+
+```kotlin
+private val backCallback = object : OnBackPressedCallback(true) {
+    override fun handleOnBackPressed() {
+        if (controller?.handleBack() == true) return
+        isEnabled = false
+        onBackPressedDispatcher.onBackPressed()
+        isEnabled = true
+    }
+}
+
+// In onCreate:
+onBackPressedDispatcher.addCallback(this, backCallback)
+```
+
+The same rule applies inline: register the callback while the form is in the card, and remove it
+when you restore the creative. In Jetpack Compose, use
+`BackHandler(enabled = state is LeadFormState.Visible || state is LeadFormState.Submitting || state is LeadFormState.Submitted) { controller.handleBack() }`.
+
+### States and what to show
+
+`controller.state` is a `StateFlow<LeadFormState>`. This is what to do in each one:
+
+| State | Meaning | What your app does |
+|---|---|---|
+| `Idle` | Nothing loaded yet | Show the creative |
+| `Preparing` | The form loads hidden | Keep showing the creative. After a tap, show a loading indicator |
+| `Prepared` | Ready, waiting for the tap | Keep showing the creative |
+| `Activating` | The tap happened; the form is activating and prefilling | Show a loading indicator |
+| `ReadyToShow` | Ready to be shown | Show `controller.view()`, then `setVisible(true)` |
+| `Visible` | The form is on screen | Nothing |
+| `Submitting` | The viewer submitted | **Do not close the form on your own** |
+| `Submitted(leadId, submittedAt)` | The lead was accepted | Leave the form's confirmation on screen; the viewer closes it |
+| `Failed(retryable = true)` | A failure the viewer can retry | Offer a retry (`controller.retry()`) or close |
+| `Failed(retryable = false)` | The form cannot continue | Close it and show the creative's normal fallback. Send no automatic new request |
+| `Expired` | The preparation passed its expiry; the controller never opens | Close it and show the creative's normal fallback. Send no automatic new request |
+| `Disposed` | The controller ended | Nothing |
+
+`Failed` carries an `errorCode` for your logs. Decide whether to retry from `retryable`, never
+from the code, and never show the code to the viewer. The codes you will see most:
+
+| `errorCode` | Meaning | `retryable` |
+|---|---|---|
+| `form_not_available` | Lead Generation is not available for this tenant or app right now (the form's page answered 404 or another 4xx, except 408 and 429). Stop offering the form on this ad | no |
+| `temporary_failure` | The form's page could not be loaded: a 5xx server error, 429 rate limited, 408 timeout, or no network. Call `retry()`, which loads it again in the same view | yes |
+| `navigation_blocked` | The page tried to leave the form, so the SDK closed it | no |
+| `renderer_gone` | The system ended the WebView's renderer (Android only) | no |
+
+The form may also report the contract's own codes (for example `expired`, `revoked` or
+`rate_limited`); handle them the same way, by `retryable`.
+
+### When the signed-in user changes
+
+Open forms must not outlive the person they were opened for.
+
+- `setUserConfig` with a different `id`, and `clearUserConfig()` when a user was set, **close every
+  open form**.
+- Setting the same id again changes nothing.
+- If your app does not use `UserConfig`, call `Admoai.getInstance().disposeAllLeadForms()` on
+  sign-out and on account switch.
+
+A lookup that answers after the user changed is ignored, so a form never receives the previous
+person's details.
+
+### What is tracked, and by whom
+
+- **Form open, form start and website click** are reported by the SDK automatically, **once each per
+  form**, through its own tracking. You do nothing.
+- **Submissions are counted by Admoai's server.** The SDK reports no submission.
+- **Your impression and your click are unchanged**: you fire them, once each.
+- **No value ever goes into tracking or logs.** Request logs show the tracking address without its
+  query.
+- An advertiser's webhook can deliver the same lead more than once. Repeats carry the same
+  `lead_id`; deduplicate on it.
+
+### Common mistakes
+
+| Mistake | Consequence | Do this instead |
+|---|---|---|
+| Firing the click twice, once yourself and once "for the form" | The advertiser is billed twice | `fireClick` once, on the tap |
+| Calling `open()` before your own `fireClick` | The viewer's tap is not reported as the click it is | Fire the click, then `open()` |
+| Showing an `Unsupported` creative, or one with no controller | A tap leads nowhere | Do not show that creative |
+| Not disposing the controller | A WebView stays alive; a form can outlive its user | `dispose()` from `onRequestClose` and from your lifecycle |
+| Asking a server for profile data inside `lookUpValues` | The answer misses the short lookup time and the fields stay empty | Answer from memory |
+| Loading the form's links in its own view | The viewer leaves the form inside it | Open them in a Custom Tab from `onOpenExternalLink` |
+| Opting in without `apiVersion = "2025-11-01"` | No form is ever served; the SDK warns in its log | Set `2025-11-01` |
+| Closing the form while it is `Submitting` | The viewer loses their submission | Wait for `Submitted` or a failure |
+| Sending a new ad request when a form fails | The creative changes under the viewer | Show the creative's normal fallback |
+| Closing the form on the system back button | The viewer on a later stage loses every answer | Give the press to `handleBack()` first |
+| Tapping the restored creative again after a failure, expiry or close | `open()` does nothing there and a second click is reported | Leave the restored creative without a click listener; retry with `retry()` only when `retryable` |
+| Leaving the creative's tap active while the form prepares | Each extra tap fires another click | Clear the listener (or set a flag) on the first tap |
+
+### Before you ship
+
+- `apiVersion` is `2025-11-01`, and you opted in with `enableInteractiveExperiences`.
+- The system back button goes to `handleBack()` first while the form is shown.
+- `availableKeys()` answers from memory, and `lookUpValues` never fetches.
+- A creative that is `Unsupported`, or has no controller, is not shown.
+- The creative's impression is fired once, and its click is fired once, before `open()`.
+- `prepare()` is called when the creative is on screen, and `setVisible` follows real visibility.
+- `onRequestClose` restores the creative and disposes the controller; every exit path disposes it.
+- `onOpenExternalLink` opens a Custom Tab with the URL unchanged.
+- Every `LeadFormState` has a deliberate answer, including `Failed` and `Expired`.
+- Sign-out and account switch close open forms (`UserConfig`, or `disposeAllLeadForms()`).
+
+### Questions publishers ask
+
+**Does this raise my `minSdk`?** No. A device whose WebView lacks the feature the form needs
+simply does not declare support, and `createLeadFormController` returns null there.
+
+**Does it add a dependency?** The SDK uses `androidx.webkit`. A Custom Tab needs
+`androidx.browser`, which your app adds if it does not have it.
+
+**Does opting in send personal data?** No. The request carries key **names** only, for example
+`fullName` and `email`, never a value. Values are handed to the form after the viewer taps.
+
+**Can I style the form?** No. The advertiser configures the form in the Ad Manager; your app
+chooses only inline or full screen.
+
+**What if the device is offline at the tap?** The form fails with a retryable error. Offer a
+retry or close it.
+
+**Why do I get no Lead Generation creatives?** In order of likelihood: `apiVersion` is not
+`2025-11-01`; you have not opted in; Admoai has not enabled it for your tenant; or no campaign
+matched the request.
 
 ## Video Ad Support
 

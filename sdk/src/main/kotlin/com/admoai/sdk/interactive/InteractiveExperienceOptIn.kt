@@ -3,7 +3,6 @@ package com.admoai.sdk.interactive
 import com.admoai.sdk.model.request.InteractiveExperienceCapability
 
 /** Turns the app's opt-in state into the declaration a decision request carries. */
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 internal object InteractiveExperienceOptIn {
     /**
      * The declaration for this request, or null when nothing must be declared: no opt-in, or a

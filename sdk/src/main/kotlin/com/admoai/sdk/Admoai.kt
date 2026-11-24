@@ -10,7 +10,6 @@ import com.admoai.sdk.config.UserConfig
 import com.admoai.sdk.exception.AdMoaiConfigurationException
 import com.admoai.sdk.interactive.BridgeProtocol
 import com.admoai.sdk.interactive.BridgeTransport
-import com.admoai.sdk.interactive.ExperimentalInteractiveExperienceApi
 import com.admoai.sdk.interactive.FormPresentation
 import com.admoai.sdk.interactive.InteractiveExperienceOptIn
 import com.admoai.sdk.interactive.LeadFormController
@@ -59,7 +58,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonPrimitive
 
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 class Admoai private constructor() {
 
     private var sdkConfig: SDKConfig? = null
@@ -153,7 +151,6 @@ class Admoai private constructor() {
      * Opts in to Lead Generation: from now on each decision request declares support, and lists by
      * key name (never value) the standard attributes [valueProvider] says the app holds.
      */
-    @ExperimentalInteractiveExperienceApi
     fun enableInteractiveExperiences(valueProvider: LeadFormValueProvider) {
         val previous = leadFormValueProvider
         leadFormValueProvider = valueProvider
@@ -162,7 +159,6 @@ class Admoai private constructor() {
     }
 
     /** Turns the Lead Generation opt-in off: requests stop declaring support. */
-    @ExperimentalInteractiveExperienceApi
     fun disableInteractiveExperiences() {
         leadFormValueProvider = null
         disposeAllLeadForms()
@@ -172,7 +168,6 @@ class Admoai private constructor() {
      * Disposes every Lead Generation form this SDK handed out. Apps that do not use [UserConfig] call
      * it on sign-out and account switch, so one person's form never outlives them.
      */
-    @ExperimentalInteractiveExperienceApi
     fun disposeAllLeadForms() {
         // The generation advances here, on the calling thread: a form created before this call can no
         // longer look up or send values, even while its disposal waits for the main thread.
@@ -190,7 +185,6 @@ class Admoai private constructor() {
      * Call it on the main thread, once per served creative, and dispose the controller when its
      * form goes away.
      */
-    @ExperimentalInteractiveExperienceApi
     fun createLeadFormController(
         context: Context,
         creative: Creative,

@@ -33,7 +33,6 @@ import org.junit.Test
  * per scenario, named after it, against a fake [BridgeTransport] that records what the controller
  * loads and sends and lets the test play the page with the contract's own runtime fixtures.
  */
-@OptIn(ExperimentalInteractiveExperienceApi::class)
 class LeadFormControllerTest {
 
     private val root = "src/test/resources/interactive-experience-contract/bridge"

@@ -1,7 +1,6 @@
 package com.admoai.sdk.interactive
 
 /** Where a [LeadFormController] is in the life of one form. */
-@ExperimentalInteractiveExperienceApi
 sealed class LeadFormState {
     /** Nothing was loaded yet. */
     data object Idle : LeadFormState()

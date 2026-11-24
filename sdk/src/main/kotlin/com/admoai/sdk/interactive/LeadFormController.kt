@@ -80,7 +80,6 @@ internal object MainLooperScheduler : LeadFormScheduler {
  * Not thread-safe: call every method from the main thread. The form's messages are delivered on the
  * main thread too.
  */
-@ExperimentalInteractiveExperienceApi
 class LeadFormController internal constructor(
     private val descriptor: InteractiveExperience.LeadGeneration,
     /** How the app shows the form; told to the form so it draws its own close button only full screen. */

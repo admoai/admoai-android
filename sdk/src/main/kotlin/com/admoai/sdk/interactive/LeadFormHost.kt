@@ -1,7 +1,6 @@
 package com.admoai.sdk.interactive
 
 /** Why the form asks the app to open a link. */
-@ExperimentalInteractiveExperienceApi
 enum class ExternalLinkPurpose(internal val wire: String) {
     /** The advertiser's privacy policy; available any time the form is visible. */
     PRIVACY_POLICY("privacy_policy"),
@@ -15,7 +14,6 @@ enum class ExternalLinkPurpose(internal val wire: String) {
  * the thread that delivered the form's message, which is the main thread for the SDK's own
  * WebView transport.
  */
-@ExperimentalInteractiveExperienceApi
 interface LeadFormHost {
     /** The form asks to be closed. Remove its view and call [LeadFormController.dispose]. */
     fun onRequestClose(controller: LeadFormController)
