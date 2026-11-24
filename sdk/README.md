@@ -2766,14 +2766,12 @@ fun LeadFormDialog(creative: Creative, onDismiss: () -> Unit) {
         LaunchedEffect(state) { onDismiss() }   // the creative's normal fallback
     }
 
-    // Back goes to the controller first; close only when it does not consume the press.
-    val onBack = { if (!controller.handleBack()) onDismiss() }
-
+    // The dialog hands the system back press to onDismissRequest. Give it to the controller
+    // first; close only when the controller does not consume it.
     Dialog(
-        onDismissRequest = onBack,
+        onDismissRequest = { if (!controller.handleBack()) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        BackHandler(onBack = onBack)
         Box {
             AndroidView(factory = { controller.view() })
             if (failed?.retryable == true) {
