@@ -397,8 +397,10 @@ private val wireJson = Json {
 
 /**
  * Applies `request.interactiveExperience` through the SDK's public opt-in API, never as raw JSON.
- * `supported` must be `true`: the SDK never sends `supported: false`, an app that does not opt in
- * omits the extension. The JVM has no WebView, so the secure-form-surface seam is forced available;
+ * `supported: true` opts in. `supported: false` is an app that does not declare support: the SDK
+ * has no way to send `false` (an app that does not opt in omits the extension, which the engine
+ * treats the same), so the runner leaves the opt-in off and [expectInteractiveExperienceOnWire]
+ * proves the extension is absent. The JVM has no WebView, so the secure-form-surface seam is forced available;
  * without it the SDK would omit the extension and the scenario would pass without testing anything.
  * No-op when absent. Undo with [resetInteractiveExperience].
  */
@@ -409,9 +411,8 @@ internal fun applyInteractiveExperience(id: String, element: JsonElement?) {
     refuseUnknownKeys("$id request.interactiveExperience", ie!!.keys, EXECUTED_INTERACTIVE_EXPERIENCE_KEYS)
     val supported = ie["supported"] as? JsonPrimitive
     expect(
-        supported != null && !supported.isString && supported.booleanOrNull == true,
-        "$id request.interactiveExperience.supported must be JSON true: the SDK never sends " +
-            "supported:false, an app that does not opt in omits the extension"
+        supported != null && !supported.isString && supported.booleanOrNull != null,
+        "$id request.interactiveExperience.supported must be JSON true or false"
     )
     val names = ie["availableAttributeKeys"] as? JsonArray
     expect(names != null, "$id request.interactiveExperience.availableAttributeKeys must be a JSON array")
@@ -425,6 +426,8 @@ internal fun applyInteractiveExperience(id: String, element: JsonElement?) {
         )
         key!!
     }.toSet()
+    // Not declaring support: the app never calls enableInteractiveExperiences.
+    if (supported!!.booleanOrNull == false) return
     val sdk = Admoai.getInstance()
     sdk.secureFormSurfaceAvailable = { true }
     sdk.enableInteractiveExperiences(object : LeadFormValueProvider {
@@ -445,17 +448,22 @@ internal fun resetInteractiveExperience() {
 
 /**
  * Proves the request body the SDK would send carries the manifest's declaration, in catalog order
- * (the order the SDK emits). No-op when the scenario has no `interactiveExperience`.
+ * (the order the SDK emits), or no extension at all for `supported: false`. No-op when the scenario
+ * has no `interactiveExperience`.
  */
 internal fun expectInteractiveExperienceOnWire(id: String, element: JsonElement?, builder: DecisionRequestBuilder) {
     if (element == null) return
-    val wanted = (element as JsonObject)["availableAttributeKeys"]!!.jsonArray
-        .map { (it as JsonPrimitive).content }.toSet()
-    val expected = StandardAttributeKey.entries.map { it.wireName }.filter { it in wanted }
     val body = wireJson.parseToJsonElement(
         wireJson.encodeToString(Admoai.getInstance().prepareFinalDecisionRequest(builder.build()))
     ).jsonObject
     val actual = body["interactiveExperience"]
+    if ((element as JsonObject)["supported"]?.jsonPrimitive?.booleanOrNull == false) {
+        expect(actual == null, "$id: an app that does not declare support sends no interactiveExperience (got $actual)")
+        return
+    }
+    val wanted = element["availableAttributeKeys"]!!.jsonArray
+        .map { (it as JsonPrimitive).content }.toSet()
+    val expected = StandardAttributeKey.entries.map { it.wireName }.filter { it in wanted }
     val want = JsonObject(
         mapOf("supported" to JsonPrimitive(true), "availableAttributeKeys" to JsonArray(expected.map(::JsonPrimitive)))
     )

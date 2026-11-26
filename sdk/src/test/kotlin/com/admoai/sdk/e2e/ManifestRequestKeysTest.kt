@@ -308,9 +308,22 @@ class ManifestRequestKeysTest {
     }
 
     @Test
-    fun `supported false is refused because the SDK never sends it`() {
-        assertRunnerRefuses("never sends") {
-            applyInteractiveExperience("X16", parse("""{"supported":false,"availableAttributeKeys":[]}"""))
+    fun `supported false leaves the opt-in off and sends no extension`() {
+        val ie = parse("""{"supported":false,"availableAttributeKeys":["fullName","email"]}""")
+        try {
+            applyInteractiveExperience("X16", ie)
+            val b = builder()
+            assertNull(ieWire(b))
+            expectInteractiveExperienceOnWire("X16", ie, b)
+        } finally {
+            resetInteractiveExperience()
+        }
+    }
+
+    @Test
+    fun `a supported that is not a JSON boolean is refused`() {
+        assertRunnerRefuses("true or false") {
+            applyInteractiveExperience("X16b", parse("""{"supported":"false","availableAttributeKeys":[]}"""))
         }
     }
 
