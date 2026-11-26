@@ -341,10 +341,11 @@ class ManifestRequestKeysTest {
     }
 
     @Test
-    fun `schemaVersion 6 and 7 are accepted, 8 and an absent one are refused`() {
+    fun `schemaVersion 6, 7 and 8 are accepted, 9 and an absent one are refused`() {
         checkSchemaVersion(6)
         checkSchemaVersion(7)
-        for (bad in listOf(5, 8, null)) {
+        checkSchemaVersion(8)
+        for (bad in listOf(5, 9, null)) {
             try {
                 checkSchemaVersion(bad)
                 throw AssertionError("schemaVersion $bad must be refused")

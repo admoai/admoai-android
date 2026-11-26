@@ -26,6 +26,7 @@ import com.admoai.sdk.model.request.DeviceCategory
 import com.admoai.sdk.model.request.DistanceBounds
 import com.admoai.sdk.model.request.PlacementFormat
 import com.admoai.sdk.model.response.Creative
+import com.admoai.sdk.model.response.InteractiveExperience
 import com.admoai.sdk.model.response.MatchedPoint
 import com.admoai.sdk.model.response.Slide
 import com.admoai.sdk.model.response.getContent
@@ -106,19 +107,61 @@ private fun JsonObject.dbl(key: String): Double? = (this[key] as? JsonPrimitive)
 
 /**
  * The manifest `schemaVersion`s this runner executes. Version 7 only adds `request.interactiveExperience`
- * (executed below); every version-6 scenario is unchanged, so a runner that executes 7 executes 6.
+ * and version 8 only adds `expect.creative.interactiveExperience` (both executed below); every version-6
+ * scenario is unchanged, so a runner that executes 8 executes 7 and 6.
  */
-internal val SUPPORTED_SCHEMA_VERSIONS = setOf(6, 7)
+internal val SUPPORTED_SCHEMA_VERSIONS = setOf(6, 7, 8)
 
 /** Refuses a manifest `schemaVersion` this runner does not execute. */
 internal fun checkSchemaVersion(schemaVersion: Int?) {
     check(schemaVersion in SUPPORTED_SCHEMA_VERSIONS) {
         "e2e-scenarios.json is schemaVersion $schemaVersion; this runner knows schemaVersions " +
-            "${SUPPORTED_SCHEMA_VERSIONS.sorted()} (7 only adds request.interactiveExperience, so a runner " +
-            "that executes 7 executes 6); fixtureScenarios and their slideTracking run as unit tests in " +
+            "${SUPPORTED_SCHEMA_VERSIONS.sorted()} (7 only adds request.interactiveExperience and 8 only adds " +
+            "expect.creative.interactiveExperience, so a runner that executes 8 executes 7 and 6); " +
+            "fixtureScenarios and their slideTracking run as unit tests in " +
             "FixtureScenariosTest, and a runner must refuse a schemaVersion it does not execute"
     }
 }
+
+/** Overrides the base URL of the Lead Generation scenarios (same name as the iOS runner). */
+internal const val LG_BASE_URL_ENV = "ADMOAI_JOURNEY_E2E_LG_BASE_URL"
+
+/** True for `localhost` and for a loopback IP literal (127.0.0.0/8, `::1`, bracketed or not). */
+internal fun isLoopbackHost(host: String): Boolean {
+    val h = host.removePrefix("[").removeSuffix("]").lowercase()
+    if (h == "localhost") return true
+    if (h == "::1" || h == "0:0:0:0:0:0:0:1") return true
+    val octets = h.split(".")
+    return octets.size == 4 && octets[0] == "127" && octets.all { o -> o.toIntOrNull()?.let { it in 0..255 } == true }
+}
+
+/**
+ * The base URL the Lead Generation scenarios use. The engine builds `launchUrl` from the request's host
+ * and keeps `http` only for a loopback host, and the SDK refuses a non-https launchUrl, so a runner that
+ * reaches the contract stack at `localhost` would decode the descriptor as unsupported. Order: the
+ * [env] override, else [base] when its host is already not loopback, else [base] with its host swapped
+ * for [pickAddress] (scheme, port and path kept).
+ */
+internal fun lgBaseUrl(base: String, env: String?, pickAddress: () -> String?): String {
+    if (!env.isNullOrBlank()) return env
+    val uri = java.net.URI(base)
+    val host = uri.host ?: error("the base URL $base has no host")
+    if (!isLoopbackHost(host)) return base
+    val address = pickAddress() ?: error(
+        "the engine is reached at $base (a loopback host), which makes it mint http launchUrls the SDK " +
+            "refuses, and this machine has no non-loopback IPv4 address to use instead; set " +
+            "$LG_BASE_URL_ENV to the engine's non-loopback address or name"
+    )
+    return java.net.URI(uri.scheme, uri.userInfo, address, uri.port, uri.path, uri.query, uri.fragment).toString()
+}
+
+/** This machine's first IPv4 address on a non-loopback, up, non-virtual interface, or null. */
+internal fun firstNonLoopbackIpv4(): String? = java.net.NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
+    .filter { runCatching { it.isUp && !it.isLoopback && !it.isVirtual }.getOrDefault(false) }
+    .flatMap { it.inetAddresses.toList() }
+    .filterIsInstance<java.net.Inet4Address>()
+    .firstOrNull { !it.isLoopbackAddress && !it.isLinkLocalAddress }
+    ?.hostAddress
 
 internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) {
     val manifest = loadManifest()
@@ -128,10 +171,18 @@ internal fun manifestGroup(h: Harness, baseUrl: String, defaultVersion: String) 
     val schemaVersion = manifest.int("schemaVersion")
     checkSchemaVersion(schemaVersion)
     val scenarios = manifest["scenarios"]!!.jsonArray
+    // The engine mints an https launchUrl only off a loopback host, so the Lead Generation scenarios
+    // are addressed by this machine's own address; every other scenario keeps the normal base.
+    val lgBase = runCatching { lgBaseUrl(baseUrl, System.getenv(LG_BASE_URL_ENV), ::firstNonLoopbackIpv4) }
+    lgBase.onSuccess {
+        println("Lead Generation scenarios → $it (non-loopback: the engine mints https launchUrls only off loopback)")
+    }
     for (element in scenarios) {
         val entry = element.jsonObject
         h.scenario(entry.str("id")!!, entry.str("title")!!) {
-            runManifestScenario(entry, baseUrl, defaultVersion)
+            val isLeadGeneration = (entry["request"] as? JsonObject)?.containsKey("interactiveExperience") == true
+            val base = if (isLeadGeneration) lgBase.getOrThrow() else baseUrl
+            runManifestScenario(entry, base, defaultVersion)
         }
     }
 }
@@ -263,6 +314,7 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
         val built = builder.build()
         expectInteractiveExperienceOnWire(entry.str("id")!!, request["interactiveExperience"], builder)
         val response = runBlocking { Admoai.getInstance().requestAds(built).first() }
+        val receivedAtMillis = System.currentTimeMillis()
         val decisions = response.data ?: emptyList()
 
         expect.int("decisions")?.let {
@@ -295,7 +347,7 @@ private fun runManifestScenario(entry: JsonObject, baseUrl: String, defaultVersi
             expect(ids.toSet().size == ids.size, "the returned creatives are distinct (got $ids)")
         }
 
-        (expect["creative"] as? JsonObject)?.let { assertCreative(creatives.first(), it) }
+        (expect["creative"] as? JsonObject)?.let { assertCreative(creatives.first(), it, receivedAtMillis) }
         slideTracking?.let {
             val note = runSlideTracking(entry.str("id")!!, it, creatives.first())
             println("          · ${entry.str("id")}: $note")
@@ -765,7 +817,9 @@ internal val EXECUTED_CREATIVE_KEYS = setOf(
     // schemaVersion 4: the standard formats, same semantics as the fixture scenarios' keys
     "metadata", "templateKey", "contentKeys", "styleIn", "journeyStageKey",
     // schemaVersion 5: the Carousel, same semantics as the fixture scenarios' keys
-    "slides", "clickKeys"
+    "slides", "clickKeys",
+    // schemaVersion 8: the Lead Generation descriptor the creative carries
+    "interactiveExperience"
 )
 
 /** A live `slideTracking` takes exactly these keys; `thirdPartyBeacons` is not allowed on it. */
@@ -781,8 +835,60 @@ internal fun refuseUnknownKeys(where: String, keys: Set<String>, executed: Set<S
     )
 }
 
-internal fun assertCreative(creative: Creative, e: JsonObject) {
+private val ULID_BODY = "[0-9A-HJKMNP-TV-Z]{26}"
+
+/**
+ * `expect.creative.interactiveExperience` (schemaVersion 8), read decoded through the SDK, never raw JSON.
+ * `false` means the creative carries no descriptor; an object names the `type` and the ordered
+ * `prefillAttributeKeys`, and the rest of the descriptor must be well-formed.
+ */
+internal fun checkInteractiveExperience(want: JsonElement, creative: Creative, receivedAtMillis: Long) {
+    val actual = creative.interactiveExperience
+    if (want is JsonPrimitive && want.booleanOrNull == false) {
+        expect(actual == null, "the creative carries no interactiveExperience (got $actual)")
+        return
+    }
+    expect(want is JsonObject, "expect.creative.interactiveExperience must be an object or false (got $want)")
+    val spec = want as JsonObject
+    refuseUnknownKeys("expect.creative.interactiveExperience", spec.keys, setOf("type", "prefillAttributeKeys"))
+    val type = spec.str("type")
+    expect(type != null, "expect.creative.interactiveExperience.type must be a string")
+    expect(type == "lead_generation", "expect.creative.interactiveExperience.type \"$type\" is an unknown type")
+    expect(
+        actual is InteractiveExperience.LeadGeneration,
+        "the creative carries a lead_generation interactiveExperience (got $actual)"
+    )
+    val lead = actual as InteractiveExperience.LeadGeneration
+    val prefill = (spec["prefillAttributeKeys"] as? JsonArray)?.map { it.jsonPrimitive.content }
+    expect(prefill != null, "expect.creative.interactiveExperience.prefillAttributeKeys must be an array")
+    val got = lead.prefillAttributeKeys.map { it.wireName }
+    expect(got == prefill, "prefillAttributeKeys is $prefill, in that order (got $got)")
+    expect(Regex("^form_$ULID_BODY$").matches(lead.formId), "formId is a form id (got ${lead.formId})")
+    expect(
+        Regex("^form_version_$ULID_BODY$").matches(lead.preparedVersionId),
+        "preparedVersionId is a form version id (got ${lead.preparedVersionId})"
+    )
+    expect(
+        Regex("^form_instance_$ULID_BODY$").matches(lead.formInstanceId),
+        "formInstanceId is a form instance id (got ${lead.formInstanceId})"
+    )
+    val launch = runCatching { java.net.URI(lead.launchUrl) }.getOrNull()
+    expect(
+        launch != null && launch.isAbsolute && launch.scheme == "https" && !launch.host.isNullOrEmpty() &&
+            launch.rawQuery == null && launch.rawFragment == null,
+        "launchUrl is an absolute https URL with a host and no query or fragment (got ${lead.launchUrl}); " +
+            "the engine was likely reached on a loopback host, which makes it mint http: set $LG_BASE_URL_ENV"
+    )
+    expect(lead.preparationToken.isNotEmpty(), "preparationToken is non-empty")
+    expect(
+        lead.expiresAtEpochMillis > receivedAtMillis,
+        "expiresAt is after the response was received (${lead.expiresAtEpochMillis} vs $receivedAtMillis)"
+    )
+}
+
+internal fun assertCreative(creative: Creative, e: JsonObject, receivedAtMillis: Long = System.currentTimeMillis()) {
     refuseUnknownKeys("expect.creative", e.keys, EXECUTED_CREATIVE_KEYS)
+    e["interactiveExperience"]?.let { checkInteractiveExperience(it, creative, receivedAtMillis) }
     e["metadata"]?.let { checkMetadata("creative", it, creative) }
     e["templateKey"]?.let { checkTemplateKey("creative", it, creative) }
     e["contentKeys"]?.let { checkContentKeys("creative", it, creative) }
