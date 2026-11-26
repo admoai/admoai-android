@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0](https://github.com/admoai/admoai-android/compare/v1.9.0...v1.10.0) (2026-11-26)
+
+
+### Added
+
+* lead generation bridge protocol read from the shared contract pack ([#161](https://github.com/admoai/admoai-android/issues/161)) ([9ae783e](https://github.com/admoai/admoai-android/commit/9ae783e5862f17bb368407b1ff96c6141c2ed2da)), closes [#160](https://github.com/admoai/admoai-android/issues/160)
+* lead generation form controller and secure form view ([#159](https://github.com/admoai/admoai-android/issues/159)) ([c5b7849](https://github.com/admoai/admoai-android/commit/c5b7849cc0beeebaf49f19a23b86757eac53efba)), closes [#158](https://github.com/admoai/admoai-android/issues/158)
+* lead generation forms README how-to and a stable public API ([#165](https://github.com/admoai/admoai-android/issues/165)) ([cb88792](https://github.com/admoai/admoai-android/commit/cb88792b2a890f1e604425ff7cdedb4c14b38998))
+* lead generation opt-in, keys-only availability and per-creative descriptor ([#157](https://github.com/admoai/admoai-android/issues/157)) ([5cf09af](https://github.com/admoai/admoai-android/commit/5cf09af8d76049e212c20ad98ab48532f53d21a0))
+* lead generation prefill, form events, hidden-form bound and user-change disposal ([#163](https://github.com/admoai/admoai-android/issues/163)) ([5a6defd](https://github.com/admoai/admoai-android/commit/5a6defd87e417009f5d2545d2ba0edbbc3f715b5)), closes [#162](https://github.com/admoai/admoai-android/issues/162)
+
+
+### Documentation
+
+* guide every standard format and templates based on a standard ([#153](https://github.com/admoai/admoai-android/issues/153)) ([7c4b4fc](https://github.com/admoai/admoai-android/commit/7c4b4fc4c1e43f3dc2e7f3759b8ce0b2e297a3c0))
+
 ## [1.9.0](https://github.com/admoai/admoai-android/compare/v1.8.0...v1.9.0) (2026-11-19)
 
 
